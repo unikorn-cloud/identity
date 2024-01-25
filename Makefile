@@ -78,7 +78,7 @@ MOCKGEN_VERSION=v0.3.0
 
 # This is the base directory to generate kubernetes API primitives from e.g.
 # clients and CRDs.
-GENAPIBASE = github.com/unikorn-cloud/unikorn/pkg/apis
+GENAPIBASE = github.com/unikorn-cloud/identity/pkg/apis
 
 # This is the list of APIs to generate clients for.
 GENAPIS = $(GENAPIBASE)/unikorn/v1alpha1
@@ -89,9 +89,6 @@ GENARGS = --go-header-file hack/boilerplate.go.txt --output-base ../../..
 # This controls the name of the client that will be generated and it will affect
 # code import paths.  This overrides the default "versioned".
 GENCLIENTNAME = unikorn
-
-# This defines where clients will be generated.
-GENCLIENTS = $(MODULE)/$(GENDIR)/clientset
 
 # This defines how docker containers are tagged.
 DOCKER_ORG = ghcr.io/unikorn-cloud
@@ -160,7 +157,6 @@ $(GENDIR): $(APISRC)
 	@go install k8s.io/code-generator/cmd/deepcopy-gen@$(CODEGEN_VERSION)
 	@go install k8s.io/code-generator/cmd/client-gen@$(CODEGEN_VERSION)
 	$(GOBIN)/deepcopy-gen --input-dirs $(GENAPIS) -O zz_generated.deepcopy --bounding-dirs $(GENAPIBASE) $(GENARGS)
-	$(GOBIN)/client-gen --clientset-name $(GENCLIENTNAME) --input-base "" --input $(GENAPIS) --output-package $(GENCLIENTS) $(GENARGS)
 	@touch $@
 
 # Generate the server schema, types and router boilerplate.
