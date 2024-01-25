@@ -27,13 +27,12 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/trace"
 
-	"github.com/spjmurray/unikorn/pkg/server/authorization"
-	"github.com/spjmurray/unikorn/pkg/server/authorization/jose"
-	"github.com/spjmurray/unikorn/pkg/server/authorization/keystone"
-	"github.com/spjmurray/unikorn/pkg/server/authorization/oauth2"
-	"github.com/spjmurray/unikorn/pkg/server/generated"
-	"github.com/spjmurray/unikorn/pkg/server/handler"
-	"github.com/spjmurray/unikorn/pkg/server/middleware"
+	"github.com/unikorn-cloud/identity/pkg/authorization"
+	"github.com/unikorn-cloud/identity/pkg/authorization/jose"
+	"github.com/unikorn-cloud/identity/pkg/authorization/oauth2"
+	"github.com/unikorn-cloud/identity/pkg/generated"
+	"github.com/unikorn-cloud/identity/pkg/handler"
+	"github.com/unikorn-cloud/identity/pkg/middleware"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -53,9 +52,6 @@ type Server struct {
 	// JoseOptions sets options for JWE.
 	JoseOptions jose.Options
 
-	// KeystoneOptions sets options for OpenStack Keystone.
-	KeystoneOptions keystone.Options
-
 	// OAuth2Options sets options for the oauth2/oidc authenticator.
 	OAuth2Options oauth2.Options
 }
@@ -66,7 +62,6 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.Options.AddFlags(flags)
 	s.HandlerOptions.AddFlags(flags)
 	s.JoseOptions.AddFlags(flags)
-	s.KeystoneOptions.AddFlags(flags)
 	s.OAuth2Options.AddFlags(flags)
 }
 
@@ -112,9 +107,8 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 
 	// Setup authn/authz
 	issuer := jose.NewJWTIssuer(&s.JoseOptions)
-	keystone := keystone.New(&s.KeystoneOptions)
-	oauth2 := oauth2.New(&s.OAuth2Options, issuer, keystone)
-	authenticator := authorization.NewAuthenticator(issuer, oauth2, keystone)
+	oauth2 := oauth2.New(&s.OAuth2Options, issuer)
+	authenticator := authorization.NewAuthenticator(issuer, oauth2)
 
 	// Setup middleware.
 	authorizer := middleware.NewAuthorizer(issuer)

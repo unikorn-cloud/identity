@@ -1,0 +1,9 @@
+# This issuer is responsible for creating certificates to be used by
+# JWS and JWE.  The certificates themselves can be shared among all
+# pods in the delopyment to provide scale out.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: unikorn-identity-jose
+spec:
+  selfSigned: {}

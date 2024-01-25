@@ -1,0 +1,14 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: unikorn-identity-jose-tls
+spec:
+  issuerRef:
+    kind: Issuer
+    name: unikorn-identity-jose
+  privateKey:
+    algorithm: ECDSA
+    encoding: PKCS8
+    size: 521
+  commonName : Unikorn Server JOSE Key
+  secretName: unikorn-identity-jose-tls

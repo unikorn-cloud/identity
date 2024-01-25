@@ -1,0 +1,29 @@
+# Set the global container repo.
+repository: ghcr.io
+
+# Set the global container repo organization.
+organization: unikorn-cloud
+
+# Set the global container tag.
+# Defaults to the chart revision, which should be in lock-step with the
+# actual release.
+# tag:
+
+# Set the image pull secret on the service accounts of all the controllers.
+# This is an alternative to dockerConfigs, but unlikely to play ball with
+# ArgoCD as it's a foreign object that needs pruning.
+imagePullSecret:
+
+# Allows override of the global default image.
+image:
+
+ingress:
+  # Sets the ingress class to use.
+  # ingressClass: nginx
+
+  # Cert Manager certificate issuer to use.  If not specified it will generate a
+  # self signed one.
+  # issuer:
+
+  # Sets the DNS hosts/X.509 Certs.
+  host: identity.acme.org

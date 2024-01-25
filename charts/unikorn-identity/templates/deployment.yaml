@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unikorn-identity
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unikorn-identity
+  template:
+    metadata:
+      labels:
+        app: unikorn-identity
+    spec:
+      containers:
+      - name: unikorn-identity
+        image: {{ include "unikornImage" . }}
+        volumeMounts:
+        - name: unikorn-identity-jose-tls
+          mountPath: /var/lib/secrets/unikorn.spjmurray.co.uk/jose
+          readOnly: true
+        ports:
+        - name: http
+          containerPort: 6080
+        resources:
+          requests:
+            cpu: "1"
+            memory: 50Mi
+          limits:
+            cpu: "2"
+            memory: 100Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+      serviceAccountName: unikorn-identity
+      securityContext:
+        runAsNonRoot: true
+      volumes:
+      - name: unikorn-identity-jose-tls
+        secret:
+          secretName: unikorn-identity-jose-tls
