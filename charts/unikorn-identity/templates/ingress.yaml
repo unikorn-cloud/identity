@@ -11,18 +11,20 @@ metadata:
     cert-manager.io/issuer: "unikorn-identity-ingress"
   {{- end }}
 spec:
-  ingressClassName: {{ .Values.server.ingress.ingressClass }}
+  {{- if .Values.ingress.class }}
+  ingressClassName: {{ .Values.ingress.class }}
+  {{- end }} 
   # For development you will want to add these names to /etc/hosts for the ingress
   # endpoint address.
   tls:
   - hosts:
-    - {{ .Values.ingress.host }}
+    - {{ .Values.host }}
     secretName: unikorn-identity-ingress-tls
   rules:
   # The the UI is written as a JAMstack application, so the API is accessed via
   # the same host to avoid CORS, and therefore uses routing to hit the correct
   # service.
-  - host: {{ .Values.ingress.host }}
+  - host: {{ .Values.host }}
     http:
       paths:
       - path: /

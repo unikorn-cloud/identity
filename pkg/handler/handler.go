@@ -24,6 +24,7 @@ import (
 
 	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/errors"
+	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,14 +60,56 @@ func (h *Handler) setUncacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", "no-cache")
 }
 
-func (h *Handler) GetApiV1AuthOauth2Authorization(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
+	result := &generated.OpenidConfiguration{
+		Issuer:                h.options.Host,
+		AuthorizationEndpoint: fmt.Sprintf("%s/oauth2/v2/authorization", h.options.Host),
+		TokenEndpoint:         fmt.Sprintf("%s/oauth2/v2/token", h.options.Host),
+		JwksUri:               fmt.Sprintf("%s/oauth2/v2/jwks", h.options.Host),
+		ScopesSupported: []generated.Scope{
+			generated.ScopeEmail,
+			generated.ScopeOpenid,
+			generated.ScopeProfile,
+		},
+		ClaimsSupported: []generated.Claim{
+			generated.ClaimAud,
+			generated.ClaimEmail,
+			generated.ClaimEmailVerified,
+			generated.ClaimExp,
+			generated.ClaimFamilityName,
+			generated.ClaimGivenName,
+			generated.ClaimIat,
+			generated.ClaimIss,
+			generated.ClaimLocale,
+			generated.ClaimName,
+			generated.ClaimPicture,
+			generated.ClaimSub,
+		},
+		ResponseTypesSupported: []generated.ResponseType{
+			generated.ResponseTypeCode,
+		},
+		TokenEndpointAuthMethodsSupported: []generated.AuthMethod{
+			generated.ClientSecretPost,
+		},
+		GrantTypesSupported: []generated.GrantType{
+			generated.AuthorizationCode,
+		},
+		IdTokenSigningAlgValuesSupported: []generated.SigningAlgorithm{
+			generated.RS256,
+		},
+		CodeChallengeMethodsSupported: []generated.CodeChallengeMethod{
+			generated.S256,
+		},
+	}
+
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
 	h.authenticator.OAuth2.Authorization(w, r)
 }
 
-func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
-}
-
-func (h *Handler) PostApiV1AuthOauth2Tokens(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 	result, err := h.authenticator.OAuth2.Token(w, r)
 	if err != nil {
 		errors.HandleError(w, r, err)
@@ -77,11 +120,7 @@ func (h *Handler) PostApiV1AuthOauth2Tokens(w http.ResponseWriter, r *http.Reque
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
-func (h *Handler) GetApiV1AuthOidcCallback(w http.ResponseWriter, r *http.Request) {
-	h.authenticator.OAuth2.OIDCCallback(w, r)
-}
-
-func (h *Handler) GetApiV1AuthJwks(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
 	result, err := h.authenticator.JWKS()
 	if err != nil {
 		errors.HandleError(w, r, err)
@@ -90,4 +129,8 @@ func (h *Handler) GetApiV1AuthJwks(w http.ResponseWriter, r *http.Request) {
 
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
+	h.authenticator.OAuth2.OIDCCallback(w, r)
 }

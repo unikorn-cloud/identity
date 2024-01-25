@@ -16,17 +16,17 @@ type ServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request)
 
-	// (GET /api/v1/auth/jwks)
-	GetApiV1AuthJwks(w http.ResponseWriter, r *http.Request)
+	// (GET /oauth2/v2/authorization)
+	GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request)
 
-	// (GET /api/v1/auth/oauth2/authorization)
-	GetApiV1AuthOauth2Authorization(w http.ResponseWriter, r *http.Request)
+	// (GET /oauth2/v2/jwks)
+	GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request)
 
-	// (POST /api/v1/auth/oauth2/tokens)
-	PostApiV1AuthOauth2Tokens(w http.ResponseWriter, r *http.Request)
+	// (POST /oauth2/v2/token)
+	PostOauth2V2Token(w http.ResponseWriter, r *http.Request)
 
-	// (GET /api/v1/auth/oidc/callback)
-	GetApiV1AuthOidcCallback(w http.ResponseWriter, r *http.Request)
+	// (GET /oidc/callback)
+	GetOidcCallback(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -53,12 +53,12 @@ func (siw *ServerInterfaceWrapper) GetWellKnownOpenidConfiguration(w http.Respon
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetApiV1AuthJwks operation middleware
-func (siw *ServerInterfaceWrapper) GetApiV1AuthJwks(w http.ResponseWriter, r *http.Request) {
+// GetOauth2V2Authorization operation middleware
+func (siw *ServerInterfaceWrapper) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV1AuthJwks(w, r)
+		siw.Handler.GetOauth2V2Authorization(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -68,12 +68,12 @@ func (siw *ServerInterfaceWrapper) GetApiV1AuthJwks(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetApiV1AuthOauth2Authorization operation middleware
-func (siw *ServerInterfaceWrapper) GetApiV1AuthOauth2Authorization(w http.ResponseWriter, r *http.Request) {
+// GetOauth2V2Jwks operation middleware
+func (siw *ServerInterfaceWrapper) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV1AuthOauth2Authorization(w, r)
+		siw.Handler.GetOauth2V2Jwks(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -83,12 +83,12 @@ func (siw *ServerInterfaceWrapper) GetApiV1AuthOauth2Authorization(w http.Respon
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// PostApiV1AuthOauth2Tokens operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1AuthOauth2Tokens(w http.ResponseWriter, r *http.Request) {
+// PostOauth2V2Token operation middleware
+func (siw *ServerInterfaceWrapper) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1AuthOauth2Tokens(w, r)
+		siw.Handler.PostOauth2V2Token(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -98,12 +98,12 @@ func (siw *ServerInterfaceWrapper) PostApiV1AuthOauth2Tokens(w http.ResponseWrit
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetApiV1AuthOidcCallback operation middleware
-func (siw *ServerInterfaceWrapper) GetApiV1AuthOidcCallback(w http.ResponseWriter, r *http.Request) {
+// GetOidcCallback operation middleware
+func (siw *ServerInterfaceWrapper) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV1AuthOidcCallback(w, r)
+		siw.Handler.GetOidcCallback(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -230,16 +230,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetWellKnownOpenidConfiguration)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/auth/jwks", wrapper.GetApiV1AuthJwks)
+		r.Get(options.BaseURL+"/oauth2/v2/authorization", wrapper.GetOauth2V2Authorization)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/auth/oauth2/authorization", wrapper.GetApiV1AuthOauth2Authorization)
+		r.Get(options.BaseURL+"/oauth2/v2/jwks", wrapper.GetOauth2V2Jwks)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/auth/oauth2/tokens", wrapper.PostApiV1AuthOauth2Tokens)
+		r.Post(options.BaseURL+"/oauth2/v2/token", wrapper.PostOauth2V2Token)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/auth/oidc/callback", wrapper.GetApiV1AuthOidcCallback)
+		r.Get(options.BaseURL+"/oidc/callback", wrapper.GetOidcCallback)
 	})
 
 	return r

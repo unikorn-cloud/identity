@@ -35,11 +35,10 @@ BINDIR = bin
 CMDDIR = cmd
 SRCDIR = src
 GENDIR = generated
-CRDDIR = charts/unikorn/crds
-SRVBASE = pkg
-SRVSCHEMA = $(SRVBASE)/openapi/server.spec.yaml
+CRDDIR = charts/unikorn-identity/crds
+SRVSCHEMA = openapi/server.spec.yaml
 SRVGENPKG = generated
-SRVGENDIR = $(SRVBASE)/$(SRVGENPKG)
+SRVGENDIR = pkg/$(SRVGENPKG)
 
 # Where to install things.
 PREFIX = $(HOME)/bin

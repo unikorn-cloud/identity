@@ -91,8 +91,8 @@ type Authenticator struct {
 // You must call AddFlags after this.
 func New(options *Options, issuer *jose.JWTIssuer) *Authenticator {
 	return &Authenticator{
-		options:  options,
-		issuer:   issuer,
+		options: options,
+		issuer:  issuer,
 	}
 }
 
@@ -483,15 +483,15 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	/*
-	// Next up, exchange the ID token with keystone for an API token...
-	// TODO: Once we have an unscoped token we should scope it to a project to avoid
-	// the extra round trip.  We can possibly provide a hint in the ouath2 authorization
-	// request query, and have that persisted by persistent storage in the browser.
-	token, tokenMeta, err := a.keystone.OIDCTokenExchange(r.Context(), idTokenRaw)
-	if err != nil {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "keystone token exchange failed: "+err.Error())
-		return
-	}
+		// Next up, exchange the ID token with keystone for an API token...
+		// TODO: Once we have an unscoped token we should scope it to a project to avoid
+		// the extra round trip.  We can possibly provide a hint in the ouath2 authorization
+		// request query, and have that persisted by persistent storage in the browser.
+		token, tokenMeta, err := a.keystone.OIDCTokenExchange(r.Context(), idTokenRaw)
+		if err != nil {
+			authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "keystone token exchange failed: "+err.Error())
+			return
+		}
 	*/
 
 	oauth2Code := &Code{
@@ -500,10 +500,10 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		ClientCodeChallenge: state.ClientCodeChallenge,
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
-	//	KeystoneToken:       token,
-	//	KeystoneUserID:      tokenMeta.Token.User.ID,
-		Email:               claims.Email,
-	//	Expiry:              tokenMeta.Token.ExpiresAt,
+		//	KeystoneToken:       token,
+		//	KeystoneUserID:      tokenMeta.Token.User.ID,
+		Email: claims.Email,
+		//	Expiry:              tokenMeta.Token.ExpiresAt,
 	}
 
 	code, err := a.issuer.EncodeJWEToken(oauth2Code)
@@ -631,10 +631,10 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	}
 
 	/*
-	claims := &UnikornClaims{
-		Token: code.KeystoneToken,
-		User:  code.KeystoneUserID,
-	}
+		claims := &UnikornClaims{
+			Token: code.KeystoneToken,
+			User:  code.KeystoneUserID,
+		}
 	*/
 
 	accessToken, err := Issue(a.issuer, r, code.Email, nil, code.Expiry)

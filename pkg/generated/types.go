@@ -10,6 +10,40 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 )
 
+// Defines values for AuthMethod.
+const (
+	ClientSecretBasic AuthMethod = "client_secret_basic"
+	ClientSecretPost  AuthMethod = "client_secret_post"
+)
+
+// Defines values for Claim.
+const (
+	ClaimAud           Claim = "aud"
+	ClaimEmail         Claim = "email"
+	ClaimEmailVerified Claim = "email_verified"
+	ClaimExp           Claim = "exp"
+	ClaimFamilityName  Claim = "famility_name"
+	ClaimGivenName     Claim = "given_name"
+	ClaimIat           Claim = "iat"
+	ClaimIss           Claim = "iss"
+	ClaimLocale        Claim = "locale"
+	ClaimName          Claim = "name"
+	ClaimPicture       Claim = "picture"
+	ClaimSub           Claim = "sub"
+)
+
+// Defines values for CodeChallengeMethod.
+const (
+	Plain CodeChallengeMethod = "plain"
+	S256  CodeChallengeMethod = "S256"
+)
+
+// Defines values for GrantType.
+const (
+	AuthorizationCode GrantType = "authorization_code"
+	RefreshToken      GrantType = "refresh_token"
+)
+
 // Defines values for Oauth2ErrorError.
 const (
 	AccessDenied            Oauth2ErrorError = "access_denied"
@@ -28,6 +62,42 @@ const (
 	UnsupportedMediaType    Oauth2ErrorError = "unsupported_media_type"
 	UnsupportedResponseType Oauth2ErrorError = "unsupported_response_type"
 )
+
+// Defines values for ResponseType.
+const (
+	ResponseTypeCode             ResponseType = "code"
+	ResponseTypeCodeIdToken      ResponseType = "code id_token"
+	ResponseTypeCodeToken        ResponseType = "code token"
+	ResponseTypeCodeTokenIdToken ResponseType = "code token id_token"
+	ResponseTypeIdToken          ResponseType = "id_token"
+	ResponseTypeNone             ResponseType = "none"
+	ResponseTypeToken            ResponseType = "token"
+	ResponseTypeTokenIdToken     ResponseType = "token id_token"
+)
+
+// Defines values for Scope.
+const (
+	ScopeEmail   Scope = "email"
+	ScopeOpenid  Scope = "openid"
+	ScopeProfile Scope = "profile"
+)
+
+// Defines values for SigningAlgorithm.
+const (
+	RS256 SigningAlgorithm = "RS256"
+)
+
+// AuthMethod Supported authentication methods.
+type AuthMethod string
+
+// Claim Supported claims.
+type Claim string
+
+// CodeChallengeMethod Supported code challenge methods.
+type CodeChallengeMethod string
+
+// GrantType Supported grant type.
+type GrantType string
 
 // JsonWebKey JSON web key. See the relevant JWKS documentation for further details.
 type JsonWebKey = map[string]interface{}
@@ -49,6 +119,51 @@ type Oauth2Error struct {
 
 // Oauth2ErrorError A terse error string expanding on the HTTP error code. Errors are based on the OAuth2 specification, but are expanded with proprietary status codes for APIs other than those specified by OAuth2.
 type Oauth2ErrorError string
+
+// OpenidConfiguration OpenID configuration.
+type OpenidConfiguration struct {
+	// AuthorizationEndpoint The oauth2 endpoint that initiates authentication.
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+
+	// ClaimsSupported A list of supported claims
+	ClaimsSupported []Claim `json:"claims_supported"`
+
+	// CodeChallengeMethodsSupported A list of code challenge methods supported.
+	CodeChallengeMethodsSupported []CodeChallengeMethod `json:"code_challenge_methods_supported"`
+
+	// GrantTypesSupported A list of supported grants for the token endpoint.
+	GrantTypesSupported []GrantType `json:"grant_types_supported"`
+
+	// IdTokenSigningAlgValuesSupported A list of signing algorithms supported for ID tokens.
+	IdTokenSigningAlgValuesSupported []SigningAlgorithm `json:"id_token_signing_alg_values_supported"`
+
+	// Issuer The OpenID Issuer (iss field).
+	Issuer string `json:"issuer"`
+
+	// JwksUri The oauth2 endpoint that exposes public signing keys for token validation.
+	JwksUri string `json:"jwks_uri"`
+
+	// ResponseTypesSupported A list of supported response types that can be requested for the authorization endpoint.
+	ResponseTypesSupported []ResponseType `json:"response_types_supported"`
+
+	// ScopesSupported A list of supported oauth2 scopes.
+	ScopesSupported []Scope `json:"scopes_supported"`
+
+	// TokenEndpoint The oauth2 endpoint that is used to exchange an authentication code for tokens.
+	TokenEndpoint string `json:"token_endpoint"`
+
+	// TokenEndpointAuthMethodsSupported A list of supported authentication methods for the token endpoint.
+	TokenEndpointAuthMethodsSupported []AuthMethod `json:"token_endpoint_auth_methods_supported"`
+}
+
+// ResponseType Supported response types.
+type ResponseType string
+
+// Scope Supported scopes.
+type Scope string
+
+// SigningAlgorithm Supported signing algorithms.
+type SigningAlgorithm string
 
 // Token Oauth2 token result.
 type Token struct {
@@ -110,14 +225,17 @@ type InternalServerErrorResponse = Oauth2Error
 // committee. Consult the relevant documentation for further details.
 type JwksResponse = JsonWebKeySet
 
+// OpenidConfigurationResponse OpenID configuration.
+type OpenidConfigurationResponse = OpenidConfiguration
+
 // TokenResponse Oauth2 token result.
 type TokenResponse = Token
 
 // UnauthorizedResponse Generic error message.
 type UnauthorizedResponse = Oauth2Error
 
-// PostApiV1AuthOauth2TokensFormdataRequestBody defines body for PostApiV1AuthOauth2Tokens for application/x-www-form-urlencoded ContentType.
-type PostApiV1AuthOauth2TokensFormdataRequestBody = TokenRequestOptions
+// PostOauth2V2TokenFormdataRequestBody defines body for PostOauth2V2Token for application/x-www-form-urlencoded ContentType.
+type PostOauth2V2TokenFormdataRequestBody = TokenRequestOptions
 
 // AsTokenRequestOptions0 returns the union data inside the TokenRequestOptions as a TokenRequestOptions0
 func (t TokenRequestOptions) AsTokenRequestOptions0() (TokenRequestOptions0, error) {

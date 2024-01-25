@@ -39,8 +39,8 @@ type Authenticator struct {
 // You must call AddFlags after this.
 func NewAuthenticator(issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator) *Authenticator {
 	return &Authenticator{
-		issuer:   issuer,
-		OAuth2:   oauth2,
+		issuer: issuer,
+		OAuth2: oauth2,
 	}
 }
 

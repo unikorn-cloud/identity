@@ -171,7 +171,7 @@ func Issue(i *jose.JWTIssuer, r *http.Request, subject string, scope *ScopeList,
 			NotBefore: &nowRFC7519,
 			Expiry:    &expiresAtRFC7519,
 		},
-		Scope:         scope,
+		Scope: scope,
 	}
 
 	token, err := i.EncodeJWEToken(claims)

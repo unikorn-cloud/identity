@@ -7,23 +7,24 @@ organization: unikorn-cloud
 # Set the global container tag.
 # Defaults to the chart revision, which should be in lock-step with the
 # actual release.
-# tag:
+tag: ~
 
 # Set the image pull secret on the service accounts of all the controllers.
 # This is an alternative to dockerConfigs, but unlikely to play ball with
 # ArgoCD as it's a foreign object that needs pruning.
-imagePullSecret:
+imagePullSecret: ~
 
 # Allows override of the global default image.
-image:
+image: ~
+
+# Sets the DNS hosts, X.509 certificate subject alternative names and
+# oauth2 issuer etc.
+host: identity.acme.org
 
 ingress:
   # Sets the ingress class to use.
-  # ingressClass: nginx
+  ingressClass: ~
 
   # Cert Manager certificate issuer to use.  If not specified it will generate a
   # self signed one.
-  # issuer:
-
-  # Sets the DNS hosts/X.509 Certs.
-  host: identity.acme.org
+  issuer: ~

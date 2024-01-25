@@ -16,10 +16,12 @@ spec:
     spec:
       containers:
       - name: unikorn-identity
-        image: {{ include "unikornImage" . }}
+        image: {{ include "unikorn.image" . }}
+        args:
+        - --host=https://{{ .Values.host }}
         volumeMounts:
         - name: unikorn-identity-jose-tls
-          mountPath: /var/lib/secrets/unikorn.spjmurray.co.uk/jose
+          mountPath: /var/lib/secrets/unikorn-cloud.org/jose
           readOnly: true
         ports:
         - name: http

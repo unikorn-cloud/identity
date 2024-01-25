@@ -1,15 +1,12 @@
 openapi: 3.0.3
 info:
-  title: Kubernetes Service API
+  title: Unikorn Identity API
   description: |-
-    The Kubernetes Service API provides services that allows provisioning and life cycle
-    management of Kubernetes clusters. The API is logically composed of authentication
-    services, platform provider specific calls to get a set of resource types that can
-    be then used by abstract Kubernetes Service resources to create and manage Kubernetes
-    clusters. Requests must specify the HTML content type
-    header.
-  version: 0.2.0
-    order to get an up to date list of resources that are available for consumption.
+    The Unikorn Identity API provides an OIDC compliant interface for use with all
+    Unikorn services and proxies.  As it's intended use is for multi-tenant cloud
+    deployments it acts as an aggregation layer for other 3rd party OIDC services,
+    dispatching login requests to the required OIDC backend.
+  version: 0.1.0
 paths:
   /.well-known/openid-configuration:
     description: |-
@@ -18,7 +15,10 @@ paths:
       description: |-
         Reads the OIDC discovery page identifying all the required endpoints, and
         supported algorithms.
-  /api/v1/auth/oauth2/authorization:
+      responses:
+        '200':
+          $ref: '#/components/responses/openidConfigurationResponse'
+  /oauth2/v2/authorization:
     description: |-
       Implements OAuth2 authorisation grants.
     get:
@@ -35,7 +35,7 @@ paths:
           $ref: '#/components/responses/badRequestResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/auth/oauth2/tokens:
+  /oauth2/v2/token:
     description: |-
       Implements OAuth2 code exchange.
     post:
@@ -59,7 +59,7 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/auth/oidc/callback:
+  /oidc/callback:
     description: |-
       Implements the OIDC response code callback.
     get:
@@ -73,7 +73,7 @@ paths:
           description: A redirect back to the browser with an authorisation code.
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/auth/jwks:
+  /oauth2/v2/jwks:
     description: JSON web key set endpoint.
     get:
       description: |-
@@ -117,6 +117,130 @@ components:
         error_description:
           description: Verbose message describing the error.
           type: string
+    openidConfiguration:
+      description: OpenID configuration.
+      type: object
+      required:
+      - issuer
+      - authorization_endpoint
+      - token_endpoint
+      - jwks_uri
+      - scopes_supported
+      - claims_supported
+      - response_types_supported
+      - token_endpoint_auth_methods_supported
+      - grant_types_supported
+      - id_token_signing_alg_values_supported
+      - code_challenge_methods_supported
+      properties:
+        issuer:
+          description: The OpenID Issuer (iss field).
+          type: string
+        authorization_endpoint:
+          description: The oauth2 endpoint that initiates authentication.
+          type: string
+          format: uri
+        token_endpoint:
+          description: The oauth2 endpoint that is used to exchange an authentication code for tokens.
+          type: string
+          format: uri
+        jwks_uri:
+          description: The oauth2 endpoint that exposes public signing keys for token validation.
+          type: string
+          format: uri
+        scopes_supported:
+          description: A list of supported oauth2 scopes.
+          type: array
+          items:
+            $ref: '#/components/schemas/scope'
+        claims_supported:
+          description: A list of supported claims 
+          type: array
+          items:
+            $ref: '#/components/schemas/claim'
+        response_types_supported:
+          description: A list of supported response types that can be requested for the authorization endpoint.
+          type: array
+          items:
+            $ref: '#/components/schemas/responseType'
+        token_endpoint_auth_methods_supported:
+          description: A list of supported authentication methods for the token endpoint.
+          type: array
+          items:
+            $ref: '#/components/schemas/authMethod'
+        grant_types_supported:
+          description: A list of supported grants for the token endpoint.
+          type: array
+          items:
+            $ref: '#/components/schemas/grantType'
+        id_token_signing_alg_values_supported:
+          description: A list of signing algorithms supported for ID tokens.
+          type: array
+          items:
+            $ref: '#/components/schemas/signingAlgorithm'
+        code_challenge_methods_supported:
+          description: A list of code challenge methods supported.
+          type: array
+          items:
+            $ref: '#/components/schemas/codeChallengeMethod'
+    scope:
+      description: Supported scopes.
+      type: string
+      enum:
+      - openid
+      - email
+      - profile
+    claim:
+      description: Supported claims.
+      type: string
+      enum:
+      - aud
+      - email
+      - email_verified
+      - exp
+      - famility_name
+      - given_name
+      - iat
+      - iss
+      - locale
+      - name
+      - picture
+      - sub
+    responseType:
+      description: Supported response types.
+      type: string
+      enum:
+      - code
+      - token
+      - id_token
+      - code token
+      - code id_token
+      - token id_token
+      - code token id_token
+      - none
+    authMethod:
+      description: Supported authentication methods.
+      type: string
+      enum:
+      - client_secret_post
+      - client_secret_basic
+    grantType:
+      description: Supported grant type.
+      type: string
+      enum:
+      - authorization_code
+      - refresh_token
+    signingAlgorithm:
+      description: Supported signing algorithms.
+      type: string
+      enum:
+      - RS256
+    codeChallengeMethod:
+      description: Supported code challenge methods.
+      type: string
+      enum:
+      - S256
+      - plain
     tokenRequestOptions:
       description: oauth2 token endpoint.
       type: object
@@ -282,6 +406,14 @@ components:
           example:
             error: server_error
             error_description: failed to token claim
+    openidConfigurationResponse:
+      description: |-
+        OpenID configuration used for auto-discovery of endpoints and supported
+        algorithms and features.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/openidConfiguration'
     tokenResponse:
       description: |-
         Authentication was successful and returns an authorisation token. The response
