@@ -23,12 +23,31 @@ host: identity.acme.org
 
 # A static list of registered client applications.
 # clients:
-#   # Must be a valid Kubernetes resource name.
-# - name: foo
+# - # Must be a valid Kubernetes resource name.
+#   name: foo
 #   # A unique client identifier.
 #   id: f15d7ab0-7cf2-4389-b662-493c39d78d3a
 #   # A redirect URI to return control back to the client.
 #   redirectURI: http://app.acme.org
+
+# A static list of registered oauth2 providers.
+# providers:
+# - # Must be a valid Kubernetes resource name.
+#   name: google-identity
+#   # A human readable name, most often used for UIs.
+#   displayName: Google Identity
+#   # The issuer is usually provided by the oidc provider and will have
+#   # a discovery endpoint attached to it at /.well-known/openid-configuration.
+#   issuer: https://accounts.google.com
+
+# A static list of oauth2 domain mappings.
+# mappings:
+# - # Must be a valid Kubernetes resource name.
+#   name: gmail
+#   # An email domain e.g. user@domain.
+#   domain: gmail.com
+#   # A provider to use for the email domain.
+#   provider: google-identity
 
 ingress:
   # Sets the ingress class to use.

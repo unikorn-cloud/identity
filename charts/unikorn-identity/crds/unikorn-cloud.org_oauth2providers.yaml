@@ -4,24 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.1
-  name: oauth2clients.unikorn-cloud.org
+  name: oauth2providers.unikorn-cloud.org
 spec:
   group: unikorn-cloud.org
   names:
     categories:
     - unikorn
-    kind: OAuth2Client
-    listKind: OAuth2ClientList
-    plural: oauth2clients
-    singular: oauth2client
+    kind: OAuth2Provider
+    listKind: OAuth2ProviderList
+    plural: oauth2providers
+    singular: oauth2provider
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.id
-      name: client id
+    - jsonPath: .spec.displayName
+      name: display name
       type: string
-    - jsonPath: .spec.redirectUri
-      name: redirect uri
+    - jsonPath: .spec.issuer
+      name: issuer
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: age
@@ -29,7 +29,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: OAuth2Client describes an oauth2 client.
+        description: OAuth2Provider describes an oauth2 provider.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -44,21 +44,23 @@ spec:
           metadata:
             type: object
           spec:
-            description: OAuth2ClientSpec defines the required configuration for the
-              client.
+            description: OAuth2ProviderSpec defines the required configuration for
+              an oauth2 provider.
             properties:
-              id:
-                description: ID uniquely identifes the client.
+              displayName:
+                description: HumanReadableName is a user readable issuer name.
                 type: string
-              redirectUri:
-                description: RedirectURI is the URI to pass control back to the client.
+              issuer:
+                description: The issuer is typically provided by the identity provider
+                  as an OIDC discovery endpoint e.g. https://accounts.google.com.
+                  This will be used to verify issued JWTs have the same "iss" claim.
                 type: string
             required:
-            - id
-            - redirectUri
+            - displayName
+            - issuer
             type: object
           status:
-            description: OAuth2ClientStatus defines the status of the client.
+            description: OAuth2ProviderStatus defines the status of the server.
             type: object
         required:
         - spec

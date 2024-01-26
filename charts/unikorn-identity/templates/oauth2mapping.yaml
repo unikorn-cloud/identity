@@ -1,0 +1,12 @@
+{{ range $mapping := .Values.mappings }}
+---
+apiVersion: unikorn-cloud.org/v1alpha1
+kind: OAuth2Mapping
+metadata:
+  name: {{ $mapping.name }}
+  labels:
+    {{- include "unikorn.labels" $ | nindent 4 }}
+spec:
+  domain: {{ $mapping.domain }}
+  providerName: {{ $mapping.provider }}
+{{- end }}

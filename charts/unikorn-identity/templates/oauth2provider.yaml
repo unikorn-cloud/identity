@@ -1,0 +1,12 @@
+{{ range $provider := .Values.providers }}
+---
+apiVersion: unikorn-cloud.org/v1alpha1
+kind: OAuth2Provider
+metadata:
+  name: {{ $provider.name }}
+  labels:
+    {{- include "unikorn.labels" $ | nindent 4 }}
+spec:
+  displayName: {{ $provider.displayName }}
+  issuer: {{ $provider.issuer }}
+{{- end }}

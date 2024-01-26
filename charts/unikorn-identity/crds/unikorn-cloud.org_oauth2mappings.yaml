@@ -4,24 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.1
-  name: oauth2clients.unikorn-cloud.org
+  name: oauth2mappings.unikorn-cloud.org
 spec:
   group: unikorn-cloud.org
   names:
     categories:
     - unikorn
-    kind: OAuth2Client
-    listKind: OAuth2ClientList
-    plural: oauth2clients
-    singular: oauth2client
+    kind: OAuth2Mapping
+    listKind: OAuth2MappingList
+    plural: oauth2mappings
+    singular: oauth2mapping
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.id
-      name: client id
+    - jsonPath: .spec.domain
+      name: domain
       type: string
-    - jsonPath: .spec.redirectUri
-      name: redirect uri
+    - jsonPath: .spec.providerName
+      name: provider
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: age
@@ -29,7 +29,11 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: OAuth2Client describes an oauth2 client.
+        description: OAuth2Mapping describes an identity mapping.  The main job of
+          this type is to take an email address identity, extract the domain and use
+          it to resolve an identity provider.  It also is the place where users within
+          that domain can be allowed based on groups/claims offered by that identity
+          provider to limit access.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -44,21 +48,22 @@ spec:
           metadata:
             type: object
           spec:
-            description: OAuth2ClientSpec defines the required configuration for the
-              client.
+            description: OAuth2MappingSpec defines the required configuration for
+              the server.
             properties:
-              id:
-                description: ID uniquely identifes the client.
+              domain:
+                description: Domain is used by unikorn-identity to map an end-user
+                  provided email address to an identity provider.
                 type: string
-              redirectUri:
-                description: RedirectURI is the URI to pass control back to the client.
+              providerName:
+                description: ProviderName is the name of an oauth2/oidc provider.
                 type: string
             required:
-            - id
-            - redirectUri
+            - domain
+            - providerName
             type: object
           status:
-            description: OAuth2ClientStatus defines the status of the client.
+            description: OAuth2MappingStatus defines the status of the server.
             type: object
         required:
         - spec
