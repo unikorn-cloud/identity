@@ -18,16 +18,19 @@ limitations under the License.
 package oauth2
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5" //nolint:gosec
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	_ "embed"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -184,10 +187,15 @@ type Code struct {
 	Expiry time.Time `json:"exp"`
 }
 
-const (
-	// errorTemplate is used to return a verbose error to the client when
-	// something is very wrong and cannot be redirected.
-	errorTemplate = "<html><body><h1>Oops! Something went wrong.</h1><p><pre>%s</pre></p></body></html>"
+var (
+	// errorTemplate defines the HTML used to raise an error to the client.
+	//go:embed error.tmpl
+	errorTemplate string
+
+	// loginTemplate defines the HTML used to acquire an email address from
+	// the end user.
+	//go:embed login.tmpl
+	loginTemplate string
 )
 
 // htmlError is used in dire situations when we cannot return an error via
@@ -197,7 +205,24 @@ func htmlError(w http.ResponseWriter, r *http.Request, status int, description s
 
 	w.WriteHeader(status)
 
-	if _, err := w.Write([]byte(fmt.Sprintf(errorTemplate, description))); err != nil {
+	tmpl, err := template.New("error").Parse(errorTemplate)
+	if err != nil {
+		log.Info("oauth2: failed to parse template", "error", err)
+		return
+	}
+
+	templateContext := map[string]interface{} {
+		"description": description,
+	}
+
+	var buffer bytes.Buffer
+
+	if err := tmpl.Execute(&buffer, templateContext); err != nil {
+		log.Info("oauth2: failed to render template", "error", err)
+		return
+	}
+
+	if _, err := w.Write(buffer.Bytes()); err != nil {
 		log.Info("oauth2: failed to write HTML response")
 	}
 }

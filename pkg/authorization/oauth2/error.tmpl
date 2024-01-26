@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Unikorn Identity</title>
+	<link rel="icon" href="https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/icon.svg">
+	<style>
+		:root {
+			--brand-dark: rgb(49, 80, 89);
+			--background: rgb(231, 238, 240);
+			--padding: 1em;
+		}
+		* {
+			margin: 0;
+			padding: 0;
+			font-family: Helvetica;
+		}
+		body {
+			background-color: var(--background);
+		}
+		header {
+			color: white;
+			background-color: var(--brand-dark);
+			padding: var(--padding); 
+			display: flex;
+			gap: var(--padding);
+			align-items: center;
+		}
+		header > img {
+			display: inline-block;
+			height: 2.2em;
+			width: auto;
+		}
+		main {
+			padding: var(--padding);
+			display: flex;
+			flex-direction: column;
+                        gap: var(--padding);
+		}
+		dl {
+			display: grid;
+			grid-template-columns: auto 1fr;
+			grid-auto-flow: column;
+			grid-gap: var(--padding);
+		}
+		dt {
+			font-weight: bold;
+			grid-column-start: 1;
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<img src="https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/logo.svg" />
+	</header>
+	<main>
+		<h1>Oops! Something went wrong</h1>
+		<dl>
+			<dt>Description:</dt>
+			<dd>{{ .description}}</dd>
+		</dl>
+	</main>
+</body>
+</html>

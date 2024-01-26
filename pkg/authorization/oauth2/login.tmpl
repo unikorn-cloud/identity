@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>Unikorn Identity</title>
+	<link rel="icon" href="https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/icon.svg">
+	<style>
+		:root {
+			--brand: rgb(73, 118, 132);
+			--brand-dark: rgb(49, 80, 89);
+			--mid-grey: rgb(128, 128, 128);
+			--overlay-light: rgba(255, 255, 255, 0.6);
+
+			--input: var(--brand-dark);
+			--input-selected: var(--brand);
+
+			--padding: 1em;
+			--radius: 0.5em;
+		}
+		* {
+			margin: 0;
+			padding: 0;
+			font-family: Helvetica;
+			box-sizing: border-box;
+		}
+		body {
+			background-image: url("https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/backgrounds/clouds/2000x1333.jpg");
+			background-size: cover;
+			height: 100vh;
+		}
+		section {
+			height: 100vh;
+			margin: auto;
+			max-width: 400px;
+			background-color: var(--overlay-light);
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
+		}
+		header {
+			color: white;
+			background-color: var(--brand-dark);
+			padding: var(--padding);
+		}
+		header > img {
+			height: 2.2em;
+			width: auto;
+		}
+		main {
+			padding: var(--padding);
+			display: flex;
+			flex-direction: column;
+                        gap: var(--padding);
+			flex-grow: 1;
+		}
+		main > p {
+			text-align: center;
+		}
+		footer {
+			color: var(--mid-grey);
+			padding: var(--padding);
+			display: flex;
+                        flex-direction: column;
+                        gap: var(--padding);
+			font-size: 0.75em;
+			text-align: center;
+		}
+		a:link, a:visited {
+			transition: all 0.2s ease-in;
+			color: var(--input);
+		}
+		a:hover {
+			color: var(--input-selected);
+		}
+		form {
+			display: flex;
+			flex-direction: column;
+			gap: var(--padding);
+		}
+		input[type='email'] {
+			box-sizing: border-box;
+			background: none;
+			border: none;
+			width: 100%;
+			font-size: 1rem;
+			transition: all 0.2s ease-in;
+			color: inherit;
+			padding: var(--padding);
+			border-bottom: 2px solid var(--brand);
+			text-overflow: ellipsis;
+			text-align: center;
+		}
+		input[type='submit'] {
+			padding: var(--padding);
+			font-size: 1rem;
+			transition: all 0.2s ease-in;
+			display: inline-flex;
+			align-items: center;
+			gap: var(--padding-small);
+			cursor: pointer;
+			color: white;
+			background-color: var(--input);
+			border-radius: var(--radius);
+			border-style: none;
+		}
+		input[type='submit']:hover {
+			background-color: var(--input-selected);
+		}
+		input[type='submit']:disabled {
+			cursor: not-allowed;
+			background-color: var(--mid-grey);
+		}
+		@media only screen and (min-width: 720px) {
+			body {
+				background-image: url("https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/backgrounds/clouds/6144x4096.jpg")
+			}
+			section {
+				margin-left: 100px;
+			}
+		}
+	</style>
+</head>
+<body>
+	<section>
+		<header>
+			<img src="https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/logo.svg" />
+		</header>
+		<main>
+			<p>Enter your e-mail address to continue</p>
+			<form method="post" action="/oauth2/v2/input">
+				<input id="email" type="email" placeholder="joe.bloggs@acme.com" autocomplete="email" required />
+				<input id="input" type="submit" value="Login" />
+			</form>
+		</main>
+		<footer>
+			<p>Background <a href="https://www.freepik.com/free-ai-image/aerial-view-big-white-clouds-blue-sky_92127122.htm#query=clouds&position=7&from_view=search&track=sph&uuid=77e7bc6d-6181-451b-a1cc-f8dc423999a4">Image By chandlervid85</a></p>
+			<p>Copyright &copy; 2024 the Unikorn Cloud Authors.</p>
+		</footer>
+	</section>
+</body>
+</html>
