@@ -10,20 +10,26 @@ spec:
   names:
     categories:
     - unikorn
-    kind: Oauth2Client
-    listKind: Oauth2ClientList
+    kind: OAuth2Client
+    listKind: OAuth2ClientList
     plural: oauth2clients
     singular: oauth2client
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.id
+      name: client id
+      type: string
+    - jsonPath: .spec.redirectUri
+      name: redirect uri
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: age
       type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Oauth2Client is an abstraction around resource provisioning,
+        description: OAuth2Client is an abstraction around resource provisioning,
           for example it may contain a provider like Cluster API that can provision
           KubernetesCluster resources.
         properties:
@@ -40,10 +46,18 @@ spec:
           metadata:
             type: object
           spec:
-            description: Oauth2ClientSpec defines any control plane specific options.
+            description: OAuth2ClientSpec defines any control plane specific options.
+            properties:
+              id:
+                type: string
+              redirectUri:
+                type: string
+            required:
+            - id
+            - redirectUri
             type: object
           status:
-            description: Oauth2ClientStatus defines the status of the project.
+            description: OAuth2ClientStatus defines the status of the project.
             type: object
         required:
         - spec

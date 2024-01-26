@@ -47,6 +47,7 @@ var (
 
 //nolint:gochecknoinits
 func init() {
+	SchemeBuilder.Register(&OAuth2Client{}, &OAuth2ClientList{})
 }
 
 // Resource maps a resource type to a group resource.

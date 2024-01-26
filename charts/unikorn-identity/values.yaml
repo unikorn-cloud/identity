@@ -21,6 +21,15 @@ image: ~
 # oauth2 issuer etc.
 host: identity.acme.org
 
+# A static list of registered client applications.
+# clients:
+#   # Must be a valid Kubernetes resource name.
+# - name: foo
+#   # A unique client identifier.
+#   id: f15d7ab0-7cf2-4389-b662-493c39d78d3a
+#   # A redirect URI to return control back to the client.
+#   redirectURI: http://app.acme.org
+
 ingress:
   # Sets the ingress class to use.
   ingressClass: ~

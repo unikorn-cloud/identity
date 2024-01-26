@@ -20,32 +20,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Oauth2ClientList is a typed list of control planes.
+// OAuth2ClientList is a typed list of control planes.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Oauth2ClientList struct {
+type OAuth2ClientList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Oauth2Client `json:"items"`
+	Items           []OAuth2Client `json:"items"`
 }
 
-// Oauth2Client is an abstraction around resource provisioning, for example
+// OAuth2Client is an abstraction around resource provisioning, for example
 // it may contain a provider like Cluster API that can provision KubernetesCluster
 // resources.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:printcolumn:name="client id",type="string",JSONPath=".spec.id"
+// +kubebuilder:printcolumn:name="redirect uri",type="string",JSONPath=".spec.redirectUri"
 // +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
-type Oauth2Client struct {
+type OAuth2Client struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              Oauth2ClientSpec   `json:"spec"`
-	Status            Oauth2ClientStatus `json:"status,omitempty"`
+	Spec              OAuth2ClientSpec   `json:"spec"`
+	Status            OAuth2ClientStatus `json:"status,omitempty"`
 }
 
-// Oauth2ClientSpec defines any control plane specific options.
-type Oauth2ClientSpec struct {
+// OAuth2ClientSpec defines any control plane specific options.
+type OAuth2ClientSpec struct {
+	ID          string `json:"id"`
+	RedirectURI string `json:"redirectUri"`
 }
 
-// Oauth2ClientStatus defines the status of the project.
-type Oauth2ClientStatus struct {
+// OAuth2ClientStatus defines the status of the project.
+type OAuth2ClientStatus struct {
 }

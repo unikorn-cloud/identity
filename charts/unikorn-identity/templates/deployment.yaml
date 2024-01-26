@@ -18,6 +18,7 @@ spec:
       - name: unikorn-identity
         image: {{ include "unikorn.image" . }}
         args:
+        - --namespace={{ .Release.Namespace }}
         - --host=https://{{ .Values.host }}
         volumeMounts:
         - name: unikorn-identity-jose-tls

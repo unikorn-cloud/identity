@@ -62,7 +62,6 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.Options.AddFlags(flags)
 	s.HandlerOptions.AddFlags(flags)
 	s.JoseOptions.AddFlags(flags)
-	s.OAuth2Options.AddFlags(flags)
 }
 
 func (s *Server) SetupLogging() {
@@ -107,7 +106,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 
 	// Setup authn/authz
 	issuer := jose.NewJWTIssuer(&s.JoseOptions)
-	oauth2 := oauth2.New(&s.OAuth2Options, issuer)
+	oauth2 := oauth2.New(&s.OAuth2Options, s.Options.Namespace, client, issuer)
 	authenticator := authorization.NewAuthenticator(issuer, oauth2)
 
 	// Setup middleware.

@@ -19,6 +19,8 @@ package client
 import (
 	"context"
 
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -40,12 +42,16 @@ func NewScheme() (*runtime.Scheme, error) {
 		return nil, err
 	}
 
+	if err := unikornv1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+
 	return scheme, nil
 }
 
 // New returns a new controller runtime caching client, initialized with core and
 // unikorn resources for typed operation.
-func New(ctx context.Context) (client.Client, error) {
+func New(ctx context.Context, namespace string) (client.Client, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -58,7 +64,17 @@ func New(ctx context.Context) (client.Client, error) {
 		return nil, err
 	}
 
-	cache, err := cache.New(config, cache.Options{Scheme: scheme})
+	cacheOptions := cache.Options{
+		Scheme: scheme,
+	}
+
+	if namespace != "" {
+		cacheOptions.DefaultNamespaces = map[string]cache.Config{
+			namespace: cache.Config{},
+		}
+	}
+
+	cache, err := cache.New(config, cacheOptions)
 	if err != nil {
 		return nil, err
 	}

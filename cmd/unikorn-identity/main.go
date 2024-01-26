@@ -61,7 +61,7 @@ func start() {
 		return
 	}
 
-	client, err := client.New(ctx)
+	client, err := client.New(ctx, s.Options.Namespace)
 	if err != nil {
 		logger.Error(err, "failed to create client")
 

@@ -1,5 +1,6 @@
 /*
 Copyright 2022-2024 EscherCloud.
+Copyright 2024 the Unikorn Cloud Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,13 +31,14 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/authorization/jose"
 	"github.com/unikorn-cloud/identity/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -59,29 +61,15 @@ type Options struct {
 	// oidcJwksURL defines the JWKS endpoint for the authorization server
 	// to retrieve signing keys for token validation.
 	oidcJwksURL string
-
-	// clientID is the client ID that's expected to be presented by a client
-	// during oauth2's authorization flow.
-	clientID string
-
-	// redirectURI is the allowed redirect URI for a the client ID.
-	redirectURI string
-}
-
-// AddFlags to the specified flagset.
-func (o *Options) AddFlags(f *pflag.FlagSet) {
-	f.StringVar(&o.oidcClientID, "oidc-client-id", "93455590-c733-013b-e155-02ce91db9a85225246", "OIDC client ID.")
-	f.StringVar(&o.oidcIssuer, "oidc-issuer", "https://eschercloud-dev.onelogin.com/oidc/2", "Expected OIDC issuer name.")
-	f.StringVar(&o.oidcAuthorizationEndpoint, "oidc-autorization-endpoint", "https://eschercloud-dev.onelogin.com/oidc/2/auth", "OIDC authorization endpoint.")
-	f.StringVar(&o.oidcTokenEndpoint, "oidc-token-endpoint", "https://eschercloud-dev.onelogin.com/oidc/2/token", "OIDC token endpoint.")
-	f.StringVar(&o.oidcJwksURL, "oidc-jwks-url", "https://eschercloud-dev.onelogin.com/oidc/2/certs", "OIDC JWKS endpoint.")
-	f.StringVar(&o.clientID, "oauth2-client-id", "9a719e1e-aa85-4a21-a221-324e787efd78", "OAuth2 client ID of server clients.")
-	f.StringVar(&o.redirectURI, "oauth2-redirect-uri", "https://kubernetes.eschercloud.com/oauth2/callback", "Exprected redirect URI for the client ID.")
 }
 
 // Authenticator provides Keystone authentication functionality.
 type Authenticator struct {
 	options *Options
+
+	namespace string
+
+	client client.Client
 
 	// issuer allows creation and validation of JWT bearer tokens.
 	issuer *jose.JWTIssuer
@@ -89,9 +77,11 @@ type Authenticator struct {
 
 // New returns a new authenticator with required fields populated.
 // You must call AddFlags after this.
-func New(options *Options, issuer *jose.JWTIssuer) *Authenticator {
+func New(options *Options, namespace string, client client.Client, issuer *jose.JWTIssuer) *Authenticator {
 	return &Authenticator{
 		options: options,
+		namespace: namespace,
+		client:  client,
 		issuer:  issuer,
 	}
 }
@@ -222,30 +212,56 @@ func authorizationError(w http.ResponseWriter, r *http.Request, redirectURI stri
 	http.Redirect(w, r, redirectURI+"?"+values.Encode(), http.StatusFound)
 }
 
+func (a *Authenticator) lookupClient(w http.ResponseWriter, r *http.Request, clientID string) (*unikornv1.OAuth2Client, bool) {
+	var clients unikornv1.OAuth2ClientList
+
+	if err := a.client.List(r.Context(), &clients, &client.ListOptions{Namespace: a.namespace}); err != nil {
+		htmlError(w, r, http.StatusInternalServerError, err.Error())
+
+		return nil, false
+	}
+
+	for i := range clients.Items {
+		if clients.Items[i].Spec.ID == clientID {
+			return &clients.Items[i], true
+		}
+	}
+
+	htmlError(w, r, http.StatusBadRequest, "client_id is invalid")
+
+	return nil, false
+}
+
 // OAuth2AuthorizationValidateNonRedirecting checks authorization request parameters
 // are valid that directly control the ability to redirect, and returns some helpful
 // debug in HTML.
 func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWriter, r *http.Request) bool {
 	query := r.URL.Query()
 
-	var description string
+	if !query.Has("client_id") {
+		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
 
-	switch {
-	case !query.Has("client_id"):
-		description = "client_id is not specified"
-	case query.Get("client_id") != a.options.clientID:
-		description = "client_id is invalid"
-	case !query.Has("redirect_uri"):
-		description = "redirect_uri is not specified"
-	case query.Get("redirect_uri") != a.options.redirectURI:
-		description = "redirect_uri is invalid"
-	default:
-		return true
+		return false
 	}
 
-	htmlError(w, r, http.StatusBadRequest, description)
+	if !query.Has("redirect_uri") {
+                htmlError(w, r, http.StatusBadRequest, "redirect_uri is not specified")
 
-	return false
+                return false
+        }
+
+	client, ok := a.lookupClient(w, r, query.Get("client_id"))
+	if !ok {
+		return false
+	}
+
+	if client.Spec.RedirectURI != query.Get("redirect_uri") {
+                htmlError(w, r, http.StatusBadRequest, "redirect_uri is invalid")
+
+		return false
+	}
+
+	return true
 }
 
 // OAuth2AuthorizationValidateRedirecting checks autohorization request parameters after
