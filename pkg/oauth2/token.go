@@ -28,7 +28,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 
-	"github.com/unikorn-cloud/identity/pkg/authorization/jose"
+	"github.com/unikorn-cloud/identity/pkg/jose"
 )
 
 var (

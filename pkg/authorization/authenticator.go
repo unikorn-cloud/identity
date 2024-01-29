@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/unikorn-cloud/identity/pkg/authorization/jose"
-	"github.com/unikorn-cloud/identity/pkg/authorization/oauth2"
+	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 )

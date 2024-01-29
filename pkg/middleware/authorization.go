@@ -23,8 +23,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 
 	"github.com/unikorn-cloud/identity/pkg/authorization"
-	"github.com/unikorn-cloud/identity/pkg/authorization/jose"
-	"github.com/unikorn-cloud/identity/pkg/authorization/oauth2"
+	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/errors"
 )
 

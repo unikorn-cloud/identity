@@ -37,7 +37,7 @@ import (
 	"golang.org/x/oauth2"
 
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/authorization/jose"
+	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 
