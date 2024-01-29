@@ -1,5 +1,6 @@
 /*
 Copyright 2022-2024 EscherCloud.
+Copyright 2024 the Unikorn Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -70,7 +71,7 @@ func New(ctx context.Context, namespace string) (client.Client, error) {
 
 	if namespace != "" {
 		cacheOptions.DefaultNamespaces = map[string]cache.Config{
-			namespace: cache.Config{},
+			namespace: {},
 		}
 	}
 

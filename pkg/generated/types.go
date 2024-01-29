@@ -108,6 +108,15 @@ type JsonWebKeySet struct {
 	Keys *[]JsonWebKey `json:"keys,omitempty"`
 }
 
+// LoginRequestOptions Login request options.
+type LoginRequestOptions struct {
+	// Email The user's email address.
+	Email string `json:"email"`
+
+	// Query The query string supplied to the authorization endpoint.
+	Query string `json:"query"`
+}
+
 // Oauth2Error Generic error message.
 type Oauth2Error struct {
 	// Error A terse error string expanding on the HTTP error code. Errors are based on the OAuth2 specification, but are expanded with proprietary status codes for APIs other than those specified by OAuth2.
@@ -233,6 +242,9 @@ type TokenResponse = Token
 
 // UnauthorizedResponse Generic error message.
 type UnauthorizedResponse = Oauth2Error
+
+// PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
+type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions
 
 // PostOauth2V2TokenFormdataRequestBody defines body for PostOauth2V2Token for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2TokenFormdataRequestBody = TokenRequestOptions

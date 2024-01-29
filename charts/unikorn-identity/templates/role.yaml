@@ -9,6 +9,8 @@ rules:
   - unikorn-cloud.org
   resources:
   - oauth2clients
+  - oauth2mappings
+  - oauth2providers
   verbs:
   - list
   - watch

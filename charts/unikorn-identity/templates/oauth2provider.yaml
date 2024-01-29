@@ -9,4 +9,6 @@ metadata:
 spec:
   displayName: {{ $provider.displayName }}
   issuer: {{ $provider.issuer }}
+  clientID: {{ $provider.clientID }}
+  clientSecret: {{ $provider.clientSecret }}
 {{- end }}

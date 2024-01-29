@@ -97,6 +97,11 @@ type ClientInterface interface {
 	// GetOauth2V2Jwks request
 	GetOauth2V2Jwks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostOauth2V2Login request with any body
+	PostOauth2V2LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostOauth2V2LoginWithFormdataBody(ctx context.Context, body PostOauth2V2LoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostOauth2V2Token request with any body
 	PostOauth2V2TokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -132,6 +137,30 @@ func (c *Client) GetOauth2V2Authorization(ctx context.Context, reqEditors ...Req
 
 func (c *Client) GetOauth2V2Jwks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOauth2V2JwksRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOauth2V2LoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2V2LoginRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOauth2V2LoginWithFormdataBody(ctx context.Context, body PostOauth2V2LoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2V2LoginRequestWithFormdataBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -259,6 +288,46 @@ func NewGetOauth2V2JwksRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPostOauth2V2LoginRequestWithFormdataBody calls the generic PostOauth2V2Login builder with application/x-www-form-urlencoded body
+func NewPostOauth2V2LoginRequestWithFormdataBody(server string, body PostOauth2V2LoginFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewPostOauth2V2LoginRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewPostOauth2V2LoginRequestWithBody generates requests for PostOauth2V2Login with any type of body
+func NewPostOauth2V2LoginRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth2/v2/login")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPostOauth2V2TokenRequestWithFormdataBody calls the generic PostOauth2V2Token builder with application/x-www-form-urlencoded body
 func NewPostOauth2V2TokenRequestWithFormdataBody(server string, body PostOauth2V2TokenFormdataRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -378,6 +447,11 @@ type ClientWithResponsesInterface interface {
 	// GetOauth2V2Jwks request
 	GetOauth2V2JwksWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2JwksResponse, error)
 
+	// PostOauth2V2Login request with any body
+	PostOauth2V2LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2V2LoginResponse, error)
+
+	PostOauth2V2LoginWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2V2LoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2V2LoginResponse, error)
+
 	// PostOauth2V2Token request with any body
 	PostOauth2V2TokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2V2TokenResponse, error)
 
@@ -449,6 +523,27 @@ func (r GetOauth2V2JwksResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetOauth2V2JwksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostOauth2V2LoginResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOauth2V2LoginResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOauth2V2LoginResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -527,6 +622,23 @@ func (c *ClientWithResponses) GetOauth2V2JwksWithResponse(ctx context.Context, r
 		return nil, err
 	}
 	return ParseGetOauth2V2JwksResponse(rsp)
+}
+
+// PostOauth2V2LoginWithBodyWithResponse request with arbitrary body returning *PostOauth2V2LoginResponse
+func (c *ClientWithResponses) PostOauth2V2LoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2V2LoginResponse, error) {
+	rsp, err := c.PostOauth2V2LoginWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2V2LoginResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostOauth2V2LoginWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2V2LoginFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2V2LoginResponse, error) {
+	rsp, err := c.PostOauth2V2LoginWithFormdataBody(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2V2LoginResponse(rsp)
 }
 
 // PostOauth2V2TokenWithBodyWithResponse request with arbitrary body returning *PostOauth2V2TokenResponse
@@ -642,6 +754,22 @@ func ParseGetOauth2V2JwksResponse(rsp *http.Response) (*GetOauth2V2JwksResponse,
 		}
 		response.JSON500 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParsePostOauth2V2LoginResponse parses an HTTP response from a PostOauth2V2LoginWithResponse call
+func ParsePostOauth2V2LoginResponse(rsp *http.Response) (*PostOauth2V2LoginResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOauth2V2LoginResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil

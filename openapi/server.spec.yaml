@@ -28,8 +28,8 @@ paths:
         You may specify the "openid" scope in order to have an OpenID Connect
         identity token returned during code exchange.
       responses:
-        '302':
-          description: A redirect to the specified identity provider URI.
+        '200':
+          $ref: '#/components/responses/authorizationResponse'
         # TODO: returns HTML not JSON
         '400':
           $ref: '#/components/responses/badRequestResponse'
@@ -59,6 +59,20 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
+  /oauth2/v2/login:
+    description: |-
+      After the user hits the authorisation endpoint, a dialog is presented to
+      get the user's email address, control is returned back to the identity
+      service via this address in order to perform email domain matching and
+      delegate autorization to the correct identity provider.
+    post:
+      description: |-
+        Sends the users's provided email address to the identity service.
+      requestBody:
+        $ref: '#/components/requestBodies/loginRequest'
+      responses:
+        '302':
+          description: A redirect to the specified identity provider URI.
   /oidc/callback:
     description: |-
       Implements the OIDC response code callback.
@@ -241,6 +255,19 @@ components:
       enum:
       - S256
       - plain
+    loginRequestOptions:
+      description: Login request options.
+      type: object
+      required:
+      - email
+      - query
+      properties:
+        email:
+          description: The user's email address.
+          type: string
+        query:
+          description: The query string supplied to the authorization endpoint.
+          type: string
     tokenRequestOptions:
       description: oauth2 token endpoint.
       type: object
@@ -328,6 +355,15 @@ components:
         description: JSON web key.
         type: object
   requestBodies:
+    loginRequest:
+      description: Information necessary to resolve a federated SSO provider.
+      required: true
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            $ref: '#/components/schemas/loginRequestOptions'
+          example:
+            email: joe.bloggs@acme.com
     tokenRequest:
       description: OAuth2 token request, consult the relevant OAuth2 and OIDC specifications for further details.
       required: true
@@ -414,6 +450,11 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/openidConfiguration'
+    authorizationResponse:
+      description: |-
+        A login form to request federation data from the user.
+      content:
+        text/html: {}
     tokenResponse:
       description: |-
         Authentication was successful and returns an authorisation token. The response

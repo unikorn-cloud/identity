@@ -1,5 +1,6 @@
 /*
 Copyright 2022-2024 EscherCloud.
+Copyright 2024 the Unikorn Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,9 +24,9 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 
 	"github.com/unikorn-cloud/identity/pkg/authorization"
+	"github.com/unikorn-cloud/identity/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
-	"github.com/unikorn-cloud/identity/pkg/errors"
 )
 
 // authorizationContext is passed through the middleware to propagate

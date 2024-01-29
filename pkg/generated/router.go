@@ -22,6 +22,9 @@ type ServerInterface interface {
 	// (GET /oauth2/v2/jwks)
 	GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request)
 
+	// (POST /oauth2/v2/login)
+	PostOauth2V2Login(w http.ResponseWriter, r *http.Request)
+
 	// (POST /oauth2/v2/token)
 	PostOauth2V2Token(w http.ResponseWriter, r *http.Request)
 
@@ -74,6 +77,21 @@ func (siw *ServerInterfaceWrapper) GetOauth2V2Jwks(w http.ResponseWriter, r *htt
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetOauth2V2Jwks(w, r)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// PostOauth2V2Login operation middleware
+func (siw *ServerInterfaceWrapper) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostOauth2V2Login(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -234,6 +252,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oauth2/v2/jwks", wrapper.GetOauth2V2Jwks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/oauth2/v2/login", wrapper.PostOauth2V2Login)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/oauth2/v2/token", wrapper.PostOauth2V2Token)

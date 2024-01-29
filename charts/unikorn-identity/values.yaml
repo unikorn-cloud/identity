@@ -39,6 +39,10 @@ host: identity.acme.org
 #   # The issuer is usually provided by the oidc provider and will have
 #   # a discovery endpoint attached to it at /.well-known/openid-configuration.
 #   issuer: https://accounts.google.com
+#   # The client ID assigned by the identity provider.
+#   clientID: foo.apps.googleusercontent.com
+#   # The client secret assigned by the identity provider.
+#   clientSecret:  GOCSPX-akjfdns3238r328r9832rewjbds
 
 # A static list of oauth2 domain mappings.
 # mappings:

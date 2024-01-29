@@ -48,7 +48,7 @@ CONTROLLER_BINARIES := $(foreach arch,$(CONTROLLER_ARCH),$(foreach ctrl,$(CONTRO
 
 # List of sources to trigger a build.
 # TODO: Bazel may be quicker, but it's a massive hog, and a pain in the arse.
-SOURCES := $(shell find . -type f -name *.go)
+SOURCES := $(shell find . -type f -name *.go) $(shell find . -type f -name *.tmpl)
 
 SERVER_COMPONENT_SOURCES := $(patsubst %,$(SRVGENDIR)/%,$(SERVER_COMPONENTS))
 
@@ -181,4 +181,4 @@ touch:
 lint: $(GENDIR)
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION)
 	$(GOBIN)/golangci-lint run ./...
-	helm lint --strict charts/unikorn
+	helm lint --strict charts/unikorn-identity

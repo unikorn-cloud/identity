@@ -1,5 +1,6 @@
 /*
 Copyright 2022-2024 EscherCloud.
+Copyright 2024 the Unikorn Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,13 +15,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//nolint:revive,stylecheck
 package handler
 
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/errors"
@@ -51,13 +50,19 @@ func New(client client.Client, authenticator *authorization.Authenticator, optio
 	return h, nil
 }
 
+/*
 func (h *Handler) setCacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", fmt.Sprintf("max-age=%d", h.options.CacheMaxAge/time.Second))
 	w.Header().Add("Cache-Control", "private")
 }
+*/
 
 func (h *Handler) setUncacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", "no-cache")
+}
+
+func (h *Handler) setCORS(w http.ResponseWriter) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
 }
 
 func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +114,10 @@ func (h *Handler) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Reques
 	h.authenticator.OAuth2.Authorization(w, r)
 }
 
+func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
+	h.authenticator.OAuth2.Login(w, r)
+}
+
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 	result, err := h.authenticator.OAuth2.Token(w, r)
 	if err != nil {
@@ -116,6 +125,7 @@ func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.setCORS(w)
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
@@ -127,6 +137,7 @@ func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.setCORS(w)
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }

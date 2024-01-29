@@ -70,13 +70,14 @@
 		</header>
 		<main>
 			<p>Enter your e-mail address to continue</p>
-			<form method="post" action="/oauth2/v2/input">
-				<input id="email" type="email" placeholder="joe.bloggs@acme.com" autocomplete="email" required />
+			<form method="post" action="/oauth2/v2/login">
+				<input id="email" name="email" type="email" placeholder="joe.bloggs@acme.com" autocomplete="email" required />
+				<input id="query" name="query" type="hidden" value="{{ .query }}" />
 				<input id="input" type="submit" value="Login" />
 			</form>
 		</main>
 		<footer>
-			<p>Copyright &copy; 2024 the Unikorn Cloud Authors.</p>
+			<p>Copyright &copy; 2024 the Unikorn Authors.</p>
 		</footer>
 	</section>
 </body>

@@ -23,6 +23,9 @@ spec:
     - jsonPath: .spec.issuer
       name: issuer
       type: string
+    - jsonPath: .spec.clientID
+      name: client ID
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: age
       type: date
@@ -47,6 +50,12 @@ spec:
             description: OAuth2ProviderSpec defines the required configuration for
               an oauth2 provider.
             properties:
+              clientID:
+                description: ClientID is the assigned client identifier.
+                type: string
+              clientSecret:
+                description: ClientSecret is created by the IdP for token exchange.
+                type: string
               displayName:
                 description: HumanReadableName is a user readable issuer name.
                 type: string
@@ -56,6 +65,8 @@ spec:
                   This will be used to verify issued JWTs have the same "iss" claim.
                 type: string
             required:
+            - clientID
+            - clientSecret
             - displayName
             - issuer
             type: object
