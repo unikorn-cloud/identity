@@ -35,7 +35,7 @@ BINDIR = bin
 CMDDIR = cmd
 SRCDIR = src
 GENDIR = generated
-CRDDIR = charts/unikorn-identity/crds
+CRDDIR = charts/identity/crds
 SRVSCHEMA = openapi/server.spec.yaml
 SRVGENPKG = generated
 SRVGENDIR = pkg/$(SRVGENPKG)
@@ -181,4 +181,4 @@ touch:
 lint: $(GENDIR)
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION)
 	$(GOBIN)/golangci-lint run ./...
-	helm lint --strict charts/unikorn-identity
+	helm lint --strict charts/identity

@@ -33,27 +33,19 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build and Push Images
       run: make touch all images -e RELEASE=1 VERSION=${{ github.ref_name }}
-    - name: Build SBOMS
-      run: go run ./hack/sbom
-    - name: Build Documentation
-      run: sudo apt -y install wbritish && go run github.com/spjmurray/unikorn-core/hack/docs -o docs/server-api.md
+#    - name: Build Documentation
+#      run: sudo apt -y install wbritish && go run github.com/unikorn-cloud/core/hack/docs -o docs/server-api.md
     - name: Configure Git
       run: |
         git config user.name "$GITHUB_ACTOR"
         git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
     - name: Release Helm Chart
-      uses: spjmurray/unikorn-chart-release-action@v1
+      uses: unikorn-cloud/chart-release-action@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    - name: Rename Release Assets
-      run: cp bin/unikornctl bin/unikornctl-linux-amd64
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
         name: Release ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
-        files: |
-          bin/unikornctl-linux-amd64
-          sboms/*.spdx
-          docs/server-api.md
