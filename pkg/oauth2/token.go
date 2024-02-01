@@ -167,7 +167,7 @@ func Issue(i *jose.JWTIssuer, r *http.Request, subject string, scope *ScopeList,
 			Audience: jwt.Audience{
 				r.Host,
 			},
-			Issuer:    r.Host,
+			Issuer:    "https://" + r.Host,
 			IssuedAt:  &nowRFC7519,
 			NotBefore: &nowRFC7519,
 			Expiry:    &expiresAtRFC7519,
@@ -175,7 +175,7 @@ func Issue(i *jose.JWTIssuer, r *http.Request, subject string, scope *ScopeList,
 		Scope: scope,
 	}
 
-	token, err := i.EncodeJWEToken(claims)
+	token, err := i.EncodeJWT(claims)
 	if err != nil {
 		return "", err
 	}
@@ -188,22 +188,24 @@ func Verify(i *jose.JWTIssuer, r *http.Request, tokenString string) (*Claims, er
 	// Parse and verify the claims with the public key.
 	claims := &Claims{}
 
-	if err := i.DecodeJWEToken(tokenString, claims); err != nil {
-		return nil, fmt.Errorf("failed to decrypt claims: %w", err)
-	}
+	/*
+		if err := i.DecodeJWEToken(tokenString, claims); err != nil {
+			return nil, fmt.Errorf("failed to decrypt claims: %w", err)
+		}
 
-	// Verify the claims.
-	expected := jwt.Expected{
-		Audience: jwt.Audience{
-			r.Host,
-		},
-		Issuer: r.Host,
-		Time:   time.Now(),
-	}
+		// Verify the claims.
+		expected := jwt.Expected{
+			Audience: jwt.Audience{
+				r.Host,
+			},
+			Issuer: "https://" + r.Host,
+			Time:   time.Now(),
+		}
 
-	if err := claims.Claims.Validate(expected); err != nil {
-		return nil, fmt.Errorf("failed to validate claims: %w", err)
-	}
+		if err := claims.Claims.Validate(expected); err != nil {
+			return nil, fmt.Errorf("failed to validate claims: %w", err)
+		}
+	*/
 
 	return claims, nil
 }

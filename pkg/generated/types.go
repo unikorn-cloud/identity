@@ -84,7 +84,7 @@ const (
 
 // Defines values for SigningAlgorithm.
 const (
-	RS256 SigningAlgorithm = "RS256"
+	ES512 SigningAlgorithm = "ES512"
 )
 
 // AuthMethod Supported authentication methods.

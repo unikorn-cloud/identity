@@ -248,7 +248,7 @@ components:
       description: Supported signing algorithms.
       type: string
       enum:
-      - RS256
+      - ES512
     codeChallengeMethod:
       description: Supported code challenge methods.
       type: string

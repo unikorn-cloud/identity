@@ -100,7 +100,7 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 			generated.AuthorizationCode,
 		},
 		IdTokenSigningAlgValuesSupported: []generated.SigningAlgorithm{
-			generated.RS256,
+			generated.ES512,
 		},
 		CodeChallengeMethodsSupported: []generated.CodeChallengeMethod{
 			generated.S256,
