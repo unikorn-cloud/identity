@@ -19,6 +19,7 @@ package middleware
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -72,7 +73,7 @@ func (a *Authorizer) authorizeOAuth2(ctx *authorizationContext, r *http.Request,
 
 	// Check the token is authorized to do what the schema says.
 	for _, scope := range scopes {
-		if !claims.Scope.Includes(oauth2.APIScope(scope)) {
+		if !slices.Contains([]string(claims.Scope), scope) {
 			return errors.OAuth2InvalidScope("token missing required scope").WithValues("scope", scope)
 		}
 	}

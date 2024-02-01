@@ -29,11 +29,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/go-jose/go-jose/v3/jwt"
 	"golang.org/x/oauth2"
 
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -82,43 +84,6 @@ const (
 	ErrorServerError             Error = "server_error"
 )
 
-// Scope wraps up scope functionality.
-type Scope []string
-
-// NewScope takes a raw scope from a query and return a canonical scope type.
-func NewScope(s string) Scope {
-	return Scope(strings.Split(s, " "))
-}
-
-// Has returns true if a scope exists.
-func (s Scope) Has(scope string) bool {
-	for _, value := range s {
-		if value == scope {
-			return true
-		}
-	}
-
-	return false
-}
-
-// IDToken defines an OIDC id_token.
-//
-//nolint:tagliatelle
-type IDToken struct {
-	// These are default claims you always get.
-	Issuer   string   `json:"iss"`
-	Subject  string   `json:"sub"`
-	Audience []string `json:"aud"`
-	Expiry   int64    `json:"exp"`
-	IssuedAt int64    `json:"iat"`
-	Nonce    string   `json:"nonce,omitempty"`
-	ATHash   string   `json:"at_hash,omitempty"`
-	// Optional claims that may be asked for by the "email" scope.
-	Email string `json:"email,omitempty"`
-	// Optional claims that may be asked for by the "profile" scope.
-	Picture string `json:"picture,omitempty"`
-}
-
 // State records state across the call to the authorization server.
 // This must be encrypted with JWE.
 type State struct {
@@ -166,6 +131,7 @@ type Code struct {
 	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
+	// TODO: we would be a lot more flexible by passing all the claims over...
 	// Email is exactly that.
 	Email string `json:"email"`
 }
@@ -608,9 +574,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var claims struct {
-		Email string `json:"email"`
-	}
+	var claims OIDCClaimsEmail
 
 	if err := idToken.Claims(&claims); err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to extract id_token email claims: "+err.Error())
@@ -701,27 +665,32 @@ func oidcPicture(email string) string {
 // oidcIDToken builds an OIDC ID token.
 func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Time, atHash, clientID, email string) (*string, error) {
 	//nolint:nilnil
-	if !scope.Has("openid") {
+	if !slices.Contains(scope, "openid") {
 		return nil, nil
 	}
 
 	claims := &IDToken{
-		Issuer:  "https://" + r.Host,
-		Subject: email,
-		Audience: []string{
-			clientID,
+		Claims: jwt.Claims{
+			Issuer:  "https://" + r.Host,
+			Subject: email,
+			Audience: []string{
+				clientID,
+			},
+			Expiry:   jwt.NewNumericDate(expiry),
+			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
-		Expiry:   expiry.Unix(),
-		IssuedAt: time.Now().Unix(),
-		ATHash:   atHash,
+		OIDCClaims: OIDCClaims{
+			ATHash: atHash,
+		},
 	}
 
-	if scope.Has("email") {
-		claims.Email = email
+	// TODO: we should just pass through the federated id_token in the code...
+	if slices.Contains(scope, "email") {
+		claims.OIDCClaimsEmail.Email = email
 	}
 
-	if scope.Has("profile") {
-		claims.Picture = oidcPicture(email)
+	if slices.Contains(scope, "profile") {
+		claims.OIDCClaimsProfile.Picture = oidcPicture(email)
 	}
 
 	idToken, err := a.issuer.EncodeJWT(claims)
@@ -754,7 +723,8 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 
 	expiry := time.Now().Add(24 * time.Hour)
 
-	accessToken, err := Issue(a.issuer, r, code.Email, nil, expiry)
+	// TODO: add some scopes, these hould probably be derived from the OIDC mapping.
+	accessToken, err := Issue(a.issuer, r, code.ClientID, code.Email, nil, expiry)
 	if err != nil {
 		return nil, err
 	}

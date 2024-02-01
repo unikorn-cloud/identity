@@ -129,6 +129,24 @@ func (i *JWTIssuer) EncodeJWT(claims interface{}) (string, error) {
 	return jwt.Signed(signer).Claims(claims).CompactSerialize()
 }
 
+func (i *JWTIssuer) DecodeJWT(tokenString string, claims interface{}) error {
+	publicKey, _, _, err := i.GetKeyPair()
+	if err != nil {
+		return fmt.Errorf("failed to get key pair: %w", err)
+	}
+
+	token, err := jwt.ParseSigned(tokenString)
+	if err != nil {
+		return err
+	}
+
+	if err := token.Claims(publicKey, claims); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (i *JWTIssuer) EncodeJWEToken(claims interface{}) (string, error) {
 	publicKey, privateKey, kid, err := i.GetKeyPair()
 	if err != nil {

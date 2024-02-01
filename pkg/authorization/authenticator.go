@@ -18,11 +18,7 @@ limitations under the License.
 package authorization
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/unikorn-cloud/identity/pkg/errors"
-	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 )
@@ -43,38 +39,6 @@ func NewAuthenticator(issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator) *Aut
 		issuer: issuer,
 		OAuth2: oauth2,
 	}
-}
-
-// Token performs token based authentication against Keystone with a scope, and returns a new token.
-// Used to upgrade from unscoped, or to refresh a token.
-func (a *Authenticator) Token(r *http.Request) (*generated.Token, error) {
-	tokenClaims, err := oauth2.ClaimsFromContext(r.Context())
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed get claims").WithError(err)
-	}
-
-	// Add some scope to the claims to allow the token to do more.
-	oAuth2Scope := &oauth2.ScopeList{
-		Scopes: []oauth2.APIScope{
-			oauth2.ScopeProject,
-		},
-	}
-
-	ttl := time.Hour
-	expiry := time.Now().Add(ttl)
-
-	accessToken, err := oauth2.Issue(a.issuer, r, tokenClaims.Subject, oAuth2Scope, expiry)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create access token").WithError(err)
-	}
-
-	result := &generated.Token{
-		TokenType:   "Bearer",
-		AccessToken: accessToken,
-		ExpiresIn:   int(ttl.Seconds()),
-	}
-
-	return result, nil
 }
 
 func (a *Authenticator) JWKS() (interface{}, error) {
