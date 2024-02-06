@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -91,6 +92,30 @@ type ClientInterface interface {
 	// GetWellKnownOpenidConfiguration request
 	GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1Organizations request
+	GetApiV1Organizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutApiV1OrganizationsOrganization request with any body
+	PutApiV1OrganizationsOrganizationWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutApiV1OrganizationsOrganization(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1OrganizationsOrganizationGroups request
+	GetApiV1OrganizationsOrganizationGroups(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1OrganizationsOrganizationGroups request with any body
+	PostApiV1OrganizationsOrganizationGroupsWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1OrganizationsOrganizationGroups(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationGroupsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiV1OrganizationsOrganizationGroupsGroupid request
+	DeleteApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutApiV1OrganizationsOrganizationGroupsGroupid request with any body
+	PutApiV1OrganizationsOrganizationGroupsGroupidWithBody(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOauth2V2Authorization request
 	GetOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -113,6 +138,114 @@ type ClientInterface interface {
 
 func (c *Client) GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWellKnownOpenidConfigurationRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1Organizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutApiV1OrganizationsOrganizationWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationRequestWithBody(c.Server, organization, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutApiV1OrganizationsOrganization(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationRequest(c.Server, organization, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1OrganizationsOrganizationGroups(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsOrganizationGroupsRequest(c.Server, organization)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1OrganizationsOrganizationGroupsWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationGroupsRequestWithBody(c.Server, organization, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1OrganizationsOrganizationGroups(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationGroupsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationGroupsRequest(c.Server, organization, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1OrganizationsOrganizationGroupsGroupidRequest(c.Server, organization, groupid)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutApiV1OrganizationsOrganizationGroupsGroupidWithBody(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationGroupsGroupidRequestWithBody(c.Server, organization, groupid, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationGroupsGroupidRequest(c.Server, organization, groupid, body)
 	if err != nil {
 		return nil, err
 	}
@@ -230,6 +363,256 @@ func NewGetWellKnownOpenidConfigurationRequest(server string) (*http.Request, er
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewGetApiV1OrganizationsRequest generates requests for GetApiV1Organizations
+func NewGetApiV1OrganizationsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutApiV1OrganizationsOrganizationRequest calls the generic PutApiV1OrganizationsOrganization builder with application/json body
+func NewPutApiV1OrganizationsOrganizationRequest(server string, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutApiV1OrganizationsOrganizationRequestWithBody(server, organization, "application/json", bodyReader)
+}
+
+// NewPutApiV1OrganizationsOrganizationRequestWithBody generates requests for PutApiV1OrganizationsOrganization with any type of body
+func NewPutApiV1OrganizationsOrganizationRequestWithBody(server string, organization OrganizationParameter, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetApiV1OrganizationsOrganizationGroupsRequest generates requests for GetApiV1OrganizationsOrganizationGroups
+func NewGetApiV1OrganizationsOrganizationGroupsRequest(server string, organization OrganizationParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostApiV1OrganizationsOrganizationGroupsRequest calls the generic PostApiV1OrganizationsOrganizationGroups builder with application/json body
+func NewPostApiV1OrganizationsOrganizationGroupsRequest(server string, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationGroupsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1OrganizationsOrganizationGroupsRequestWithBody(server, organization, "application/json", bodyReader)
+}
+
+// NewPostApiV1OrganizationsOrganizationGroupsRequestWithBody generates requests for PostApiV1OrganizationsOrganizationGroups with any type of body
+func NewPostApiV1OrganizationsOrganizationGroupsRequestWithBody(server string, organization OrganizationParameter, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/groups", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiV1OrganizationsOrganizationGroupsGroupidRequest generates requests for DeleteApiV1OrganizationsOrganizationGroupsGroupid
+func NewDeleteApiV1OrganizationsOrganizationGroupsGroupidRequest(server string, organization OrganizationParameter, groupid GroupidParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "groupid", runtime.ParamLocationPath, groupid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutApiV1OrganizationsOrganizationGroupsGroupidRequest calls the generic PutApiV1OrganizationsOrganizationGroupsGroupid builder with application/json body
+func NewPutApiV1OrganizationsOrganizationGroupsGroupidRequest(server string, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutApiV1OrganizationsOrganizationGroupsGroupidRequestWithBody(server, organization, groupid, "application/json", bodyReader)
+}
+
+// NewPutApiV1OrganizationsOrganizationGroupsGroupidRequestWithBody generates requests for PutApiV1OrganizationsOrganizationGroupsGroupid with any type of body
+func NewPutApiV1OrganizationsOrganizationGroupsGroupidRequestWithBody(server string, organization OrganizationParameter, groupid GroupidParameter, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "groupid", runtime.ParamLocationPath, groupid)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/groups/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -441,6 +824,30 @@ type ClientWithResponsesInterface interface {
 	// GetWellKnownOpenidConfiguration request
 	GetWellKnownOpenidConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWellKnownOpenidConfigurationResponse, error)
 
+	// GetApiV1Organizations request
+	GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error)
+
+	// PutApiV1OrganizationsOrganization request with any body
+	PutApiV1OrganizationsOrganizationWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationResponse, error)
+
+	PutApiV1OrganizationsOrganizationWithResponse(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationResponse, error)
+
+	// GetApiV1OrganizationsOrganizationGroups request
+	GetApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationGroupsResponse, error)
+
+	// PostApiV1OrganizationsOrganizationGroups request with any body
+	PostApiV1OrganizationsOrganizationGroupsWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationGroupsResponse, error)
+
+	PostApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationGroupsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationGroupsResponse, error)
+
+	// DeleteApiV1OrganizationsOrganizationGroupsGroupid request
+	DeleteApiV1OrganizationsOrganizationGroupsGroupidWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse, error)
+
+	// PutApiV1OrganizationsOrganizationGroupsGroupid request with any body
+	PutApiV1OrganizationsOrganizationGroupsGroupidWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error)
+
+	PutApiV1OrganizationsOrganizationGroupsGroupidWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error)
+
 	// GetOauth2V2Authorization request
 	GetOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2AuthorizationResponse, error)
 
@@ -477,6 +884,132 @@ func (r GetWellKnownOpenidConfigurationResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetWellKnownOpenidConfigurationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApiV1OrganizationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutApiV1OrganizationsOrganizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PutApiV1OrganizationsOrganizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutApiV1OrganizationsOrganizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApiV1OrganizationsOrganizationGroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsOrganizationGroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsOrganizationGroupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostApiV1OrganizationsOrganizationGroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1OrganizationsOrganizationGroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1OrganizationsOrganizationGroupsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutApiV1OrganizationsOrganizationGroupsGroupidResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PutApiV1OrganizationsOrganizationGroupsGroupidResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutApiV1OrganizationsOrganizationGroupsGroupidResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -606,6 +1139,84 @@ func (c *ClientWithResponses) GetWellKnownOpenidConfigurationWithResponse(ctx co
 	return ParseGetWellKnownOpenidConfigurationResponse(rsp)
 }
 
+// GetApiV1OrganizationsWithResponse request returning *GetApiV1OrganizationsResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error) {
+	rsp, err := c.GetApiV1Organizations(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsResponse(rsp)
+}
+
+// PutApiV1OrganizationsOrganizationWithBodyWithResponse request with arbitrary body returning *PutApiV1OrganizationsOrganizationResponse
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganizationWithBody(ctx, organization, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutApiV1OrganizationsOrganizationResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationWithResponse(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganization(ctx, organization, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutApiV1OrganizationsOrganizationResponse(rsp)
+}
+
+// GetApiV1OrganizationsOrganizationGroupsWithResponse request returning *GetApiV1OrganizationsOrganizationGroupsResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationGroupsResponse, error) {
+	rsp, err := c.GetApiV1OrganizationsOrganizationGroups(ctx, organization, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsOrganizationGroupsResponse(rsp)
+}
+
+// PostApiV1OrganizationsOrganizationGroupsWithBodyWithResponse request with arbitrary body returning *PostApiV1OrganizationsOrganizationGroupsResponse
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationGroupsWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationGroupsResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationGroupsWithBody(ctx, organization, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1OrganizationsOrganizationGroupsResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationGroupsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationGroupsResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationGroups(ctx, organization, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1OrganizationsOrganizationGroupsResponse(rsp)
+}
+
+// DeleteApiV1OrganizationsOrganizationGroupsGroupidWithResponse request returning *DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse
+func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationGroupsGroupidWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse, error) {
+	rsp, err := c.DeleteApiV1OrganizationsOrganizationGroupsGroupid(ctx, organization, groupid, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp)
+}
+
+// PutApiV1OrganizationsOrganizationGroupsGroupidWithBodyWithResponse request with arbitrary body returning *PutApiV1OrganizationsOrganizationGroupsGroupidResponse
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationGroupsGroupidWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganizationGroupsGroupidWithBody(ctx, organization, groupid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationGroupsGroupidWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganizationGroupsGroupid(ctx, organization, groupid, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp)
+}
+
 // GetOauth2V2AuthorizationWithResponse request returning *GetOauth2V2AuthorizationResponse
 func (c *ClientWithResponses) GetOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2AuthorizationResponse, error) {
 	rsp, err := c.GetOauth2V2Authorization(ctx, reqEditors...)
@@ -688,6 +1299,102 @@ func ParseGetWellKnownOpenidConfigurationResponse(rsp *http.Response) (*GetWellK
 		}
 		response.JSON200 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1OrganizationsResponse parses an HTTP response from a GetApiV1OrganizationsWithResponse call
+func ParseGetApiV1OrganizationsResponse(rsp *http.Response) (*GetApiV1OrganizationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParsePutApiV1OrganizationsOrganizationResponse parses an HTTP response from a PutApiV1OrganizationsOrganizationWithResponse call
+func ParsePutApiV1OrganizationsOrganizationResponse(rsp *http.Response) (*PutApiV1OrganizationsOrganizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutApiV1OrganizationsOrganizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1OrganizationsOrganizationGroupsResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationGroupsWithResponse call
+func ParseGetApiV1OrganizationsOrganizationGroupsResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationGroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsOrganizationGroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1OrganizationsOrganizationGroupsResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationGroupsWithResponse call
+func ParsePostApiV1OrganizationsOrganizationGroupsResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationGroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1OrganizationsOrganizationGroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiV1OrganizationsOrganizationGroupsGroupidResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationGroupsGroupidWithResponse call
+func ParseDeleteApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse parses an HTTP response from a PutApiV1OrganizationsOrganizationGroupsGroupidWithResponse call
+func ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp *http.Response) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutApiV1OrganizationsOrganizationGroupsGroupidResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil

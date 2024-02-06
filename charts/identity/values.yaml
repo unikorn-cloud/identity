@@ -34,6 +34,8 @@ host: identity.acme.org
 # providers:
 # - # Must be a valid Kubernetes resource name.
 #   name: google-identity
+#   # Must be one of "google"
+#   type: google
 #   # A human readable name, most often used for UIs.
 #   displayName: Google Identity
 #   # The issuer is usually provided by the oidc provider and will have
@@ -45,13 +47,29 @@ host: identity.acme.org
 #   clientSecret:  GOCSPX-akjfdns3238r328r9832rewjbds
 
 # A static list of oauth2 domain mappings.
-# mappings:
-# - # Must be a valid Kubernetes resource name.
+# organizations:
+# - # Must be a member of the the domain.
+#   owner: dave@acme.com
+#   # Must be a valid Kubernetes resource name.
 #   name: gmail
 #   # An email domain e.g. user@domain.
 #   domain: gmail.com
 #   # A provider to use for the email domain.
 #   provider: google-identity
+#   # A specification for the provider type.
+#   google:
+#     # Defines the customer ID that can be queried to determine group
+#     # membership of a user.
+#     customerId: d83dx45dx
+#   # A set of group mappings from the identity provider to those encoded
+#   # in issued access tokens.
+#   groups:
+#   - # A unique and immutable ID.
+#     id: 5f7033e8-17fc-41a1-a8f6-f3085115b611
+#     # The name to be displayed by UIs.
+#     displayName: My Group
+#     # The unique name the provider refers to the group.
+#     providerName: groups/38ru24810eck10
 
 ingress:
   # Sets the ingress class to use.

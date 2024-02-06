@@ -1,0 +1,17 @@
+{{ range $org := .Values.organizations }}
+---
+apiVersion: unikorn-cloud.org/v1alpha1
+kind: Organization
+metadata:
+  name: {{ $org.name }}
+  labels:
+    {{- include "unikorn.labels" $ | nindent 4 }}
+spec:
+  owner: {{ $org.owner }}
+  domain: {{ $org.domain }}
+  providerName: {{ $org.provider }}
+  {{- with $google := $org.google }}
+  google:
+    customerId: {{ $google.customerId }}
+  {{- end }}
+{{- end }}

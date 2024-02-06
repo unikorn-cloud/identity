@@ -98,7 +98,150 @@ paths:
           $ref: '#/components/responses/jwksResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations:
+    description: |-
+      Allows management of organizations.  Organizations are identified by an
+      email domain.  The email domain is used to route login requests to a
+      back-end provider e.g. Google or Microsoft.  The provider may allow
+      configuration that in turn allows configuration of fine-grained access
+      control based on group information from the identiy provider.  At present
+      a user can be the owner of one organization, and must be a member of
+      that domain.
+    get:
+      description: |-
+        Returns a list of organizations that are owned/managed by the user.
+      responses:
+        '200':
+          description: A list of organizations.
+        '401':
+          description: Invalid credentials were provided.
+  # TODO: we need to make this so it's only allowed from trusted sources,
+  # otherwise we leave ourselves open to abuse in some way shape or form.
+  # This is intended to be the gateway onto the platform, so it comes into
+  # play when self-service is required.
+  #  post:
+  #    description: |-
+  #      Allows creation of an organization.
+  #    requestBody:
+  #      $ref: '#/components/requestBodies/createOrganizationRequest'
+  #    responses:
+  #      '201':
+  #        description: The organization was successfully created.
+  #      '401':
+  #        description: Invalid credentials were provided.
+  #      '409':
+  #        description: The organization already exists.
+  /api/v1/organizations/{organization}:
+    description: |-
+      Allows management of organizations.  Organizations are identified by an
+      email domain.  The email domain is used to route login requests to a
+      back-end provider e.g. Google or Microsoft.  The provider may allow
+      configuration that in turn allows configuration of fine-grained access
+      control based on group information from the identiy provider.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    put:
+      description: |-
+        Allows an organization to be updated.
+      requestBody:
+        $ref: '#/components/requestBodies/updateOrganizationRequest'
+      responses:
+        '200':
+          description: Organization successfully updated and returned.
+        '401':
+          description: Invalid credentials were provided.
+        '403':
+          description: The user is forbidden from updating the organization.
+  # TODO: in order to create a group, we'd need to know from the identity
+  # provider what groups are available, and to do that we'd need to have
+  # the access token available.  We could pass it around in our access token
+  # using JWE, but then that has the knock on effect of having to worry about
+  # key distribution to resource servers.  The other option is to cache the
+  # result in Redis or something.  A final option is to read the groups on
+  # login by a domain owener, as that's the only time they can be updated,
+  # and cache the results in the custom resource for use later on, but then
+  # that does lead to split-brain/race conditions with multiple owners.
+  /api/v1/organizations/{organization}/groups:
+    description: |-
+      Allows management of organization groups. Groups provide an identity
+      mapping from a group defined by the identity provider to ones that will
+      be added to authorization tokens issued by this service.  A resource
+      server may use group information to implment scoping of resources.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    get:
+      description: |-
+        Returns a list of groups that are defined for the organization.
+      responses:
+        '200':
+          description: A list of groups.
+        '401':
+          description: Invalid credentials were provided.
+    post:
+      description: |-
+        Allows creation of a new group.
+      requestBody:
+        $ref: '#/components/requestBodies/createGroupRequest'
+      responses:
+        '201':
+          description: Group successfully created and returned.
+        '401':
+          description: Invalid credentials were provided.
+        '403':
+          description: The user is forbidden from creating groups.
+        '409':
+          description: The group already exists.
+  /api/v1/organizations/{organization}/groups/{groupid}:
+    description: |-
+      Allows management of organization groups. Groups provide an identity
+      mapping from a group defined by the identity provider to ones that will
+      be added to authorization tokens issued by this service.  A resource
+      server may use group information to implment scoping of resources.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/groupidParameter'
+    put:
+      description: |-
+        Allows a group to be updated.
+      requestBody:
+        $ref: '#/components/requestBodies/updateGroupRequest'
+      responses:
+        '200':
+          description: Group successfully updated and returned.
+        '401':
+          description: Invalid credentials were provided.
+        '403':
+          description: The user is forbidden from creating groups.
+        '404':
+          description: The requested group does not exist.
+    delete:
+      description: |-
+          Allows the deletion of an existing group.
+      responses:
+        '204':
+          description: Group successfully deleted.
+        '401':
+          description: Invalid credentials were provided.
+        '403':
+          description: The user is forbidden from deleting groups.
+        '410':
+          description: The requested group does not exist.
 components:
+  parameters:
+    organizationParameter:
+      name: organization
+      in: path
+      description: An organization name.
+      required: true
+      schema:
+        type: string
+    groupidParameter:
+      name: groupid
+      in: path
+      description: A unique group ID.
+      required: true
+      schema:
+        type: string
   schemas:
     oauth2Error:
       description: Generic error message.
@@ -377,6 +520,34 @@ components:
             redirect_uri: https://example.com/oauth2/callback
             code: eyJhbGciOiJFQ0RILUVTIiwiY3R5IjoiSldUIiwiZW5jIjoiQTI1NkdDTSIsImVwayI6eyJrdHkiOiJFQyIsImNydiI6IlAtNTIxIiwieCI6IkFic05hU1ByY3Y5RVJsWmFrOHVDc2V0T2F2aTJ4bS1taXFPWjVvQmFNR2ptc05Cbi04aE84QU9DbGR2OVM3dDlydTBEbDhabzFEcThxOEM5WUp0WGJfa0YiLCJ5IjoiQWU3VS1DcktsY3RJOXYzM0RsTWFsS0ZBZk9YcC1QeV9zZ0Y5Tjdaa05NQkRDRkVKb0FrRy1FTnhTczI2ME5memg4SnJnSnBRbUFFWHhvZ0poWHp2YWZMQSJ9LCJraWQiOiIxZHh3c29KUlZEQmxTYmxvSm93dDlJTkJwdGJTb21XUlBZck5LeWNFQV9RIiwidHlwIjoiSldUIn0..urRmbxH2_bn8LMla.Yw0a3qstHMAKnxawkIYntHcvOCjaxjzvV1JlmYM-2CTbC1i2VtAsNIKoOlFJ56H2N08pMY9OpZ2cukCHP1BQxsKMsc41VwlIZYvjFrzWIEeDoF92FmpCRGWztuwchBWd7PEQYpfeJFJ2BegacGheQqfRXX35RNDy-ZOc4dWkuvFrV8ISuA8-7_ce7Ha25SrRuSRarTfM_BLA1uDA_P9AWjhsyGKOK2FkuaDU0XmXlLWDz6dKdKy9RJtR_nUUcsljtaImJXjNNPAmJq10nJ501EK_I6M9B3TRUrqalOBm4ks7-vmF_gcE1saOv2AciE9P2BMkc635kaD3C5HlyWT95Skd6C_FwppjQUvYUY0y7Eq2NpnVfkX4uSPm8fUD4brSjGWnHMNE8z4M2_PlM4KSZAieLRmMAjY5xW8XY_uCXr5nb-8SmA_P-ljCVOPPAXDXExa2xSxbAJvrYqWeuG2IvAkC0ab6pojlqUmkRWvOX5tnXQav5vO2qOAgCYUhSIWXz0-Y8hczRUSgDTyQm59yU7xqVqCiywChgXlO32KwhhnrfLxNlrMB45XOlzhJP1c3DCg7ZW7bO_Q7A08GjvrXxTm7gUDr-jsdW9hTSiNJQu__zSMFPVVNTqnz1MDFIeusi6GJi9VC0A_ouXsdhcNKn6jeIDV9dnMxCcjbQT5qsCEqo-UcCGvH0_w4aChpldMg8HGPeUSZhaBSL1yns_I0C9AADFe9dmXN6wCHBu8JCy-T4FoeXRlVSKVuG2GJi8sfzAFFh6iKhQXxHm5KNA_iorBJVEOSX3dL6KOUXfdsBfTzg3aMoEyp2bJ9NaactGmFyJZM9e6MxS8UxgN6KHe7Gduc0NGFyBru3ClMq2BzchOxbzDQ_oi5YoSuxLpgGl3xiJfNnClqFTqXMJ75uSk0_OkKgvmHea9QGRaasx5XALSpap_ckCZvNYjG_oZh404-KTjpa2iJgENczeUT2F4jq59rCCAUFZVfyu3qtBAeJme4VghnbTvaITJbpFeBUySgYKcuGQ.uvQMjilUi8JcdyGe3Lbatg
             code_verifier: ZWQ0MGJjZGYyNThkZDYyM2QwNzQyOTY0NGM0ZWZjMzU5ZjRmMDkzZjVkNDJkNjVhNjAxZDYzZTVkYzY0MmNjZQo
+    createOrganizationRequest:
+      description: Body required to create an organization.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    updateOrganizationRequest:
+      description: Body required to update an organization.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    createGroupRequest:
+      description: Body required to create a group.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+    updateGroupRequest:
+      description: Body required to update a group.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
   responses:
     badRequestResponse:
       description: |-

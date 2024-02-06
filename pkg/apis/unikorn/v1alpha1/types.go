@@ -21,6 +21,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// IdentityProviderType defines the type of identity provider, and in turn
+// that defines the required configuration and API interfaces.
+// +kubebuilder:validation:Enum=google
+type IdentityProviderType string
+
+const (
+	GoogleIdentity IdentityProviderType = "google"
+)
+
 // OAuth2ClientList is a typed list of frontend clients.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type OAuth2ClientList struct {
@@ -81,6 +90,12 @@ type OAuth2Provider struct {
 // OAuth2ProviderSpec defines the required configuration for an oauth2
 // provider.
 type OAuth2ProviderSpec struct {
+	// Type defines the interface to use with the provider, specifically
+	// how to retrieve group information for fine-grained RBAC.  For certain
+	// global provider types e.g. Google or Microsoft, only a single instance
+	// of that type should be specified, doing otherwise will result in
+	// undefined behaviour.
+	Type IdentityProviderType `json:"type"`
 	// HumanReadableName is a user readable issuer name.
 	HumanReadableName string `json:"displayName"`
 	// The issuer is typically provided by the identity provider as an
@@ -97,15 +112,15 @@ type OAuth2ProviderSpec struct {
 type OAuth2ProviderStatus struct {
 }
 
-// OAuth2MappingList is a typed list of identity mappings.
+// OrganizationList is a typed list of identity mappings.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type OAuth2MappingList struct {
+type OrganizationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []OAuth2Mapping `json:"items"`
+	Items           []Organization `json:"items"`
 }
 
-// OAuth2Mapping describes an identity mapping.  The main job of this type
+// Organization describes an identity mapping.  The main job of this type
 // is to take an email address identity, extract the domain and use it to
 // resolve an identity provider.  It also is the place where users within
 // that domain can be allowed based on groups/claims offered by that identity
@@ -116,22 +131,59 @@ type OAuth2MappingList struct {
 // +kubebuilder:printcolumn:name="domain",type="string",JSONPath=".spec.domain"
 // +kubebuilder:printcolumn:name="provider",type="string",JSONPath=".spec.providerName"
 // +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
-type OAuth2Mapping struct {
+type Organization struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              OAuth2MappingSpec   `json:"spec"`
-	Status            OAuth2MappingStatus `json:"status,omitempty"`
+	Spec              OrganizationSpec   `json:"spec"`
+	Status            OrganizationStatus `json:"status,omitempty"`
 }
 
-// OAuth2MappingSpec defines the required configuration for the server.
-type OAuth2MappingSpec struct {
+// OrganizationSpec defines the required configuration for the server.
+type OrganizationSpec struct {
+	// Owner is a list of explicit user email address that is
+	// an uber admin and gets full permissions to everything.
+	Owner string `json:"owner"`
 	// Domain is used by unikorn-identity to map an end-user provided
 	// email address to an identity provider.
 	Domain string `json:"domain"`
 	// ProviderName is the name of an oauth2/oidc provider.
 	ProviderName string `json:"providerName"`
+	// ProviderSpec is the configuration for a specific provider type.
+	ProviderSpec OrganizationProviderSpec `json:",inline"`
+	// Groups defines the set of groups that are allowed to be mapped
+	// from the identity provider into unikorn.  If no groups are specified
+	// then it is assumed all users have access to everything.
+	Groups []OrganizationGroup `json:"groups,omitempty"`
 }
 
-// OAuth2MappingStatus defines the status of the server.
-type OAuth2MappingStatus struct {
+type OrganizationProviderSpec struct {
+	// If the referenced provider is set to "google" then the following
+	// parameters should be specified.
+	Google *OrganizationProviderGoogleSpec `json:"google,omitempty"`
+}
+
+type OrganizationProviderGoogleSpec struct {
+	// CustomerID is retrieved from the "Account Settings > Profile" page on
+	// https://admin.google.com for your organisation and is required to
+	// lookup user groups for fine-grained RBAC.
+	CustomerID string `json:"customerId"`
+}
+
+type OrganizationGroup struct {
+	// ID is the a unique, and immutable identifier for the group, the intent
+	// being that resources will belong to a group irrespective of display name
+	// changes.
+	ID string `json:"id"`
+	// DisplayName is the name to display the group as in UIs and other UX
+	// interfaces.  This should again be unique within the organization to
+	// avoid ambiguity, but may be changed.
+	DisplayName string `json:"displayName"`
+	// ProviderName is the name of the group as returned by the provider.
+	// For example a query of https://cloudidentity.googleapis.com/v1/groups/
+	// will return something like groups/01664s551ax43ok.
+	ProviderName string `json:"providerName"`
+}
+
+// OrganizationStatus defines the status of the server.
+type OrganizationStatus struct {
 }

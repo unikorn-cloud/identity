@@ -224,6 +224,12 @@ type TokenRequestOptions1 struct {
 	GrantType *interface{} `json:"grant_type,omitempty"`
 }
 
+// GroupidParameter defines model for groupidParameter.
+type GroupidParameter = string
+
+// OrganizationParameter defines model for organizationParameter.
+type OrganizationParameter = string
+
 // BadRequestResponse Generic error message.
 type BadRequestResponse = Oauth2Error
 
@@ -242,6 +248,33 @@ type TokenResponse = Token
 
 // UnauthorizedResponse Generic error message.
 type UnauthorizedResponse = Oauth2Error
+
+// CreateGroupRequest defines model for createGroupRequest.
+type CreateGroupRequest = map[string]interface{}
+
+// UpdateGroupRequest defines model for updateGroupRequest.
+type UpdateGroupRequest = map[string]interface{}
+
+// UpdateOrganizationRequest defines model for updateOrganizationRequest.
+type UpdateOrganizationRequest = map[string]interface{}
+
+// PutApiV1OrganizationsOrganizationJSONBody defines parameters for PutApiV1OrganizationsOrganization.
+type PutApiV1OrganizationsOrganizationJSONBody = map[string]interface{}
+
+// PostApiV1OrganizationsOrganizationGroupsJSONBody defines parameters for PostApiV1OrganizationsOrganizationGroups.
+type PostApiV1OrganizationsOrganizationGroupsJSONBody = map[string]interface{}
+
+// PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody defines parameters for PutApiV1OrganizationsOrganizationGroupsGroupid.
+type PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody = map[string]interface{}
+
+// PutApiV1OrganizationsOrganizationJSONRequestBody defines body for PutApiV1OrganizationsOrganization for application/json ContentType.
+type PutApiV1OrganizationsOrganizationJSONRequestBody = PutApiV1OrganizationsOrganizationJSONBody
+
+// PostApiV1OrganizationsOrganizationGroupsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationGroups for application/json ContentType.
+type PostApiV1OrganizationsOrganizationGroupsJSONRequestBody = PostApiV1OrganizationsOrganizationGroupsJSONBody
+
+// PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody defines body for PutApiV1OrganizationsOrganizationGroupsGroupid for application/json ContentType.
+type PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody = PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions

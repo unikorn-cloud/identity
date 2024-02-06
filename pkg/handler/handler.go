@@ -15,6 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:revive,stylecheck
 package handler
 
 import (
@@ -144,4 +145,22 @@ func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 	h.authenticator.OAuth2.OIDCCallback(w, r)
+}
+
+func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+}
+
+func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+}
+
+func (h *Handler) GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+}
+
+func (h *Handler) PostApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+}
+
+func (h *Handler) DeleteApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
+}
+
+func (h *Handler) PutApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
 }

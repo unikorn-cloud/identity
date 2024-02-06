@@ -280,6 +280,7 @@ func (a *Authenticator) oidcConfig(r *http.Request, provider *unikornv1.OAuth2Pr
 			oidc.ScopeOpenID,
 			"profile",
 			"email",
+			"https://www.googleapis.com/auth/cloud-identity.groups.readonly",
 		},
 	}
 }
@@ -349,14 +350,14 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *Authenticator) lookupMapping(_ http.ResponseWriter, r *http.Request, email string) (*unikornv1.OAuth2Mapping, error) {
+func (a *Authenticator) lookupOrganization(_ http.ResponseWriter, r *http.Request, email string) (*unikornv1.Organization, error) {
 	// TODO: error checking.
 	parts := strings.Split(email, "@")
 
 	// TODO: error checking.
 	domain := parts[1]
 
-	var mappings unikornv1.OAuth2MappingList
+	var mappings unikornv1.OrganizationList
 
 	if err := a.client.List(r.Context(), &mappings, &client.ListOptions{Namespace: a.namespace}); err != nil {
 		return nil, err
@@ -400,7 +401,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mapping, err := a.lookupMapping(w, r, email)
+	mapping, err := a.lookupOrganization(w, r, email)
 	if err != nil {
 		log.Error(err, "failed to list mappings")
 		return
@@ -474,6 +475,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	authURLParams := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
+		oauth2.SetAuthURLParam("login_hint", email),
 		oidc.Nonce(nonce),
 	}
 

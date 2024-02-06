@@ -7,6 +7,7 @@ metadata:
   labels:
     {{- include "unikorn.labels" $ | nindent 4 }}
 spec:
+  type: {{ $provider.type }}
   displayName: {{ $provider.displayName }}
   issuer: {{ $provider.issuer }}
   clientID: {{ $provider.clientID }}

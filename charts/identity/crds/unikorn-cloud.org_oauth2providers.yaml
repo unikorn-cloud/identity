@@ -64,11 +64,21 @@ spec:
                   as an OIDC discovery endpoint e.g. https://accounts.google.com.
                   This will be used to verify issued JWTs have the same "iss" claim.
                 type: string
+              type:
+                description: Type defines the interface to use with the provider,
+                  specifically how to retrieve group information for fine-grained
+                  RBAC.  For certain global provider types e.g. Google or Microsoft,
+                  only a single instance of that type should be specified, doing otherwise
+                  will result in undefined behaviour.
+                enum:
+                - google
+                type: string
             required:
             - clientID
             - clientSecret
             - displayName
             - issuer
+            - type
             type: object
           status:
             description: OAuth2ProviderStatus defines the status of the server.
