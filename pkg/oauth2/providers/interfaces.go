@@ -1,5 +1,4 @@
 /*
-Copyright 2022-2024 EscherCloud.
 Copyright 2024 the Unikorn Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middleware
+package providers
 
 import (
 	"context"
-	"net/http"
-	"time"
 )
 
-// Timeout adds a timeout to requests.
-func Timeout(timeout time.Duration) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx, cancel := context.WithTimeout(r.Context(), timeout)
-			defer cancel()
+type Provider interface {
+	// Scopes returns a set of scopes that are required by the access token
+	// to operate correctly.
+	Scopes() []string
 
-			next.ServeHTTP(w, r.Clone(ctx))
-		})
-	}
+	// Groups returns a list of groups the user belongs to.
+	Groups(ctx context.Context, accessToken string) ([]string, error)
 }

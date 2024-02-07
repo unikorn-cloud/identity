@@ -506,6 +506,7 @@ components:
           schema:
             $ref: '#/components/schemas/loginRequestOptions'
           example:
+            query: response_type=code&client_id=861847a4-a524-40cc-b073-f895111f40a8&redirect_uri=https%3A%2F%2Funikorn.spjmurray.co.uk%2Foauth2%2Fcallback&code_challenge_method=S256&code_challenge=jcCPNhhtZw4R5HAXVyZhH-7oRscnVnRYzJjfNEOchIM&scope=openid+email+profile
             email: joe.bloggs@acme.com
     tokenRequest:
       description: OAuth2 token request, consult the relevant OAuth2 and OIDC specifications for further details.

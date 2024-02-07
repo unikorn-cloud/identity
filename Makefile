@@ -182,3 +182,19 @@ lint: $(GENDIR)
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(LINT_VERSION)
 	$(GOBIN)/golangci-lint run ./...
 	helm lint --strict charts/identity
+
+# Validate the server OpenAPI schema is legit.
+.PHONY: validate
+validate: $(SRVGENDIR)
+	go run ./hack/validate_openapi
+
+# Validate the docs can be generated without fail.
+.PHONY: validate-docs
+validate-docs: $(SRVGENDIR)
+	go run github.com/unikorn-cloud/core/hack/docs --dry-run --openapi-schema openapi/server.spec.yaml
+
+# Perform license checking.
+# This must pass or you will be denied by CI.
+.PHONY: license
+license:
+	go run github.com/unikorn-cloud/core/hack/check_license

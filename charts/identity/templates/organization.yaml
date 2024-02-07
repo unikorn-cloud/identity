@@ -10,8 +10,11 @@ spec:
   owner: {{ $org.owner }}
   domain: {{ $org.domain }}
   providerName: {{ $org.provider }}
-  {{- with $google := $org.google }}
-  google:
-    customerId: {{ $google.customerId }}
+  {{- with $options := $org.providerOptions }}
+  providerOptions:
+    {{- with $google := $options.google }}
+    google:
+      customerId: {{ $google.customerId }}
+    {{- end }}
   {{- end }}
 {{- end }}

@@ -42,6 +42,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -95,6 +96,8 @@ type State struct {
 	// OAuth2Provider is the name of the provider configuration in
 	// use, this will reference the issuer and allow discovery.
 	OAuth2Provider string `json:"oap"`
+	// Organization is a reference to the organization name.
+	Organization string `json:"org"`
 	// ClientID is the client identifier.
 	ClientID string `json:"cid"`
 	// ClientRedirectURI is the redirect URL requested by the client.
@@ -268,7 +271,17 @@ func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, 
 }
 
 // oidcConfig returns a oauth2 configuration for the OIDC backend.
-func (a *Authenticator) oidcConfig(r *http.Request, provider *unikornv1.OAuth2Provider, endpoint oauth2.Endpoint) *oauth2.Config {
+func (a *Authenticator) oidcConfig(r *http.Request, provider *unikornv1.OAuth2Provider, endpoint oauth2.Endpoint, scopes []string) *oauth2.Config {
+	s := []string{
+		oidc.ScopeOpenID,
+		// For the user's name.
+		"profile",
+		// For the user's real email address i.e. not an alias.
+		"email",
+	}
+
+	s = append(s, scopes...)
+
 	return &oauth2.Config{
 		ClientID: provider.Spec.ClientID,
 		Endpoint: endpoint,
@@ -276,12 +289,7 @@ func (a *Authenticator) oidcConfig(r *http.Request, provider *unikornv1.OAuth2Pr
 		// and adds an X-Forwardered-Host, X-Forwarded-Proto.  You should
 		// never use HTTP anyway to be fair...
 		RedirectURL: "https://" + r.Host + "/oidc/callback",
-		Scopes: []string{
-			oidc.ScopeOpenID,
-			"profile",
-			"email",
-			"https://www.googleapis.com/auth/cloud-identity.groups.readonly",
-		},
+		Scopes:      s,
 	}
 }
 
@@ -357,15 +365,15 @@ func (a *Authenticator) lookupOrganization(_ http.ResponseWriter, r *http.Reques
 	// TODO: error checking.
 	domain := parts[1]
 
-	var mappings unikornv1.OrganizationList
+	var organizations unikornv1.OrganizationList
 
-	if err := a.client.List(r.Context(), &mappings, &client.ListOptions{Namespace: a.namespace}); err != nil {
+	if err := a.client.List(r.Context(), &organizations, &client.ListOptions{Namespace: a.namespace}); err != nil {
 		return nil, err
 	}
 
-	for i := range mappings.Items {
-		if mappings.Items[i].Spec.Domain == domain {
-			return &mappings.Items[i], nil
+	for i := range organizations.Items {
+		if organizations.Items[i].Spec.Domain == domain {
+			return &organizations.Items[i], nil
 		}
 	}
 
@@ -401,18 +409,20 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	mapping, err := a.lookupOrganization(w, r, email)
+	organization, err := a.lookupOrganization(w, r, email)
 	if err != nil {
-		log.Error(err, "failed to list mappings")
+		log.Error(err, "failed to list organizations")
 		return
 	}
 
 	var providerResource unikornv1.OAuth2Provider
 
-	if err := a.client.Get(r.Context(), client.ObjectKey{Namespace: a.namespace, Name: mapping.Spec.ProviderName}, &providerResource); err != nil {
+	if err := a.client.Get(r.Context(), client.ObjectKey{Namespace: a.namespace, Name: organization.Spec.ProviderName}, &providerResource); err != nil {
 		log.Error(err, "failed to get provider")
 		return
 	}
+
+	driver := providers.New(providerResource.Spec.Type, organization)
 
 	provider, err := oidc.NewProvider(r.Context(), providerResource.Spec.Issuer)
 	if err != nil {
@@ -448,6 +458,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	// deployments, just encrypt it and send with the authoriation request.
 	oidcState := &State{
 		OAuth2Provider:      providerResource.Name,
+		Organization:        organization.Name,
 		Nonce:               nonce,
 		CodeVerfier:         codeVerifier,
 		ClientID:            query.Get("client_id"),
@@ -479,7 +490,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		oidc.Nonce(nonce),
 	}
 
-	http.Redirect(w, r, a.oidcConfig(r, &providerResource, endpoint).AuthCodeURL(state, authURLParams...), http.StatusFound)
+	http.Redirect(w, r, a.oidcConfig(r, &providerResource, endpoint, driver.Scopes()).AuthCodeURL(state, authURLParams...), http.StatusFound)
 }
 
 // oidcExtractIDToken wraps up token verification against the JWKS service and conversion
@@ -558,7 +569,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		oauth2.SetAuthURLParam("code_verifier", state.CodeVerfier),
 	}
 
-	tokens, err := a.oidcConfig(r, &providerResource, endpoint).Exchange(r.Context(), query.Get("code"), authURLParams...)
+	tokens, err := a.oidcConfig(r, &providerResource, endpoint, nil).Exchange(r.Context(), query.Get("code"), authURLParams...)
 	if err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "oidc code exchange failed: "+err.Error())
 		return
@@ -583,7 +594,23 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: poll groups here!
+	// Do RBAC related things while we have the access token.
+	var organization unikornv1.Organization
+
+	if err := a.client.Get(r.Context(), client.ObjectKey{Namespace: a.namespace, Name: state.Organization}, &organization); err != nil {
+		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to lookup user organization: "+err.Error())
+		return
+	}
+
+	driver := providers.New(providerResource.Spec.Type, &organization)
+
+	if _, err := driver.Groups(r.Context(), tokens.AccessToken); err != nil {
+		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to lookup user groups: "+err.Error())
+		return
+	}
+
+	// TODO: map from IdP groups to ours and add into the code for later encoding
+	// into the access token.
 
 	oauth2Code := &Code{
 		ClientID:            state.ClientID,
@@ -725,7 +752,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 
 	expiry := time.Now().Add(24 * time.Hour)
 
-	// TODO: add some scopes, these hould probably be derived from the OIDC mapping.
+	// TODO: add some scopes, these hould probably be derived from the organization.
 	accessToken, err := Issue(a.issuer, r, code.ClientID, code.Email, nil, expiry)
 	if err != nil {
 		return nil, err
