@@ -57,10 +57,11 @@ host: identity.acme.org
 #   # A provider to use for the email domain.
 #   provider: google-identity
 #   # A specification for the provider type.
-#   google:
-#     # Defines the customer ID that can be queried to determine group
-#     # membership of a user.
-#     customerId: d83dx45dx
+#   providerOptions:
+#     google:
+#       # Defines the customer ID that can be queried to determine group
+#       # membership of a user.
+#       customerId: d83dx45dx
 #   # A set of group mappings from the identity provider to those encoded
 #   # in issued access tokens.
 #   groups:

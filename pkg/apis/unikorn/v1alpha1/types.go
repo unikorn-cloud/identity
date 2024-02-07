@@ -148,15 +148,15 @@ type OrganizationSpec struct {
 	Domain string `json:"domain"`
 	// ProviderName is the name of an oauth2/oidc provider.
 	ProviderName string `json:"providerName"`
-	// ProviderSpec is the configuration for a specific provider type.
-	ProviderSpec OrganizationProviderSpec `json:",inline"`
+	// ProviderOptions is the configuration for a specific provider type.
+	ProviderOptions *OrganizationProviderOptions `json:"providerOptions,omitempty"`
 	// Groups defines the set of groups that are allowed to be mapped
 	// from the identity provider into unikorn.  If no groups are specified
 	// then it is assumed all users have access to everything.
 	Groups []OrganizationGroup `json:"groups,omitempty"`
 }
 
-type OrganizationProviderSpec struct {
+type OrganizationProviderOptions struct {
 	// If the referenced provider is set to "google" then the following
 	// parameters should be specified.
 	Google *OrganizationProviderGoogleSpec `json:"google,omitempty"`

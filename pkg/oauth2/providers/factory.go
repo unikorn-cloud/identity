@@ -1,5 +1,4 @@
 /*
-Copyright 2022-2024 EscherCloud.
 Copyright 2024 the Unikorn Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,22 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middleware
+package providers
 
 import (
-	"context"
-	"net/http"
-	"time"
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/google"
 )
 
-// Timeout adds a timeout to requests.
-func Timeout(timeout time.Duration) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx, cancel := context.WithTimeout(r.Context(), timeout)
-			defer cancel()
-
-			next.ServeHTTP(w, r.Clone(ctx))
-		})
+func New(providerType unikornv1.IdentityProviderType, organization *unikornv1.Organization) Provider {
+	//nolint:gocritic
+	switch providerType {
+	case unikornv1.GoogleIdentity:
+		return google.New(organization)
 	}
+
+	return newNullProvider()
 }
