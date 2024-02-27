@@ -120,25 +120,27 @@ func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
+	h.setCORS(w)
+
 	result, err := h.authenticator.OAuth2.Token(w, r)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	h.setCORS(w)
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
+	h.setCORS(w)
+
 	result, err := h.authenticator.JWKS()
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	h.setCORS(w)
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
