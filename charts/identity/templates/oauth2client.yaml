@@ -1,6 +1,6 @@
 {{ range $client := .Values.clients }}
 ---
-apiVersion: unikorn-cloud.org/v1alpha1
+apiVersion: identity.unikorn-cloud.org/v1alpha1
 kind: OAuth2Client
 metadata:
   name: {{ $client.name }}

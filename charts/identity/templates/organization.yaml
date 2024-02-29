@@ -1,6 +1,6 @@
 {{ range $org := .Values.organizations }}
 ---
-apiVersion: unikorn-cloud.org/v1alpha1
+apiVersion: identity.unikorn-cloud.org/v1alpha1
 kind: Organization
 metadata:
   name: {{ $org.name }}

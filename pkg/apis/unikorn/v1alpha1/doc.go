@@ -15,5 +15,5 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package,register
-// +groupName=unikorn-cloud.org
+// +groupName=identity.unikorn-cloud.org
 package v1alpha1

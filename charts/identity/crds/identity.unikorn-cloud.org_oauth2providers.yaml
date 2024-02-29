@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.12.1
-  name: oauth2providers.unikorn-cloud.org
+  name: oauth2providers.identity.unikorn-cloud.org
 spec:
-  group: unikorn-cloud.org
+  group: identity.unikorn-cloud.org
   names:
     categories:
     - unikorn
