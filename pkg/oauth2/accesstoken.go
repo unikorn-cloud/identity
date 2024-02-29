@@ -49,8 +49,10 @@ var (
 type Claims struct {
 	jwt.Claims `json:",inline"`
 
-	// Scope is the set of scopes for a JWT as defined by oauth2.
-	// These also correspond to security requirements in the OpenAPI schema.
+	// Organization is the top level organization the user belongs to.
+	Organization string `json:"org"`
+
+	// Scope is the oauth2 scope of the token.
 	Scope Scope `json:"scope,omitempty"`
 }
 
@@ -83,7 +85,7 @@ func ClaimsFromContext(ctx context.Context) (*Claims, error) {
 }
 
 // Issue issues a new JWT access token.
-func Issue(i *jose.JWTIssuer, r *http.Request, clientID, subject string, scope Scope, expiresAt time.Time) (string, error) {
+func Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) (string, error) {
 	now := time.Now()
 
 	nowRFC7519 := jwt.NumericDate(now.Unix())
@@ -92,16 +94,16 @@ func Issue(i *jose.JWTIssuer, r *http.Request, clientID, subject string, scope S
 	claims := &Claims{
 		Claims: jwt.Claims{
 			ID:      uuid.New().String(),
-			Subject: subject,
+			Subject: code.Email,
 			Audience: jwt.Audience{
-				clientID,
+				code.ClientID,
 			},
 			Issuer:    "https://" + r.Host,
 			IssuedAt:  &nowRFC7519,
 			NotBefore: &nowRFC7519,
 			Expiry:    &expiresAtRFC7519,
 		},
-		Scope: scope,
+		Organization: code.Organization,
 	}
 
 	token, err := i.EncodeJWT(claims)

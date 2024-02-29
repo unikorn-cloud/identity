@@ -137,6 +137,8 @@ type Code struct {
 	// TODO: we would be a lot more flexible by passing all the claims over...
 	// Email is exactly that.
 	Email string `json:"email"`
+	// Organization is the user's organization name.
+	Organization string `json:"org"`
 }
 
 var (
@@ -618,6 +620,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		ClientCodeChallenge: state.ClientCodeChallenge,
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
+		Organization:        state.Organization,
 		Email:               claims.Email,
 	}
 
@@ -753,7 +756,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	expiry := time.Now().Add(24 * time.Hour)
 
 	// TODO: add some scopes, these hould probably be derived from the organization.
-	accessToken, err := Issue(a.issuer, r, code.ClientID, code.Email, nil, expiry)
+	accessToken, err := Issue(a.issuer, r, code, expiry)
 	if err != nil {
 		return nil, err
 	}

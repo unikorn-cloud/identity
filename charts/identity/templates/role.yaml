@@ -6,7 +6,7 @@ metadata:
     {{- include "unikorn.labels" . | nindent 4 }}
 rules:
 - apiGroups:
-  - unikorn-cloud.org
+  - identity.unikorn-cloud.org
   resources:
   - oauth2clients
   - oauth2providers
