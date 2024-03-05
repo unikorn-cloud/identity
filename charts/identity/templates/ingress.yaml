@@ -10,6 +10,9 @@ metadata:
   {{- else }}
     cert-manager.io/issuer: "unikorn-identity-ingress"
   {{- end }}
+  {{- if .Values.ingress.externalDns }}
+    external-dns.alpha.kubernetes.io/hostname: {{ .Values.host }}
+  {{- end }}
 spec:
   {{- if .Values.ingress.class }}
   ingressClassName: {{ .Values.ingress.class }}

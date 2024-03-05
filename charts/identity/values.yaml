@@ -79,3 +79,6 @@ ingress:
   # Cert Manager certificate issuer to use.  If not specified it will generate a
   # self signed one.
   issuer: ~
+
+  # If true, will add the external DNS hostname annotation.
+  externalDns: false
