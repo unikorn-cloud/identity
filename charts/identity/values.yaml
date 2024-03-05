@@ -74,7 +74,7 @@ host: identity.acme.org
 
 ingress:
   # Sets the ingress class to use.
-  ingressClass: ~
+  class: ~
 
   # Cert Manager certificate issuer to use.  If not specified it will generate a
   # self signed one.
