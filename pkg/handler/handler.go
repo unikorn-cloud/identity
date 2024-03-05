@@ -67,6 +67,8 @@ func (h *Handler) setCORS(w http.ResponseWriter) {
 }
 
 func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
+	h.setCORS(w)
+
 	result := &generated.OpenidConfiguration{
 		Issuer:                h.options.Host,
 		AuthorizationEndpoint: fmt.Sprintf("%s/oauth2/v2/authorization", h.options.Host),
