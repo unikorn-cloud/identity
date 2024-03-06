@@ -2,6 +2,17 @@ apiVersion: v1
 entries:
   unikorn-identity:
   - apiVersion: v2
+    appVersion: v0.1.10
+    created: "2024-03-06T15:18:04.620160258Z"
+    description: A Helm chart for deploying Unikorn's IdP
+    digest: 99c9cf1773594690c656c2084ea67a1c7c6ea03936cf193ad9fcf4ea3b514345
+    icon: https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/icon.png
+    name: unikorn-identity
+    type: application
+    urls:
+    - https://github.com/unikorn-cloud/identity/releases/download/v0.1.10/unikorn-identity-v0.1.10.tgz
+    version: v0.1.10
+  - apiVersion: v2
     appVersion: v0.1.9
     created: "2024-03-06T14:46:18.261664799Z"
     description: A Helm chart for deploying Unikorn's IdP
@@ -111,4 +122,4 @@ entries:
     urls:
     - https://github.com/unikorn-cloud/identity/releases/download/v0.1.0/unikorn-identity-v0.1.0.tgz
     version: v0.1.0
-generated: "2024-03-06T14:46:18.261709943Z"
+generated: "2024-03-06T15:18:04.620221422Z"
