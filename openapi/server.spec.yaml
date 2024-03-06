@@ -30,11 +30,12 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/authorizationResponse'
-        # TODO: returns HTML not JSON
+        '302':
+          description: A redirect back to the validated callback URL.
         '400':
-          $ref: '#/components/responses/badRequestResponse'
+          $ref: '#/components/responses/htmlErrorResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: '#/components/responses/htmlErrorResponse'
   /oauth2/v2/token:
     description: |-
       Implements OAuth2 code exchange.
@@ -603,6 +604,11 @@ components:
           example:
             error: conflict
             error_description: a resource with the same name already exists
+    htmlErrorResponse:
+      description: |-
+        A generic HTML error page.
+      content:
+        text/html: {}
     internalServerErrorResponse:
       description: |-
         An unexpected error occurred, this may be an unexpected transient error and

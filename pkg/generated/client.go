@@ -1019,8 +1019,6 @@ func (r PutApiV1OrganizationsOrganizationGroupsGroupidResponse) StatusCode() int
 type GetOauth2V2AuthorizationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON400      *Oauth2Error
-	JSON500      *Oauth2Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1411,23 +1409,6 @@ func ParseGetOauth2V2AuthorizationResponse(rsp *http.Response) (*GetOauth2V2Auth
 	response := &GetOauth2V2AuthorizationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest Oauth2Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Oauth2Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
 	}
 
 	return response, nil

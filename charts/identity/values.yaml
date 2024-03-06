@@ -82,3 +82,10 @@ ingress:
 
   # If true, will add the external DNS hostname annotation.
   externalDns: false
+
+# Allows CORS to be configured/secured
+# cors:
+#   # Broswers must send requests from these origin servers, defaults to * if not set.
+#   allowOrigin: ['*']
+#   # How long to cache the CORS preflight for, mostly useless as browsers override this.
+#   maxAge: 86400
