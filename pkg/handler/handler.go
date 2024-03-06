@@ -62,13 +62,7 @@ func (h *Handler) setUncacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", "no-cache")
 }
 
-func (h *Handler) setCORS(w http.ResponseWriter) {
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-}
-
 func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
-	h.setCORS(w)
-
 	result := &generated.OpenidConfiguration{
 		Issuer:                h.options.Host,
 		AuthorizationEndpoint: fmt.Sprintf("%s/oauth2/v2/authorization", h.options.Host),
@@ -122,8 +116,6 @@ func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
-	h.setCORS(w)
-
 	result, err := h.authenticator.OAuth2.Token(w, r)
 	if err != nil {
 		errors.HandleError(w, r, err)
@@ -135,8 +127,6 @@ func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
-	h.setCORS(w)
-
 	result, err := h.authenticator.JWKS()
 	if err != nil {
 		errors.HandleError(w, r, err)

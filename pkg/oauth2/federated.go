@@ -157,6 +157,7 @@ var (
 func htmlError(w http.ResponseWriter, r *http.Request, status int, description string) {
 	log := log.FromContext(r.Context())
 
+	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(status)
 
 	tmpl, err := template.New("error").Parse(errorTemplate)

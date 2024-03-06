@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package middleware
+package openapi
 
 import (
 	"net/http"
@@ -38,7 +38,7 @@ type authorizationContext struct {
 	err error
 
 	// claims contains all claims defined in the token.
-	claims *oauth2.Claims
+	claims oauth2.Claims
 }
 
 // Authorizer provides OpenAPI based authorization middleware.
@@ -55,7 +55,7 @@ func NewAuthorizer(issuer *jose.JWTIssuer) *Authorizer {
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-func (a *Authorizer) authorizeOAuth2(ctx *authorizationContext, r *http.Request, scopes []string) error {
+func (a *Authorizer) authorizeOAuth2(authContext *authorizationContext, r *http.Request, scopes []string) error {
 	authorizationScheme, token, err := authorization.GetHTTPAuthenticationScheme(r)
 	if err != nil {
 		return err
@@ -73,13 +73,13 @@ func (a *Authorizer) authorizeOAuth2(ctx *authorizationContext, r *http.Request,
 
 	// Check the token is authorized to do what the schema says.
 	for _, scope := range scopes {
-		if !slices.Contains([]string(claims.Scope), scope) {
+		if !slices.Contains(claims.Scope, scope) {
 			return errors.OAuth2InvalidScope("token missing required scope").WithValues("scope", scope)
 		}
 	}
 
 	// Set the claims in the context for use by the handlers.
-	ctx.claims = claims
+	authContext.claims = *claims
 
 	return nil
 }
