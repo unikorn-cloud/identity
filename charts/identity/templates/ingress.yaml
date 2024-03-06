@@ -5,7 +5,9 @@ metadata:
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
   annotations:
-  {{- if .Values.ingress.issuer }}
+  {{- if .Values.ingress.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | indent 2 }}
+  {{- else if .Values.ingress.issuer }}
     cert-manager.io/issuer: {{ .Values.ingress.issuer | indent 2 }}
   {{- else }}
     cert-manager.io/issuer: "unikorn-identity-ingress"
