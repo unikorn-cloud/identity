@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/authorization"
-	"github.com/unikorn-cloud/identity/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/util"
 

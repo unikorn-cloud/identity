@@ -28,14 +28,16 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/trace"
 
+	"github.com/unikorn-cloud/core/pkg/server/middleware/cors"
+	"github.com/unikorn-cloud/core/pkg/server/middleware/openapi"
+	"github.com/unikorn-cloud/core/pkg/server/middleware/opentelemetry"
+	"github.com/unikorn-cloud/core/pkg/server/middleware/timeout"
 	"github.com/unikorn-cloud/identity/pkg/authorization"
+	"github.com/unikorn-cloud/identity/pkg/constants"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/handler"
 	"github.com/unikorn-cloud/identity/pkg/jose"
-	"github.com/unikorn-cloud/identity/pkg/middleware/cors"
-	"github.com/unikorn-cloud/identity/pkg/middleware/openapi"
-	"github.com/unikorn-cloud/identity/pkg/middleware/opentelemetry"
-	"github.com/unikorn-cloud/identity/pkg/middleware/timeout"
+	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/local"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -105,7 +107,7 @@ func (s *Server) SetupOpenTelemetry(ctx context.Context) error {
 }
 
 func (s *Server) GetServer(client client.Client) (*http.Server, error) {
-	schema, err := openapi.NewSchema()
+	schema, err := openapi.NewSchema(generated.GetSwagger)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +115,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 	// Middleware specified here is applied to all requests pre-routing.
 	router := chi.NewRouter()
 	router.Use(timeout.Middleware(s.Options.RequestTimeout))
-	router.Use(opentelemetry.Middleware())
+	router.Use(opentelemetry.Middleware(constants.Application, constants.Version))
 	router.Use(cors.Middleware(schema, &s.CORSOptions))
 	router.NotFound(http.HandlerFunc(handler.NotFound))
 	router.MethodNotAllowed(http.HandlerFunc(handler.MethodNotAllowed))
@@ -124,7 +126,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 	authenticator := authorization.NewAuthenticator(issuer, oauth2)
 
 	// Setup middleware.
-	authorizer := openapi.NewAuthorizer(issuer)
+	authorizer := local.NewAuthorizer(issuer)
 
 	// Middleware specified here is applied to all requests post-routing.
 	// NOTE: these are applied in reverse order!!

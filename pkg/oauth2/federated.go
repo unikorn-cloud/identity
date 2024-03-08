@@ -38,8 +38,9 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"golang.org/x/oauth2"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/oauth2/scope"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
@@ -110,7 +111,7 @@ type State struct {
 	// correct client.
 	ClientCodeChallenge string `json:"ccc"`
 	// ClientScope records the requested client scope.
-	ClientScope Scope `json:"csc,omitempty"`
+	ClientScope scope.Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
 }
@@ -131,7 +132,7 @@ type Code struct {
 	// correct client.
 	ClientCodeChallenge string `json:"ccc"`
 	// ClientScope records the requested client scope.
-	ClientScope Scope `json:"csc,omitempty"`
+	ClientScope scope.Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
 	// TODO: we would be a lot more flexible by passing all the claims over...
@@ -472,7 +473,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 
 	// To implement OIDC we need a copy of the scopes.
 	if query.Has("scope") {
-		oidcState.ClientScope = NewScope(query.Get("scope"))
+		oidcState.ClientScope = scope.NewScope(query.Get("scope"))
 	}
 
 	if query.Has("nonce") {
@@ -696,7 +697,7 @@ func oidcPicture(email string) string {
 }
 
 // oidcIDToken builds an OIDC ID token.
-func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Time, atHash, clientID, email string) (*string, error) {
+func (a *Authenticator) oidcIDToken(r *http.Request, scope scope.Scope, expiry time.Time, atHash, clientID, email string) (*string, error) {
 	//nolint:nilnil
 	if !slices.Contains(scope, "openid") {
 		return nil, nil
