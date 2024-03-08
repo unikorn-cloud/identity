@@ -18,7 +18,6 @@ limitations under the License.
 package oauth2
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,6 +26,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/oauth2/claims"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 )
 
@@ -37,52 +37,7 @@ var (
 
 	// ErrTokenVerification is raised when token verification fails.
 	ErrTokenVerification = errors.New("failed to verify token")
-
-	// ErrContextError is raised when a required value cannot be retrieved
-	// from a context.
-	ErrContextError = errors.New("value missing from context")
 )
-
-// Claims is an application specific set of claims.
-// TODO: this technically isn't conformant to oauth2 in that we don't specify
-// the client_id claim, and there are probably others.
-type Claims struct {
-	jwt.Claims `json:",inline"`
-
-	// Organization is the top level organization the user belongs to.
-	Organization string `json:"org"`
-
-	// Scope is the oauth2 scope of the token.
-	Scope Scope `json:"scope,omitempty"`
-}
-
-// contextKey defines a new context key type unique to this package.
-type contextKey int
-
-const (
-	// claimsKey is used to store claims in a context.
-	claimsKey contextKey = iota
-)
-
-// NewContextWithClaims injects the given claims into a new context.
-func NewContextWithClaims(ctx context.Context, claims *Claims) context.Context {
-	return context.WithValue(ctx, claimsKey, claims)
-}
-
-// ClaimsFromContext extracts the claims from a context.
-func ClaimsFromContext(ctx context.Context) (*Claims, error) {
-	value := ctx.Value(claimsKey)
-	if value == nil {
-		return nil, fmt.Errorf("%w: unable to find claims", ErrContextError)
-	}
-
-	claims, ok := value.(*Claims)
-	if !ok {
-		return nil, fmt.Errorf("%w: unable to assert claims", ErrContextError)
-	}
-
-	return claims, nil
-}
 
 // Issue issues a new JWT access token.
 func Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) (string, error) {
@@ -91,7 +46,7 @@ func Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) 
 	nowRFC7519 := jwt.NumericDate(now.Unix())
 	expiresAtRFC7519 := jwt.NumericDate(expiresAt.Unix())
 
-	claims := &Claims{
+	claims := &claims.Claims{
 		Claims: jwt.Claims{
 			ID:      uuid.New().String(),
 			Subject: code.Email,
@@ -115,9 +70,9 @@ func Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) 
 }
 
 // Verify checks the access token parses and validates.
-func Verify(i *jose.JWTIssuer, r *http.Request, tokenString string) (*Claims, error) {
+func Verify(i *jose.JWTIssuer, r *http.Request, tokenString string) (*claims.Claims, error) {
 	// Parse and verify the claims with the public key.
-	claims := &Claims{}
+	claims := &claims.Claims{}
 
 	if err := i.DecodeJWT(tokenString, claims); err != nil {
 		return nil, fmt.Errorf("failed to decrypt claims: %w", err)

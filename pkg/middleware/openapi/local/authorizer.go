@@ -15,31 +15,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package openapi
+package local
 
 import (
 	"net/http"
 	"slices"
 	"strings"
 
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
 
-	"github.com/unikorn-cloud/identity/pkg/authorization"
-	"github.com/unikorn-cloud/identity/pkg/errors"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/middleware/openapi"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 )
-
-// authorizationContext is passed through the middleware to propagate
-// information back to the top level handler.
-type authorizationContext struct {
-	// err allows us to return a verbose error, unwrapped by whatever
-	// the openapi validaiton is doing.
-	err error
-
-	// claims contains all claims defined in the token.
-	claims oauth2.Claims
-}
 
 // Authorizer provides OpenAPI based authorization middleware.
 type Authorizer struct {
@@ -54,9 +43,25 @@ func NewAuthorizer(issuer *jose.JWTIssuer) *Authorizer {
 	}
 }
 
+// getHTTPAuthenticationScheme grabs the scheme and token from the HTTP
+// Authorization header.
+func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
+	header := r.Header.Get("Authorization")
+	if header == "" {
+		return "", "", errors.OAuth2InvalidRequest("authorization header missing")
+	}
+
+	parts := strings.Split(header, " ")
+	if len(parts) != 2 {
+		return "", "", errors.OAuth2InvalidRequest("authorization header malformed")
+	}
+
+	return parts[0], parts[1], nil
+}
+
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-func (a *Authorizer) authorizeOAuth2(authContext *authorizationContext, r *http.Request, scopes []string) error {
-	authorizationScheme, token, err := authorization.GetHTTPAuthenticationScheme(r)
+func (a *Authorizer) authorizeOAuth2(authContext *openapi.AuthorizationContext, r *http.Request, scopes []string) error {
+	authorizationScheme, token, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
 		return err
 	}
@@ -79,16 +84,16 @@ func (a *Authorizer) authorizeOAuth2(authContext *authorizationContext, r *http.
 	}
 
 	// Set the claims in the context for use by the handlers.
-	authContext.claims = *claims
+	authContext.Claims = *claims
 
 	return nil
 }
 
-// authorizeScheme requires the individual scheme to match.
-func (a *Authorizer) authorizeScheme(ctx *authorizationContext, r *http.Request, scheme *openapi3.SecurityScheme, scopes []string) error {
-	if scheme.Type == "oauth2" {
-		return a.authorizeOAuth2(ctx, r, scopes)
+// Authorize checks the request against the OpenAPI security scheme.
+func (a *Authorizer) Authorize(ctx *openapi.AuthorizationContext, authentication *openapi3filter.AuthenticationInput) error {
+	if authentication.SecurityScheme.Type == "oauth2" {
+		return a.authorizeOAuth2(ctx, authentication.RequestValidationInput.Request, authentication.Scopes)
 	}
 
-	return errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", scheme.Type)
+	return errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
 }

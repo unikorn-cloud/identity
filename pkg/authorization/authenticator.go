@@ -18,7 +18,7 @@ limitations under the License.
 package authorization
 
 import (
-	"github.com/unikorn-cloud/identity/pkg/errors"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 )
