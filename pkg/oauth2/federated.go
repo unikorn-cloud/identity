@@ -337,6 +337,16 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the login_hint is provided, we can short cut the user interaction and
+	// directly do the request to the backend provider.  This makes token expiry
+	// alomost seamless in that a client can catch a 401, and just redirect back
+	// here with the cached email address in the id_token.
+	if email := query.Get("login_hint"); email != "" {
+		a.providerAuthenticationRequest(w, r, email, query)
+
+		return
+	}
+
 	tmpl, err := template.New("login").Parse(loginTemplate)
 	if err != nil {
 		log.Info("oauth2: failed to parse template", "error", err)
@@ -362,6 +372,9 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// lookupOrganization maps from an email address to an organization, this handles
+// corporate mandates that say your entire domain have to use a single sign on
+// provider across the entire enterprise.
 func (a *Authenticator) lookupOrganization(_ http.ResponseWriter, r *http.Request, email string) (*unikornv1.Organization, error) {
 	// TODO: error checking.
 	parts := strings.Split(email, "@")
@@ -386,32 +399,10 @@ func (a *Authenticator) lookupOrganization(_ http.ResponseWriter, r *http.Reques
 	return nil, fmt.Errorf("unsupported domain")
 }
 
-//nolint:cyclop
-func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
+// providerAuthenticationRequest takes a client provided email address and routes it
+// to the correct identity provider, if we can.
+func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, email string, query url.Values) {
 	log := log.FromContext(r.Context())
-
-	if err := r.ParseForm(); err != nil {
-		log.Error(err, "form parse failed")
-		return
-	}
-
-	if !r.Form.Has("email") {
-		log.Info("email doesn't exist in form")
-		return
-	}
-
-	email := r.Form.Get("email")
-
-	if !r.Form.Has("query") {
-		log.Info("query doesn't exist in form")
-		return
-	}
-
-	query, err := url.ParseQuery(r.Form.Get("query"))
-	if err != nil {
-		log.Error(err, "failed to parse query")
-		return
-	}
 
 	organization, err := a.lookupOrganization(w, r, email)
 	if err != nil {
@@ -495,6 +486,34 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, a.oidcConfig(r, &providerResource, endpoint, driver.Scopes()).AuthCodeURL(state, authURLParams...), http.StatusFound)
+}
+
+// Login handles the response from the user login prompt.
+func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
+	log := log.FromContext(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		log.Error(err, "form parse failed")
+		return
+	}
+
+	if !r.Form.Has("email") {
+		log.Info("email doesn't exist in form")
+		return
+	}
+
+	if !r.Form.Has("query") {
+		log.Info("query doesn't exist in form")
+		return
+	}
+
+	query, err := url.ParseQuery(r.Form.Get("query"))
+	if err != nil {
+		log.Error(err, "failed to parse query")
+		return
+	}
+
+	a.providerAuthenticationRequest(w, r, r.Form.Get("email"), query)
 }
 
 // oidcExtractIDToken wraps up token verification against the JWKS service and conversion
