@@ -61,25 +61,42 @@ spec:
                   are specified then it is assumed all users have access to everything.
                 items:
                   properties:
-                    displayName:
-                      description: DisplayName is the name to display the group as
-                        in UIs and other UX interfaces.  This should again be unique
-                        within the organization to avoid ambiguity, but may be changed.
-                      type: string
                     id:
                       description: ID is the a unique, and immutable identifier for
                         the group, the intent being that resources will belong to
                         a group irrespective of display name changes.
                       type: string
-                    providerName:
+                    name:
+                      description: Name is the name to display the group as in UIs
+                        and other UX interfaces.  This should again be unique within
+                        the organization to avoid ambiguity, but may be changed.
+                      type: string
+                    providerGroupName:
                       description: ProviderName is the name of the group as returned
                         by the provider. For example a query of https://cloudidentity.googleapis.com/v1/groups/
                         will return something like groups/01664s551ax43ok.
                       type: string
+                    roles:
+                      description: Roles are a list of roles users of the group inherit.
+                      items:
+                        description: Role defines the role a user has within the scope
+                          of a group.
+                        enum:
+                        - superAdmin
+                        - admin
+                        - user
+                        - reader
+                        type: string
+                      type: array
+                    users:
+                      description: Users are a list of user names that are members
+                        of the group.
+                      items:
+                        type: string
+                      type: array
                   required:
-                  - displayName
                   - id
-                  - providerName
+                  - name
                   type: object
                 type: array
               owner:

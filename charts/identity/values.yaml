@@ -68,9 +68,15 @@ host: identity.acme.org
 #   - # A unique and immutable ID.
 #     id: 5f7033e8-17fc-41a1-a8f6-f3085115b611
 #     # The name to be displayed by UIs.
-#     displayName: My Group
+#     name: My Group
 #     # The unique name the provider refers to the group.
 #     providerName: groups/38ru24810eck10
+#     # Explicit list of users
+#     users:
+#     - foo@gmail.com
+#     # Roles for the group e.g. superAdmin, admin, user, reader.
+#     roles:
+#     - user
 
 ingress:
   # Sets the ingress class to use.
