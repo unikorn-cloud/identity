@@ -21,13 +21,17 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 
 	"github.com/unikorn-cloud/core/pkg/authorization/oauth2/claims"
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -40,7 +44,28 @@ var (
 )
 
 // Issue issues a new JWT access token.
-func Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) (string, error) {
+func (a *Authenticator) Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) (string, error) {
+	var organization unikornv1.Organization
+
+	if err := a.client.Get(r.Context(), client.ObjectKey{Namespace: a.namespace, Name: code.Organization}, &organization); err != nil {
+		return "", err
+	}
+
+	//nolint:prealloc
+	var groups []claims.Group
+
+	for _, group := range organization.Spec.Groups {
+		// TODO: we should also check if the IdP has mapped the user to a group here.
+		if !slices.Contains(group.Users, code.Subject) {
+			continue
+		}
+
+		groups = append(groups, claims.Group{
+			ID:    group.ID,
+			Roles: group.Roles,
+		})
+	}
+
 	now := time.Now()
 
 	nowRFC7519 := jwt.NumericDate(now.Unix())
@@ -49,7 +74,7 @@ func Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) 
 	claims := &claims.Claims{
 		Claims: jwt.Claims{
 			ID:      uuid.New().String(),
-			Subject: code.Email,
+			Subject: code.Subject,
 			Audience: jwt.Audience{
 				code.ClientID,
 			},
@@ -58,7 +83,10 @@ func Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) 
 			NotBefore: &nowRFC7519,
 			Expiry:    &expiresAtRFC7519,
 		},
-		Organization: code.Organization,
+		Unikorn: &claims.UnikornClaims{
+			Organization: code.Organization,
+			Groups:       groups,
+		},
 	}
 
 	token, err := i.EncodeJWT(claims)

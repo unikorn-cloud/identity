@@ -135,9 +135,8 @@ type Code struct {
 	ClientScope scope.Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
-	// TODO: we would be a lot more flexible by passing all the claims over...
-	// Email is exactly that.
-	Email string `json:"email"`
+	// Subject is the canonical subject name (not an alias).
+	Subject string `json:"sub"`
 	// Organization is the user's organization name.
 	Organization string `json:"org"`
 }
@@ -634,7 +633,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: map from IdP groups to ours and add into the code for later encoding
 	// into the access token.
-
+	// NOTE: the email
 	oauth2Code := &Code{
 		ClientID:            state.ClientID,
 		ClientRedirectURI:   state.ClientRedirectURI,
@@ -642,7 +641,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
 		Organization:        state.Organization,
-		Email:               claims.Email,
+		Subject:             claims.Email,
 	}
 
 	code, err := a.issuer.EncodeJWEToken(oauth2Code)
@@ -777,13 +776,13 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	expiry := time.Now().Add(24 * time.Hour)
 
 	// TODO: add some scopes, these hould probably be derived from the organization.
-	accessToken, err := Issue(a.issuer, r, code, expiry)
+	accessToken, err := a.Issue(a.issuer, r, code, expiry)
 	if err != nil {
 		return nil, err
 	}
 
 	// Handle OIDC.
-	idToken, err := a.oidcIDToken(r, code.ClientScope, expiry, oidcHash(accessToken), r.Form.Get("client_id"), code.Email)
+	idToken, err := a.oidcIDToken(r, code.ClientScope, expiry, oidcHash(accessToken), r.Form.Get("client_id"), code.Subject)
 	if err != nil {
 		return nil, err
 	}

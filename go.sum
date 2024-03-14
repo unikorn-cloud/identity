@@ -265,6 +265,12 @@ github.com/unikorn-cloud/core v0.1.7 h1:I2Xu9gYlRnkG0TjY+qbTIWY+kHCv76mCOVFkLL1d
 github.com/unikorn-cloud/core v0.1.7/go.mod h1:G45rJ0e5LOdoFcD9C00wSuhe/AMeBC+tczmQSsS+0/Q=
 github.com/unikorn-cloud/core v0.1.8 h1:JJAfUgCP2hAAAMcfWjE0hmyDOmlg9fxNlWSyJs7gT3k=
 github.com/unikorn-cloud/core v0.1.8/go.mod h1:G45rJ0e5LOdoFcD9C00wSuhe/AMeBC+tczmQSsS+0/Q=
+github.com/unikorn-cloud/core v0.1.10-0.20240314110053-42e6a0300b53 h1:vQYiOBQoUBpuu8XnHskUe8ypnK4M9TnwlrvoO84f4F0=
+github.com/unikorn-cloud/core v0.1.10-0.20240314110053-42e6a0300b53/go.mod h1:G45rJ0e5LOdoFcD9C00wSuhe/AMeBC+tczmQSsS+0/Q=
+github.com/unikorn-cloud/core v0.1.10-0.20240314111057-273eb5d18310 h1:xKFgb2hVz7sLzFk+KI7POiaaniibvkuiclR3pMlUOSs=
+github.com/unikorn-cloud/core v0.1.10-0.20240314111057-273eb5d18310/go.mod h1:G45rJ0e5LOdoFcD9C00wSuhe/AMeBC+tczmQSsS+0/Q=
+github.com/unikorn-cloud/core v0.1.10 h1:8D5+CSbBi0ziutAoaWnQq/t1mtfV0IQ1uD6Dg7HfAqY=
+github.com/unikorn-cloud/core v0.1.10/go.mod h1:G45rJ0e5LOdoFcD9C00wSuhe/AMeBC+tczmQSsS+0/Q=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
 github.com/valyala/fasttemplate v1.2.1/go.mod h1:KHLXt3tVN2HBp8eijSv/kGJopbvo7S+qRAEEKiv+SiQ=

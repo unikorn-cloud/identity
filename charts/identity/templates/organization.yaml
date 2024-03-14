@@ -17,4 +17,23 @@ spec:
       customerId: {{ $google.customerId }}
     {{- end }}
   {{- end }}
+{{- with $groups := $org.groups }}
+  groups:
+{{- range $group := $groups }}
+  - id: {{ $group.id }}
+    name: {{ $group.name }}
+  {{- with $roles := $group.roles }}
+    roles:
+  {{- range $role := $roles }}
+    - {{ $role }}
+  {{- end }}
+  {{- end }}
+  {{- with $users := $group.users }}
+    users:
+  {{- range $user := $users }}
+    - {{ $user }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
 {{- end }}

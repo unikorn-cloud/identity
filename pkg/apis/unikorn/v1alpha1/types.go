@@ -18,6 +18,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/unikorn-cloud/core/pkg/authorization/oauth2/claims"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -174,14 +176,18 @@ type OrganizationGroup struct {
 	// being that resources will belong to a group irrespective of display name
 	// changes.
 	ID string `json:"id"`
-	// DisplayName is the name to display the group as in UIs and other UX
+	// Name is the name to display the group as in UIs and other UX
 	// interfaces.  This should again be unique within the organization to
 	// avoid ambiguity, but may be changed.
-	DisplayName string `json:"displayName"`
+	Name string `json:"name"`
 	// ProviderName is the name of the group as returned by the provider.
 	// For example a query of https://cloudidentity.googleapis.com/v1/groups/
 	// will return something like groups/01664s551ax43ok.
-	ProviderName string `json:"providerName"`
+	ProviderGroupName *string `json:"providerGroupName,omitempty"`
+	// Users are a list of user names that are members of the group.
+	Users []string `json:"users,omitempty"`
+	// Roles are a list of roles users of the group inherit.
+	Roles []claims.Role `json:"roles,omitempty"`
 }
 
 // OrganizationStatus defines the status of the server.
