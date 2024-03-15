@@ -18,6 +18,10 @@ package providers
 
 import (
 	"context"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 )
 
 // nullProvider does nothing.
@@ -31,6 +35,6 @@ func (*nullProvider) Scopes() []string {
 	return nil
 }
 
-func (*nullProvider) Groups(ctx context.Context, accessToken string) ([]string, error) {
+func (*nullProvider) Groups(ctx context.Context, organization *unikornv1.Organization, idToken *oidc.IDToken, accessToken string) ([]string, error) {
 	return nil, nil
 }

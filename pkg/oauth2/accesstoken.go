@@ -21,17 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/oauth2/claims"
-	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
-
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -43,35 +38,31 @@ var (
 	ErrTokenVerification = errors.New("failed to verify token")
 )
 
+// UnikornClaims contains all application specific claims in a single
+// top-level claim that won't clash with the ones defined by IETF.
+type UnikornClaims struct {
+	// Groups is a list of groups the user has on the backend IdP.
+	Groups []string `json:"groups,omitempty"`
+}
+
+// Claims is an application specific set of claims.
+// TODO: this technically isn't conformant to oauth2 in that we don't specify
+// the client_id claim, and there are probably others.
+type Claims struct {
+	jwt.Claims `json:",inline"`
+
+	// Unikorn claims are application specific extensions.
+	Unikorn *UnikornClaims `json:"unikorn,omitempty"`
+}
+
 // Issue issues a new JWT access token.
-func (a *Authenticator) Issue(i *jose.JWTIssuer, r *http.Request, code *Code, expiresAt time.Time) (string, error) {
-	var organization unikornv1.Organization
-
-	if err := a.client.Get(r.Context(), client.ObjectKey{Namespace: a.namespace, Name: code.Organization}, &organization); err != nil {
-		return "", err
-	}
-
-	//nolint:prealloc
-	var groups []claims.Group
-
-	for _, group := range organization.Spec.Groups {
-		// TODO: we should also check if the IdP has mapped the user to a group here.
-		if !slices.Contains(group.Users, code.Subject) {
-			continue
-		}
-
-		groups = append(groups, claims.Group{
-			ID:    group.ID,
-			Roles: group.Roles,
-		})
-	}
-
+func (a *Authenticator) Issue(r *http.Request, code *Code, expiresAt time.Time) (string, error) {
 	now := time.Now()
 
 	nowRFC7519 := jwt.NumericDate(now.Unix())
 	expiresAtRFC7519 := jwt.NumericDate(expiresAt.Unix())
 
-	claims := &claims.Claims{
+	claims := &Claims{
 		Claims: jwt.Claims{
 			ID:      uuid.New().String(),
 			Subject: code.Subject,
@@ -83,13 +74,12 @@ func (a *Authenticator) Issue(i *jose.JWTIssuer, r *http.Request, code *Code, ex
 			NotBefore: &nowRFC7519,
 			Expiry:    &expiresAtRFC7519,
 		},
-		Unikorn: &claims.UnikornClaims{
-			Organization: code.Organization,
-			Groups:       groups,
+		Unikorn: &UnikornClaims{
+			Groups: code.Groups,
 		},
 	}
 
-	token, err := i.EncodeJWT(claims)
+	token, err := a.issuer.EncodeJWEToken(claims)
 	if err != nil {
 		return "", err
 	}
@@ -98,11 +88,11 @@ func (a *Authenticator) Issue(i *jose.JWTIssuer, r *http.Request, code *Code, ex
 }
 
 // Verify checks the access token parses and validates.
-func Verify(i *jose.JWTIssuer, r *http.Request, tokenString string) (*claims.Claims, error) {
+func Verify(i *jose.JWTIssuer, r *http.Request, tokenString string) (*Claims, error) {
 	// Parse and verify the claims with the public key.
-	claims := &claims.Claims{}
+	claims := &Claims{}
 
-	if err := i.DecodeJWT(tokenString, claims); err != nil {
+	if err := i.DecodeJWEToken(tokenString, claims); err != nil {
 		return nil, fmt.Errorf("failed to decrypt claims: %w", err)
 	}
 

@@ -420,12 +420,20 @@ components:
       description: Login request options.
       type: object
       required:
-      - email
+      - provider
       - query
       properties:
         email:
           description: The user's email address.
           type: string
+          nullable: true
+        provider:
+          description: The explcit provider type.
+          type: string
+          enum:
+          - dynamic
+          - google
+          - microsoft
         query:
           description: The query string supplied to the authorization endpoint.
           type: string
@@ -546,8 +554,6 @@ components:
       type: object
       required:
       - name
-      - domain
-      - providerName
       properties:
         name:
           description: A unique organization name.

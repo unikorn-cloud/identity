@@ -38,7 +38,6 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"golang.org/x/oauth2"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/oauth2/scope"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
@@ -86,6 +85,10 @@ const (
 	ErrorServerError             Error = "server_error"
 )
 
+const (
+	ProviderCookie = "provider"
+)
+
 // State records state across the call to the authorization server.
 // This must be encrypted with JWE.
 type State struct {
@@ -97,8 +100,6 @@ type State struct {
 	// OAuth2Provider is the name of the provider configuration in
 	// use, this will reference the issuer and allow discovery.
 	OAuth2Provider string `json:"oap"`
-	// Organization is a reference to the organization name.
-	Organization string `json:"org"`
 	// ClientID is the client identifier.
 	ClientID string `json:"cid"`
 	// ClientRedirectURI is the redirect URL requested by the client.
@@ -111,7 +112,7 @@ type State struct {
 	// correct client.
 	ClientCodeChallenge string `json:"ccc"`
 	// ClientScope records the requested client scope.
-	ClientScope scope.Scope `json:"csc,omitempty"`
+	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
 }
@@ -132,13 +133,13 @@ type Code struct {
 	// correct client.
 	ClientCodeChallenge string `json:"ccc"`
 	// ClientScope records the requested client scope.
-	ClientScope scope.Scope `json:"csc,omitempty"`
+	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
 	// Subject is the canonical subject name (not an alias).
 	Subject string `json:"sub"`
-	// Organization is the user's organization name.
-	Organization string `json:"org"`
+	// Groups is the set of groups the user has with the IdP.
+	Groups []string `json:"grp,omitempty"`
 }
 
 var (
@@ -318,6 +319,33 @@ func randomString(size int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
+type providerGetter func(*http.Request, string) (*unikornv1.OAuth2Provider, error)
+
+func (a *Authenticator) cookieProviderGetter(r *http.Request, _ string) (*unikornv1.OAuth2Provider, error) {
+	providerCookie, err := r.Cookie(ProviderCookie)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.lookupProviderByType(r.Context(), unikornv1.IdentityProviderType(providerCookie.Value))
+}
+
+func (a *Authenticator) organizationProviderGetter(r *http.Request, email string) (*unikornv1.OAuth2Provider, error) {
+	organization, err := a.lookupOrganization(r.Context(), email)
+	if err != nil {
+		return nil, err
+	}
+
+	return a.lookupProviderByName(r.Context(), *organization.Spec.ProviderName)
+}
+
+func (a *Authenticator) providerGetters() []providerGetter {
+	return []providerGetter{
+		a.cookieProviderGetter,
+		a.organizationProviderGetter,
+	}
+}
+
 // Authorization redirects the client to the OIDC autorization endpoint
 // to get an authorization code.  Note that this function is responsible for
 // either returning an authorization grant or error via a HTTP 302 redirect,
@@ -339,11 +367,17 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	// If the login_hint is provided, we can short cut the user interaction and
 	// directly do the request to the backend provider.  This makes token expiry
 	// alomost seamless in that a client can catch a 401, and just redirect back
-	// here with the cached email address in the id_token.
+	// here with the cached email address in the id_token.  For users who have
+	// clicked "login in X", we need to have remembered this provider with a
+	// cookie also.
 	if email := query.Get("login_hint"); email != "" {
-		a.providerAuthenticationRequest(w, r, email, query)
-
-		return
+		for _, getter := range a.providerGetters() {
+			provider, err := getter(r, email)
+			if err == nil {
+				a.providerAuthenticationRequest(w, r, email, provider, query)
+				return
+			}
+		}
 	}
 
 	tmpl, err := template.New("login").Parse(loginTemplate)
@@ -374,7 +408,12 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 // lookupOrganization maps from an email address to an organization, this handles
 // corporate mandates that say your entire domain have to use a single sign on
 // provider across the entire enterprise.
-func (a *Authenticator) lookupOrganization(_ http.ResponseWriter, r *http.Request, email string) (*unikornv1.Organization, error) {
+func (a *Authenticator) lookupOrganization(ctx context.Context, email string) (*unikornv1.Organization, error) {
+	if email == "" {
+		//nolint:goerr113
+		return nil, fmt.Errorf("no email address provided")
+	}
+
 	// TODO: error checking.
 	parts := strings.Split(email, "@")
 
@@ -383,12 +422,16 @@ func (a *Authenticator) lookupOrganization(_ http.ResponseWriter, r *http.Reques
 
 	var organizations unikornv1.OrganizationList
 
-	if err := a.client.List(r.Context(), &organizations, &client.ListOptions{Namespace: a.namespace}); err != nil {
+	if err := a.client.List(ctx, &organizations, &client.ListOptions{Namespace: a.namespace}); err != nil {
 		return nil, err
 	}
 
 	for i := range organizations.Items {
-		if organizations.Items[i].Spec.Domain == domain {
+		if organizations.Items[i].Spec.Domain == nil {
+			continue
+		}
+
+		if *organizations.Items[i].Spec.Domain == domain {
 			return &organizations.Items[i], nil
 		}
 	}
@@ -398,27 +441,51 @@ func (a *Authenticator) lookupOrganization(_ http.ResponseWriter, r *http.Reques
 	return nil, fmt.Errorf("unsupported domain")
 }
 
-// providerAuthenticationRequest takes a client provided email address and routes it
-// to the correct identity provider, if we can.
-func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, email string, query url.Values) {
-	log := log.FromContext(r.Context())
+func (a *Authenticator) lookupProviderByType(ctx context.Context, t unikornv1.IdentityProviderType) (*unikornv1.OAuth2Provider, error) {
+	var resources unikornv1.OAuth2ProviderList
 
-	organization, err := a.lookupOrganization(w, r, email)
-	if err != nil {
-		log.Error(err, "failed to list organizations")
-		return
+	if err := a.client.List(ctx, &resources, &client.ListOptions{Namespace: a.namespace}); err != nil {
+		return nil, err
 	}
 
+	for i := range resources.Items {
+		if resources.Items[i].Spec.Type == t {
+			return &resources.Items[i], nil
+		}
+	}
+
+	// TODO: error type!
+	//nolint:goerr113
+	return nil, fmt.Errorf("unsupported provider type")
+}
+
+func (a *Authenticator) lookupProviderByName(ctx context.Context, name string) (*unikornv1.OAuth2Provider, error) {
 	var providerResource unikornv1.OAuth2Provider
 
-	if err := a.client.Get(r.Context(), client.ObjectKey{Namespace: a.namespace, Name: organization.Spec.ProviderName}, &providerResource); err != nil {
-		log.Error(err, "failed to get provider")
-		return
+	if err := a.client.Get(ctx, client.ObjectKey{Namespace: a.namespace, Name: name}, &providerResource); err != nil {
+		return nil, err
 	}
 
-	driver := providers.New(providerResource.Spec.Type, organization)
+	return &providerResource, nil
+}
 
-	provider, err := oidc.NewProvider(r.Context(), providerResource.Spec.Issuer)
+// newOIDCProvider abstracts away any hacks for specific providers.
+func newOIDCProvider(ctx context.Context, p *unikornv1.OAuth2Provider) (*oidc.Provider, error) {
+	if p.Spec.Type == unikornv1.MicrosoftEntra {
+		ctx = oidc.InsecureIssuerURLContext(ctx, "https://login.microsoftonline.com/{tenantid}/v2.0")
+	}
+
+	return oidc.NewProvider(ctx, p.Spec.Issuer)
+}
+
+// providerAuthenticationRequest takes a client provided email address and routes it
+// to the correct identity provider, if we can.
+func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, email string, providerResource *unikornv1.OAuth2Provider, query url.Values) {
+	log := log.FromContext(r.Context())
+
+	driver := providers.New(providerResource.Spec.Type)
+
+	provider, err := newOIDCProvider(r.Context(), providerResource)
 	if err != nil {
 		log.Error(err, "failed to do OIDC discovery")
 		return
@@ -452,7 +519,6 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 	// deployments, just encrypt it and send with the authoriation request.
 	oidcState := &State{
 		OAuth2Provider:      providerResource.Name,
-		Organization:        organization.Name,
 		Nonce:               nonce,
 		CodeVerfier:         codeVerifier,
 		ClientID:            query.Get("client_id"),
@@ -463,7 +529,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 
 	// To implement OIDC we need a copy of the scopes.
 	if query.Has("scope") {
-		oidcState.ClientScope = scope.NewScope(query.Get("scope"))
+		oidcState.ClientScope = NewScope(query.Get("scope"))
 	}
 
 	if query.Has("nonce") {
@@ -484,7 +550,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		oidc.Nonce(nonce),
 	}
 
-	http.Redirect(w, r, a.oidcConfig(r, &providerResource, endpoint, driver.Scopes()).AuthCodeURL(state, authURLParams...), http.StatusFound)
+	http.Redirect(w, r, a.oidcConfig(r, providerResource, endpoint, driver.Scopes()).AuthCodeURL(state, authURLParams...), http.StatusFound)
 }
 
 // Login handles the response from the user login prompt.
@@ -506,13 +572,51 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !r.Form.Has("provider") {
+		log.Info("provider doesn't exist in form")
+	}
+
 	query, err := url.ParseQuery(r.Form.Get("query"))
 	if err != nil {
 		log.Error(err, "failed to parse query")
 		return
 	}
 
-	a.providerAuthenticationRequest(w, r, r.Form.Get("email"), query)
+	if providerType := r.Form.Get("provider"); providerType != "dynamic" {
+		provider, err := a.lookupProviderByType(r.Context(), unikornv1.IdentityProviderType(providerType))
+		if err != nil {
+			authorizationError(w, r, query.Get("redirect_uri"), ErrorServerError, err.Error())
+			return
+		}
+
+		// Remember the choice for steam-lining login when a login_hint is provided.
+		cookie := &http.Cookie{
+			Name:     ProviderCookie,
+			Value:    providerType,
+			Secure:   true,
+			HttpOnly: true,
+		}
+
+		w.Header().Add("Set-Cookie", cookie.String())
+
+		a.providerAuthenticationRequest(w, r, r.Form.Get("email"), provider, query)
+
+		return
+	}
+
+	organization, err := a.lookupOrganization(r.Context(), r.Form.Get("email"))
+	if err != nil {
+		authorizationError(w, r, query.Get("redirect_uri"), ErrorServerError, err.Error())
+		return
+	}
+
+	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderName)
+	if err != nil {
+		authorizationError(w, r, query.Get("redirect_uri"), ErrorServerError, err.Error())
+		return
+	}
+
+	a.providerAuthenticationRequest(w, r, r.Form.Get("email"), provider, query)
 }
 
 // oidcExtractIDToken wraps up token verification against the JWKS service and conversion
@@ -520,6 +624,8 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 func (a *Authenticator) oidcExtractIDToken(ctx context.Context, provider *oidc.Provider, providerResource *unikornv1.OAuth2Provider, token string) (*oidc.IDToken, error) {
 	config := &oidc.Config{
 		ClientID: providerResource.Spec.ClientID,
+		// TODO: this is a Entra-ism
+		SkipIssuerCheck: true,
 	}
 
 	idTokenVerifier := provider.Verifier(config)
@@ -575,7 +681,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	provider, err := oidc.NewProvider(r.Context(), providerResource.Spec.Issuer)
+	provider, err := newOIDCProvider(r.Context(), &providerResource)
 	if err != nil {
 		log.Error(err, "failed to do OIDC discovery")
 		return
@@ -587,8 +693,11 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	// the extracted code verifier.
 	authURLParams := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("client_id", state.ClientID),
-		oauth2.SetAuthURLParam("client_secret", providerResource.Spec.ClientSecret),
 		oauth2.SetAuthURLParam("code_verifier", state.CodeVerfier),
+	}
+
+	if providerResource.Spec.ClientSecret != nil {
+		authURLParams = append(authURLParams, oauth2.SetAuthURLParam("client_secret", *providerResource.Spec.ClientSecret))
 	}
 
 	tokens, err := a.oidcConfig(r, &providerResource, endpoint, nil).Exchange(r.Context(), query.Get("code"), authURLParams...)
@@ -616,32 +725,27 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Do RBAC related things while we have the access token.
-	var organization unikornv1.Organization
+	// Grab user RBAC information while we have the access token.
+	organization, _ := a.lookupOrganization(r.Context(), claims.Email)
 
-	if err := a.client.Get(r.Context(), client.ObjectKey{Namespace: a.namespace, Name: state.Organization}, &organization); err != nil {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to lookup user organization: "+err.Error())
-		return
-	}
+	driver := providers.New(providerResource.Spec.Type)
 
-	driver := providers.New(providerResource.Spec.Type, &organization)
-
-	if _, err := driver.Groups(r.Context(), tokens.AccessToken); err != nil {
+	groups, err := driver.Groups(r.Context(), organization, idToken, tokens.AccessToken)
+	if err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to lookup user groups: "+err.Error())
 		return
 	}
 
-	// TODO: map from IdP groups to ours and add into the code for later encoding
-	// into the access token.
-	// NOTE: the email
+	// NOTE: the email is the canonical one returned by the IdP, which removes
+	// aliases from the equation.
 	oauth2Code := &Code{
 		ClientID:            state.ClientID,
 		ClientRedirectURI:   state.ClientRedirectURI,
 		ClientCodeChallenge: state.ClientCodeChallenge,
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
-		Organization:        state.Organization,
 		Subject:             claims.Email,
+		Groups:              groups,
 	}
 
 	code, err := a.issuer.EncodeJWEToken(oauth2Code)
@@ -715,7 +819,7 @@ func oidcPicture(email string) string {
 }
 
 // oidcIDToken builds an OIDC ID token.
-func (a *Authenticator) oidcIDToken(r *http.Request, scope scope.Scope, expiry time.Time, atHash, clientID, email string) (*string, error) {
+func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Time, atHash, clientID, email string) (*string, error) {
 	//nolint:nilnil
 	if !slices.Contains(scope, "openid") {
 		return nil, nil
@@ -776,7 +880,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	expiry := time.Now().Add(24 * time.Hour)
 
 	// TODO: add some scopes, these hould probably be derived from the organization.
-	accessToken, err := a.Issue(a.issuer, r, code, expiry)
+	accessToken, err := a.Issue(r, code, expiry)
 	if err != nil {
 		return nil, err
 	}

@@ -44,6 +44,13 @@ const (
 	RefreshToken      GrantType = "refresh_token"
 )
 
+// Defines values for LoginRequestOptionsProvider.
+const (
+	Dynamic   LoginRequestOptionsProvider = "dynamic"
+	Google    LoginRequestOptionsProvider = "google"
+	Microsoft LoginRequestOptionsProvider = "microsoft"
+)
+
 // Defines values for Oauth2ErrorError.
 const (
 	AccessDenied            Oauth2ErrorError = "access_denied"
@@ -111,11 +118,17 @@ type JsonWebKeySet struct {
 // LoginRequestOptions Login request options.
 type LoginRequestOptions struct {
 	// Email The user's email address.
-	Email string `json:"email"`
+	Email *string `json:"email"`
+
+	// Provider The explcit provider type.
+	Provider LoginRequestOptionsProvider `json:"provider"`
 
 	// Query The query string supplied to the authorization endpoint.
 	Query string `json:"query"`
 }
+
+// LoginRequestOptionsProvider The explcit provider type.
+type LoginRequestOptionsProvider string
 
 // Oauth2Error Generic error message.
 type Oauth2Error struct {
@@ -179,13 +192,13 @@ type OpenidConfiguration struct {
 // Organization An organization.
 type Organization struct {
 	// Domain An email domain that identifies all users.
-	Domain string `json:"domain"`
+	Domain *string `json:"domain,omitempty"`
 
 	// Name A unique organization name.
 	Name string `json:"name"`
 
 	// ProviderName An identity provider for the organization. This must be an oauth2 provider name.
-	ProviderName string `json:"providerName"`
+	ProviderName *string `json:"providerName,omitempty"`
 }
 
 // Organizations A list of organizations.
