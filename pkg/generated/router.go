@@ -17,8 +17,14 @@ type ServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request)
 
+	// (GET /api/v1/oauth2/providers)
+	GetApiV1Oauth2Providers(w http.ResponseWriter, r *http.Request)
+
 	// (GET /api/v1/organizations)
 	GetApiV1Organizations(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/v1/organizations)
+	PostApiV1Organizations(w http.ResponseWriter, r *http.Request)
 
 	// (PUT /api/v1/organizations/{organization})
 	PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
@@ -75,12 +81,42 @@ func (siw *ServerInterfaceWrapper) GetWellKnownOpenidConfiguration(w http.Respon
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
+// GetApiV1Oauth2Providers operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1Oauth2Providers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1Oauth2Providers(w, r)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
 // GetApiV1Organizations operation middleware
 func (siw *ServerInterfaceWrapper) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetApiV1Organizations(w, r)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// PostApiV1Organizations operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiV1Organizations(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -430,7 +466,13 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetWellKnownOpenidConfiguration)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/oauth2/providers", wrapper.GetApiV1Oauth2Providers)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations", wrapper.GetApiV1Organizations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/organizations", wrapper.PostApiV1Organizations)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/organizations/{organization}", wrapper.PutApiV1OrganizationsOrganization)

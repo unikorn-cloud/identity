@@ -57,7 +57,7 @@ spec:
                 description: ClientSecret is created by the IdP for token exchange.
                 type: string
               displayName:
-                description: HumanReadableName is a user readable issuer name.
+                description: DisplayName is a user readable issuer name.
                 type: string
               issuer:
                 description: The issuer is typically provided by the identity provider

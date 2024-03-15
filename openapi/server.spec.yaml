@@ -99,6 +99,21 @@ paths:
           $ref: '#/components/responses/jwksResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
+  /api/v1/oauth2/providers:
+    description: |-
+      Allows management of oauth2 providers.  The identity service is typically
+      registered with an identity provider who provides us a client identitifier
+      and possibly a secret that we need to authenticate the user.
+    get:
+      description: |-
+        Returns a list of identity providers.
+      responses:
+        '200':
+          $ref: '#/components/responses/oauth2ProvidersResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
   /api/v1/organizations:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -113,25 +128,27 @@ paths:
         Returns a list of organizations that are owned/managed by the user.
       responses:
         '200':
-          description: A list of organizations.
+          $ref: '#/components/responses/organizationsResponse'
         '401':
-          description: Invalid credentials were provided.
-  # TODO: we need to make this so it's only allowed from trusted sources,
-  # otherwise we leave ourselves open to abuse in some way shape or form.
-  # This is intended to be the gateway onto the platform, so it comes into
-  # play when self-service is required.
-  #  post:
-  #    description: |-
-  #      Allows creation of an organization.
-  #    requestBody:
-  #      $ref: '#/components/requestBodies/createOrganizationRequest'
-  #    responses:
-  #      '201':
-  #        description: The organization was successfully created.
-  #      '401':
-  #        description: Invalid credentials were provided.
-  #      '409':
-  #        description: The organization already exists.
+          $ref: '#/components/responses/unauthorizedResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
+    post:
+      description: |-
+        Allows creation of an organization.
+      requestBody:
+        $ref: '#/components/requestBodies/createOrganizationRequest'
+      responses:
+        '201':
+          description: The organization was successfully created.
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '409':
+          $ref: '#/components/responses/conflictResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organization}:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -150,9 +167,9 @@ paths:
         '200':
           description: Organization successfully updated and returned.
         '401':
-          description: Invalid credentials were provided.
+          $ref: '#/components/responses/unauthorizedResponse'
         '403':
-          description: The user is forbidden from updating the organization.
+          $ref: '#/components/responses/forbiddenResponse'
   # TODO: in order to create a group, we'd need to know from the identity
   # provider what groups are available, and to do that we'd need to have
   # the access token available.  We could pass it around in our access token
@@ -498,6 +515,54 @@ components:
       items:
         description: JSON web key.
         type: object
+    oauth2Provider:
+      description: An oauth2 provider.
+      type: object
+      required:
+      - name
+      - displayName
+      - issuer
+      - clientID
+      properties:
+        name:
+          description:
+          type: string
+        displayName:
+          description:
+          type: string
+        issuer:
+          description:
+          type: string
+        clientID:
+          description:
+          type: string
+    oauth2Providers:
+      description: A list of oauth2 providers.
+      type: array
+      items:
+        $ref: '#/components/schemas/oauth2Provider'
+    organization:
+      description: An organization.
+      type: object
+      required:
+      - name
+      - domain
+      - providerName
+      properties:
+        name:
+          description: A unique organization name.
+          type: string
+        domain:
+          description: An email domain that identifies all users.
+          type: string
+        providerName:
+          description: An identity provider for the organization. This must be an oauth2 provider name.
+          type: string
+    organizations:
+      description: A list of organizations.
+      type: array
+      items:
+        $ref: '#/components/schemas/organization'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -528,14 +593,14 @@ components:
       content:
         application/json:
           schema:
-            type: object
+            $ref: '#/components/schemas/organization'
     updateOrganizationRequest:
       description: Body required to update an organization.
       required: true
       content:
         application/json:
           schema:
-            type: object
+            $ref: '#/components/schemas/organization'
     createGroupRequest:
       description: Body required to create a group.
       required: true
@@ -663,3 +728,27 @@ components:
               crv: P-521
               x: AGWAbuKBnn0qXsj8iddWhZj5-ZTM4F4d5rJeKbblOGVc-5nJNURsPb7k-MhEqr9QAi5jKnd7lkmkHU2mnalwsQPK
               y: AAepClWS8MoLLCzqMQ2bl3KwzF7eSYLhcSrsk8kYuRaNN45mnVuQsH43QOILEB5XXaHhySSRgVCamMwZWUwArv1k
+    oauth2ProvidersResponse:
+      description: |-
+        A list of oauth2 providers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/oauth2Providers'
+          example:
+          - name: google-identity
+            displayName: Google Identity
+            issuer: https://accounts.google.com
+            clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
+    organizationsResponse:
+      description: |-
+        A list of organizations.  Most users should only see one, super admins can
+        see all organizations on the platform.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/organizations'
+          example:
+          - name: acme-corp
+            domain: acme.corp
+            providerName: google-identity
