@@ -25,6 +25,8 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/generated"
+	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
+	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +36,9 @@ type Handler struct {
 	// client gives cached access to Kubernetes.
 	client client.Client
 
+	// namespace is the namespace we are running in.
+	namespace string
+
 	// authenticator gives access to authentication and token handling functions.
 	authenticator *authorization.Authenticator
 
@@ -41,9 +46,10 @@ type Handler struct {
 	options *Options
 }
 
-func New(client client.Client, authenticator *authorization.Authenticator, options *Options) (*Handler, error) {
+func New(client client.Client, namespace string, authenticator *authorization.Authenticator, options *Options) (*Handler, error) {
 	h := &Handler{
 		client:        client,
+		namespace:     namespace,
 		authenticator: authenticator,
 		options:       options,
 	}
@@ -141,7 +147,29 @@ func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 	h.authenticator.OAuth2.OIDCCallback(w, r)
 }
 
+func (h *Handler) GetApiV1Oauth2Providers(w http.ResponseWriter, r *http.Request) {
+	result, err := oauth2providers.New(h.client, h.namespace).List(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	result, err := organizations.New(h.client, h.namespace).List(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {

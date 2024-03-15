@@ -138,7 +138,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		},
 	}
 
-	handlerInterface, err := handler.New(client, authenticator, &s.HandlerOptions)
+	handlerInterface, err := handler.New(client, s.Options.Namespace, authenticator, &s.HandlerOptions)
 	if err != nil {
 		return nil, err
 	}

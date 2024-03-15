@@ -129,6 +129,17 @@ type Oauth2Error struct {
 // Oauth2ErrorError A terse error string expanding on the HTTP error code. Errors are based on the OAuth2 specification, but are expanded with proprietary status codes for APIs other than those specified by OAuth2.
 type Oauth2ErrorError string
 
+// Oauth2Provider An oauth2 provider.
+type Oauth2Provider struct {
+	ClientID    string `json:"clientID"`
+	DisplayName string `json:"displayName"`
+	Issuer      string `json:"issuer"`
+	Name        string `json:"name"`
+}
+
+// Oauth2Providers A list of oauth2 providers.
+type Oauth2Providers = []Oauth2Provider
+
 // OpenidConfiguration OpenID configuration.
 type OpenidConfiguration struct {
 	// AuthorizationEndpoint The oauth2 endpoint that initiates authentication.
@@ -164,6 +175,21 @@ type OpenidConfiguration struct {
 	// TokenEndpointAuthMethodsSupported A list of supported authentication methods for the token endpoint.
 	TokenEndpointAuthMethodsSupported []AuthMethod `json:"token_endpoint_auth_methods_supported"`
 }
+
+// Organization An organization.
+type Organization struct {
+	// Domain An email domain that identifies all users.
+	Domain string `json:"domain"`
+
+	// Name A unique organization name.
+	Name string `json:"name"`
+
+	// ProviderName An identity provider for the organization. This must be an oauth2 provider name.
+	ProviderName string `json:"providerName"`
+}
+
+// Organizations A list of organizations.
+type Organizations = []Organization
 
 // ResponseType Supported response types.
 type ResponseType string
@@ -233,6 +259,12 @@ type OrganizationParameter = string
 // BadRequestResponse Generic error message.
 type BadRequestResponse = Oauth2Error
 
+// ConflictResponse Generic error message.
+type ConflictResponse = Oauth2Error
+
+// ForbiddenResponse Generic error message.
+type ForbiddenResponse = Oauth2Error
+
 // InternalServerErrorResponse Generic error message.
 type InternalServerErrorResponse = Oauth2Error
 
@@ -240,8 +272,14 @@ type InternalServerErrorResponse = Oauth2Error
 // committee. Consult the relevant documentation for further details.
 type JwksResponse = JsonWebKeySet
 
+// Oauth2ProvidersResponse A list of oauth2 providers.
+type Oauth2ProvidersResponse = Oauth2Providers
+
 // OpenidConfigurationResponse OpenID configuration.
 type OpenidConfigurationResponse = OpenidConfiguration
+
+// OrganizationsResponse A list of organizations.
+type OrganizationsResponse = Organizations
 
 // TokenResponse Oauth2 token result.
 type TokenResponse = Token
@@ -252,14 +290,14 @@ type UnauthorizedResponse = Oauth2Error
 // CreateGroupRequest defines model for createGroupRequest.
 type CreateGroupRequest = map[string]interface{}
 
+// CreateOrganizationRequest An organization.
+type CreateOrganizationRequest = Organization
+
 // UpdateGroupRequest defines model for updateGroupRequest.
 type UpdateGroupRequest = map[string]interface{}
 
-// UpdateOrganizationRequest defines model for updateOrganizationRequest.
-type UpdateOrganizationRequest = map[string]interface{}
-
-// PutApiV1OrganizationsOrganizationJSONBody defines parameters for PutApiV1OrganizationsOrganization.
-type PutApiV1OrganizationsOrganizationJSONBody = map[string]interface{}
+// UpdateOrganizationRequest An organization.
+type UpdateOrganizationRequest = Organization
 
 // PostApiV1OrganizationsOrganizationGroupsJSONBody defines parameters for PostApiV1OrganizationsOrganizationGroups.
 type PostApiV1OrganizationsOrganizationGroupsJSONBody = map[string]interface{}
@@ -267,8 +305,11 @@ type PostApiV1OrganizationsOrganizationGroupsJSONBody = map[string]interface{}
 // PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody defines parameters for PutApiV1OrganizationsOrganizationGroupsGroupid.
 type PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody = map[string]interface{}
 
+// PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
+type PostApiV1OrganizationsJSONRequestBody = Organization
+
 // PutApiV1OrganizationsOrganizationJSONRequestBody defines body for PutApiV1OrganizationsOrganization for application/json ContentType.
-type PutApiV1OrganizationsOrganizationJSONRequestBody = PutApiV1OrganizationsOrganizationJSONBody
+type PutApiV1OrganizationsOrganizationJSONRequestBody = Organization
 
 // PostApiV1OrganizationsOrganizationGroupsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationGroups for application/json ContentType.
 type PostApiV1OrganizationsOrganizationGroupsJSONRequestBody = PostApiV1OrganizationsOrganizationGroupsJSONBody

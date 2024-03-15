@@ -98,8 +98,8 @@ type OAuth2ProviderSpec struct {
 	// of that type should be specified, doing otherwise will result in
 	// undefined behaviour.
 	Type IdentityProviderType `json:"type"`
-	// HumanReadableName is a user readable issuer name.
-	HumanReadableName string `json:"displayName"`
+	// DisplayName is a user readable issuer name.
+	DisplayName string `json:"displayName"`
 	// The issuer is typically provided by the identity provider as an
 	// OIDC discovery endpoint e.g. https://accounts.google.com.
 	// This will be used to verify issued JWTs have the same "iss" claim.
