@@ -39,6 +39,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/local"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
+	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -122,7 +123,8 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 
 	// Setup authn/authz
 	issuer := jose.NewJWTIssuer(&s.JoseOptions)
-	oauth2 := oauth2.New(&s.OAuth2Options, s.Options.Namespace, client, issuer)
+	rbac := rbac.New(client, s.Options.Namespace)
+	oauth2 := oauth2.New(&s.OAuth2Options, s.Options.Namespace, client, issuer, rbac)
 	authenticator := authorization.NewAuthenticator(issuer, oauth2)
 
 	// Setup middleware.
