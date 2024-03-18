@@ -43,6 +43,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
+	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -61,16 +62,19 @@ type Authenticator struct {
 
 	// issuer allows creation and validation of JWT bearer tokens.
 	issuer *jose.JWTIssuer
+
+	rbac *rbac.RBAC
 }
 
 // New returns a new authenticator with required fields populated.
 // You must call AddFlags after this.
-func New(options *Options, namespace string, client client.Client, issuer *jose.JWTIssuer) *Authenticator {
+func New(options *Options, namespace string, client client.Client, issuer *jose.JWTIssuer, rbac *rbac.RBAC) *Authenticator {
 	return &Authenticator{
 		options:   options,
 		namespace: namespace,
 		client:    client,
 		issuer:    issuer,
+		rbac:      rbac,
 	}
 }
 
@@ -722,6 +726,17 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 
 	if err := idToken.Claims(&claims); err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to extract id_token email claims: "+err.Error())
+		return
+	}
+
+	userExists, err := a.rbac.UserExists(r.Context(), claims.Email)
+	if err != nil {
+		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to perform RBAC user lookup: "+err.Error())
+		return
+	}
+
+	if !userExists {
+		authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user not found")
 		return
 	}
 
