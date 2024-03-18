@@ -72,10 +72,10 @@ spec:
                   will result in undefined behaviour.
                 enum:
                 - google
+                - microsoft
                 type: string
             required:
             - clientID
-            - clientSecret
             - displayName
             - issuer
             - type

@@ -14,21 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package providers
+package microsoft
 
 import (
+	"context"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/google"
-	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/microsoft"
 )
 
-func New(providerType unikornv1.IdentityProviderType) Provider {
-	switch providerType {
-	case unikornv1.GoogleIdentity:
-		return google.New()
-	case unikornv1.MicrosoftEntra:
-		return microsoft.New()
+type Provider struct {
+}
+
+func New() *Provider {
+	return &Provider{}
+}
+
+func (*Provider) Scopes() []string {
+	return []string{}
+}
+
+func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, idToken *oidc.IDToken, accessToken string) ([]string, error) {
+	var claims struct {
+		Groups []string `json:"groups"`
 	}
 
-	return newNullProvider()
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, err
+	}
+
+	return claims.Groups, nil
 }

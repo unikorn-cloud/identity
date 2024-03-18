@@ -18,18 +18,19 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/unikorn-cloud/core/pkg/authorization/oauth2/claims"
+	"github.com/unikorn-cloud/core/pkg/authorization/roles"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // IdentityProviderType defines the type of identity provider, and in turn
 // that defines the required configuration and API interfaces.
-// +kubebuilder:validation:Enum=google
+// +kubebuilder:validation:Enum=google;microsoft
 type IdentityProviderType string
 
 const (
 	GoogleIdentity IdentityProviderType = "google"
+	MicrosoftEntra IdentityProviderType = "microsoft"
 )
 
 // OAuth2ClientList is a typed list of frontend clients.
@@ -107,7 +108,7 @@ type OAuth2ProviderSpec struct {
 	// ClientID is the assigned client identifier.
 	ClientID string `json:"clientID"`
 	// ClientSecret is created by the IdP for token exchange.
-	ClientSecret string `json:"clientSecret"`
+	ClientSecret *string `json:"clientSecret,omitempty"`
 }
 
 // OAuth2ProviderStatus defines the status of the server.
@@ -142,15 +143,14 @@ type Organization struct {
 
 // OrganizationSpec defines the required configuration for the server.
 type OrganizationSpec struct {
-	// Owner is a list of explicit user email address that is
-	// an uber admin and gets full permissions to everything.
-	Owner string `json:"owner"`
 	// Domain is used by unikorn-identity to map an end-user provided
 	// email address to an identity provider.
-	Domain string `json:"domain"`
-	// ProviderName is the name of an oauth2/oidc provider.
-	ProviderName string `json:"providerName"`
+	Domain *string `json:"domain,omitempty"`
+	// ProviderName is the name of an explicit oauth2/oidc provider.
+	// When using a domain mapping.
+	ProviderName *string `json:"providerName,omitempty"`
 	// ProviderOptions is the configuration for a specific provider type.
+	// When using domain mapping.
 	ProviderOptions *OrganizationProviderOptions `json:"providerOptions,omitempty"`
 	// Groups defines the set of groups that are allowed to be mapped
 	// from the identity provider into unikorn.  If no groups are specified
@@ -187,7 +187,7 @@ type OrganizationGroup struct {
 	// Users are a list of user names that are members of the group.
 	Users []string `json:"users,omitempty"`
 	// Roles are a list of roles users of the group inherit.
-	Roles []claims.Role `json:"roles,omitempty"`
+	Roles []roles.Role `json:"roles,omitempty"`
 }
 
 // OrganizationStatus defines the status of the server.

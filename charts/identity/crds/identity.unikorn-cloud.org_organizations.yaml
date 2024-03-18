@@ -99,16 +99,13 @@ spec:
                   - name
                   type: object
                 type: array
-              owner:
-                description: Owner is a list of explicit user email address that is
-                  an uber admin and gets full permissions to everything.
-                type: string
               providerName:
-                description: ProviderName is the name of an oauth2/oidc provider.
+                description: ProviderName is the name of an explicit oauth2/oidc provider.
+                  When using a domain mapping.
                 type: string
               providerOptions:
                 description: ProviderOptions is the configuration for a specific provider
-                  type.
+                  type. When using domain mapping.
                 properties:
                   google:
                     description: If the referenced provider is set to "google" then
@@ -123,10 +120,6 @@ spec:
                     - customerId
                     type: object
                 type: object
-            required:
-            - domain
-            - owner
-            - providerName
             type: object
           status:
             description: OrganizationStatus defines the status of the server.

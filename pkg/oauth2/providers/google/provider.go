@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/coreos/go-oidc/v3/oidc"
+
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 )
 
@@ -32,14 +34,10 @@ var (
 	ErrUnexpectedStatusCode = errors.New("unexpected status code")
 )
 
-type Provider struct {
-	organization *unikornv1.Organization
-}
+type Provider struct{}
 
-func New(organization *unikornv1.Organization) *Provider {
-	return &Provider{
-		organization: organization,
-	}
+func New() *Provider {
+	return &Provider{}
 }
 
 func (*Provider) Scopes() []string {
@@ -57,14 +55,14 @@ type Groups struct {
 	Groups []Group `json:"groups"`
 }
 
-func (p *Provider) Groups(ctx context.Context, accessToken string) ([]string, error) {
-	if p.organization.Spec.ProviderOptions == nil || p.organization.Spec.ProviderOptions.Google == nil {
+func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, idToken *oidc.IDToken, accessToken string) ([]string, error) {
+	if organization == nil || organization.Spec.ProviderOptions == nil || organization.Spec.ProviderOptions.Google == nil {
 		return nil, nil
 	}
 
 	query := url.Values{
 		"parent": []string{
-			"customers/" + p.organization.Spec.ProviderOptions.Google.CustomerID,
+			"customers/" + organization.Spec.ProviderOptions.Google.CustomerID,
 		},
 	}
 

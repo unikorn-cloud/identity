@@ -18,6 +18,10 @@ package providers
 
 import (
 	"context"
+
+	"github.com/coreos/go-oidc/v3/oidc"
+
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 )
 
 type Provider interface {
@@ -26,5 +30,5 @@ type Provider interface {
 	Scopes() []string
 
 	// Groups returns a list of groups the user belongs to.
-	Groups(ctx context.Context, accessToken string) ([]string, error)
+	Groups(ctx context.Context, organization *unikornv1.Organization, idToken *oidc.IDToken, accessToken string) ([]string, error)
 }
