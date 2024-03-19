@@ -834,7 +834,7 @@ func oidcPicture(email string) string {
 }
 
 // oidcIDToken builds an OIDC ID token.
-func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Time, atHash, clientID, email string) (*string, error) {
+func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Time, atHash string, code *Code) (*string, error) {
 	//nolint:nilnil
 	if !slices.Contains(scope, "openid") {
 		return nil, nil
@@ -843,25 +843,26 @@ func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Ti
 	claims := &IDToken{
 		Claims: jwt.Claims{
 			Issuer:  "https://" + r.Host,
-			Subject: email,
+			Subject: code.Subject,
 			Audience: []string{
-				clientID,
+				code.ClientID,
 			},
 			Expiry:   jwt.NewNumericDate(expiry),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 		OIDCClaims: OIDCClaims{
+			Nonce:  code.ClientNonce,
 			ATHash: atHash,
 		},
 	}
 
 	// TODO: we should just pass through the federated id_token in the code...
 	if slices.Contains(scope, "email") {
-		claims.OIDCClaimsEmail.Email = email
+		claims.OIDCClaimsEmail.Email = code.Subject
 	}
 
 	if slices.Contains(scope, "profile") {
-		claims.OIDCClaimsProfile.Picture = oidcPicture(email)
+		claims.OIDCClaimsProfile.Picture = oidcPicture(code.Subject)
 	}
 
 	idToken, err := a.issuer.EncodeJWT(claims)
@@ -901,7 +902,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	}
 
 	// Handle OIDC.
-	idToken, err := a.oidcIDToken(r, code.ClientScope, expiry, oidcHash(accessToken), r.Form.Get("client_id"), code.Subject)
+	idToken, err := a.oidcIDToken(r, code.ClientScope, expiry, oidcHash(accessToken), code)
 	if err != nil {
 		return nil, err
 	}
