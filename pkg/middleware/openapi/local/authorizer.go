@@ -21,23 +21,22 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/getkin/kin-openapi/openapi3filter"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 )
 
 // Authorizer provides OpenAPI based authorization middleware.
 type Authorizer struct {
-	// issuer allows creation and validation of JWT bearer tokens.
-	issuer *jose.JWTIssuer
+	authenticator *oauth2.Authenticator
 }
 
 // NewAuthorizer returns a new authorizer with required parameters.
-func NewAuthorizer(issuer *jose.JWTIssuer) *Authorizer {
+func NewAuthorizer(authenticator *oauth2.Authenticator) *Authorizer {
 	return &Authorizer{
-		issuer: issuer,
+		authenticator: authenticator,
 	}
 }
 
@@ -58,29 +57,29 @@ func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-func (a *Authorizer) authorizeOAuth2(r *http.Request) error {
+func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *oidc.UserInfo, error) {
 	authorizationScheme, token, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
-		return err
+		return "", nil, err
 	}
 
 	if !strings.EqualFold(authorizationScheme, "bearer") {
-		return errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
+		return "", nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
 	}
 
 	// Check the token is from us, for us, and in date.
-	if _, err := oauth2.Verify(a.issuer, r, token); err != nil {
-		return errors.OAuth2AccessDenied("token validation failed").WithError(err)
+	if _, err := a.authenticator.Verify(r, token); err != nil {
+		return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 	}
 
-	return nil
+	return token, nil, nil
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
-func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) error {
+func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *oidc.UserInfo, error) {
 	if authentication.SecurityScheme.Type == "oauth2" {
 		return a.authorizeOAuth2(authentication.RequestValidationInput.Request)
 	}
 
-	return errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
+	return "", nil, errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
 }

@@ -4,6 +4,7 @@
 package generated
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -53,6 +54,9 @@ type ServerInterface interface {
 	// (POST /oauth2/v2/token)
 	PostOauth2V2Token(w http.ResponseWriter, r *http.Request)
 
+	// (GET /oauth2/v2/userinfo)
+	GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request)
+
 	// (GET /oidc/callback)
 	GetOidcCallback(w http.ResponseWriter, r *http.Request)
 }
@@ -85,6 +89,8 @@ func (siw *ServerInterfaceWrapper) GetWellKnownOpenidConfiguration(w http.Respon
 func (siw *ServerInterfaceWrapper) GetApiV1Oauth2Providers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetApiV1Oauth2Providers(w, r)
 	})
@@ -100,6 +106,8 @@ func (siw *ServerInterfaceWrapper) GetApiV1Oauth2Providers(w http.ResponseWriter
 func (siw *ServerInterfaceWrapper) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetApiV1Organizations(w, r)
 	})
@@ -114,6 +122,8 @@ func (siw *ServerInterfaceWrapper) GetApiV1Organizations(w http.ResponseWriter, 
 // PostApiV1Organizations operation middleware
 func (siw *ServerInterfaceWrapper) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostApiV1Organizations(w, r)
@@ -141,6 +151,8 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganization(w http.Resp
 		return
 	}
 
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutApiV1OrganizationsOrganization(w, r, organization)
 	})
@@ -167,6 +179,8 @@ func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationGroups(w htt
 		return
 	}
 
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetApiV1OrganizationsOrganizationGroups(w, r, organization)
 	})
@@ -192,6 +206,8 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationGroups(w ht
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
 		return
 	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostApiV1OrganizationsOrganizationGroups(w, r, organization)
@@ -228,6 +244,8 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationGroupsGro
 		return
 	}
 
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteApiV1OrganizationsOrganizationGroupsGroupid(w, r, organization, groupid)
 	})
@@ -262,6 +280,8 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationGroupsGroupi
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "groupid", Err: err})
 		return
 	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutApiV1OrganizationsOrganizationGroupsGroupid(w, r, organization, groupid)
@@ -325,6 +345,23 @@ func (siw *ServerInterfaceWrapper) PostOauth2V2Token(w http.ResponseWriter, r *h
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostOauth2V2Token(w, r)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetOauth2V2Userinfo operation middleware
+func (siw *ServerInterfaceWrapper) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOauth2V2Userinfo(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -500,6 +537,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/oauth2/v2/token", wrapper.PostOauth2V2Token)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/oauth2/v2/userinfo", wrapper.GetOauth2V2Userinfo)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oidc/callback", wrapper.GetOidcCallback)

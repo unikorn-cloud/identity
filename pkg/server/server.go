@@ -128,7 +128,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 	authenticator := authorization.NewAuthenticator(issuer, oauth2)
 
 	// Setup middleware.
-	authorizer := local.NewAuthorizer(issuer)
+	authorizer := local.NewAuthorizer(oauth2)
 
 	// Middleware specified here is applied to all requests post-routing.
 	// NOTE: these are applied in reverse order!!
