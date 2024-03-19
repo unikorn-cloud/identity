@@ -73,6 +73,7 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 		Issuer:                h.options.Host,
 		AuthorizationEndpoint: fmt.Sprintf("%s/oauth2/v2/authorization", h.options.Host),
 		TokenEndpoint:         fmt.Sprintf("%s/oauth2/v2/token", h.options.Host),
+		UserinfoEndpoint:      fmt.Sprintf("%s/oauth2/v2/userinfo", h.options.Host),
 		JwksUri:               fmt.Sprintf("%s/oauth2/v2/jwks", h.options.Host),
 		ScopesSupported: []generated.Scope{
 			generated.ScopeEmail,
@@ -123,6 +124,17 @@ func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 	result, err := h.authenticator.OAuth2.Token(w, r)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
+	result, err := h.authenticator.Userinfo(r)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return

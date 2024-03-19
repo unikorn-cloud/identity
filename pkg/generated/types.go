@@ -10,6 +10,10 @@ import (
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 )
 
+const (
+	Oauth2AuthenticationScopes = "oauth2Authentication.Scopes"
+)
+
 // Defines values for AuthMethod.
 const (
 	ClientSecretBasic AuthMethod = "client_secret_basic"
@@ -187,6 +191,9 @@ type OpenidConfiguration struct {
 
 	// TokenEndpointAuthMethodsSupported A list of supported authentication methods for the token endpoint.
 	TokenEndpointAuthMethodsSupported []AuthMethod `json:"token_endpoint_auth_methods_supported"`
+
+	// UserinfoEndpoint The oidc endpoint used to get information about an access token's user.
+	UserinfoEndpoint string `json:"userinfo_endpoint"`
 }
 
 // Organization An organization.
@@ -299,6 +306,9 @@ type TokenResponse = Token
 
 // UnauthorizedResponse Generic error message.
 type UnauthorizedResponse = Oauth2Error
+
+// UserinfoResponse defines model for userinfoResponse.
+type UserinfoResponse interface{}
 
 // CreateGroupRequest defines model for createGroupRequest.
 type CreateGroupRequest = map[string]interface{}

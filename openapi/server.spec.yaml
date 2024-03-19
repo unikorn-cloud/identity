@@ -74,6 +74,18 @@ paths:
       responses:
         '302':
           description: A redirect to the specified identity provider URI.
+  /oauth2/v2/userinfo:
+    description: |-
+      Returns introspection information about an access token.
+    get:
+      description: Returns introspection information about an access token.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/userinfoResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
   /oidc/callback:
     description: |-
       Implements the OIDC response code callback.
@@ -107,6 +119,8 @@ paths:
     get:
       description: |-
         Returns a list of identity providers.
+      security:
+      - oauth2Authentication: []
       responses:
         '200':
           $ref: '#/components/responses/oauth2ProvidersResponse'
@@ -126,6 +140,8 @@ paths:
     get:
       description: |-
         Returns a list of organizations that are owned/managed by the user.
+      security:
+      - oauth2Authentication: []
       responses:
         '200':
           $ref: '#/components/responses/organizationsResponse'
@@ -136,6 +152,8 @@ paths:
     post:
       description: |-
         Allows creation of an organization.
+      security:
+      - oauth2Authentication: []
       requestBody:
         $ref: '#/components/requestBodies/createOrganizationRequest'
       responses:
@@ -161,6 +179,8 @@ paths:
     put:
       description: |-
         Allows an organization to be updated.
+      security:
+      - oauth2Authentication: []
       requestBody:
         $ref: '#/components/requestBodies/updateOrganizationRequest'
       responses:
@@ -190,6 +210,8 @@ paths:
     get:
       description: |-
         Returns a list of groups that are defined for the organization.
+      security:
+      - oauth2Authentication: []
       responses:
         '200':
           description: A list of groups.
@@ -198,6 +220,8 @@ paths:
     post:
       description: |-
         Allows creation of a new group.
+      security:
+      - oauth2Authentication: []
       requestBody:
         $ref: '#/components/requestBodies/createGroupRequest'
       responses:
@@ -221,6 +245,8 @@ paths:
     put:
       description: |-
         Allows a group to be updated.
+      security:
+      - oauth2Authentication: []
       requestBody:
         $ref: '#/components/requestBodies/updateGroupRequest'
       responses:
@@ -235,6 +261,8 @@ paths:
     delete:
       description: |-
           Allows the deletion of an existing group.
+      security:
+      - oauth2Authentication: []
       responses:
         '204':
           description: Group successfully deleted.
@@ -299,6 +327,7 @@ components:
       - issuer
       - authorization_endpoint
       - token_endpoint
+      - userinfo_endpoint
       - jwks_uri
       - scopes_supported
       - claims_supported
@@ -317,6 +346,10 @@ components:
           format: uri
         token_endpoint:
           description: The oauth2 endpoint that is used to exchange an authentication code for tokens.
+          type: string
+          format: uri
+        userinfo_endpoint:
+          description: The oidc endpoint used to get information about an access token's user.
           type: string
           format: uri
         jwks_uri:
@@ -717,6 +750,11 @@ components:
             token_type: Bearer
             id_token: eyJhbGciOiJFUzUxMiJ9.eyJhdF9oYXNoIjoidGJHNlFHek5WZE5fcjZ6Y0EzRlFyQzllNmVPbUpPN3lrSjFsTFBxNUJ0RSIsImF1ZCI6WyI5YTcxOWUxZS1hYTg1LTRhMjEtYTIyMS0zMjRlNzg3ZWZkNzgiXSwiZW1haWwiOiJqb2huLmRvZUBlbWFpbC5jb20iLCJleHAiOjE2OTE1NzM4NzEsImlhdCI6MTY5MTQ4NzQ3MSwiaXNzIjoiaHR0cHM6Ly9rdWJlcm5ldGVzLmVzY2hlcmNsb3VkLmNvbSIsInBpY3R1cmUiOiJodHRwczovL3d3dy5ncmF2YXRhci5jb20vYXZhdGFyLzhmNmU5NjI3NGMyYWJmNjE3YTM5ODdlNzRlOWU3NTdlIiwic3ViIjoiam9obi5kb2VAZW1haWwuY29tIn0.AYxSoAwkuKfBpp5o1spmAyqzhkSR76hbjF1OCKe4iLS6BCP9ySZYeV-kBCd0t3cd6VxbO5FVQJPRt8k0q88rc21JATyV8kScNnr-1jFmAJuXO6ga021KTRQnG68D8zZN9LwmMSRh3HPFtOq4LCcmQES2adeJysoG998mmtuTwp4fArwa
             expires_in: 3600
+    userinfoResponse:
+      description: |-
+        Information about the user from the access token.
+      content:
+        application/json: {}
     jwksResponse:
       description: |-
         A JSON web key set. This is a set of named public keys that are referenced by JSON
@@ -758,3 +796,12 @@ components:
           - name: acme-corp
             domain: acme.corp
             providerName: google-identity
+  securitySchemes:
+    oauth2Authentication:
+      description: Operation requires OAuth2 bearer token authentication.
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://identity.unikorn-cloud.org/oauth2/v2/authorization
+          tokenUrl: https://identity.unikorn-cloud.org/oauth2/v2/token
+          scopes: {}
