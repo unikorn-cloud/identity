@@ -192,7 +192,7 @@ func htmlError(w http.ResponseWriter, r *http.Request, status int, description s
 func authorizationError(w http.ResponseWriter, r *http.Request, redirectURI string, kind Error, description string) {
 	values := &url.Values{}
 	values.Set("error", string(kind))
-	values.Set("description", description)
+	values.Set("error_description", description)
 
 	http.Redirect(w, r, redirectURI+"?"+values.Encode(), http.StatusFound)
 }
