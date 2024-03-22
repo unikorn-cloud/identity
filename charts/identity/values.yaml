@@ -21,6 +21,12 @@ image: ~
 # oauth2 issuer etc.
 host: identity.acme.org
 
+# Branding options allow you to "white-box" and apply your own spin on the
+# login and error pages.
+# branding:
+#   loginRedirectURL: https://my-host/login
+#   errorRedirectURL: https://my-host/error
+
 # A static list of registered client applications.
 # clients:
 # - # Must be a valid Kubernetes resource name.

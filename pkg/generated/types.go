@@ -48,13 +48,6 @@ const (
 	RefreshToken      GrantType = "refresh_token"
 )
 
-// Defines values for LoginRequestOptionsProvider.
-const (
-	Dynamic   LoginRequestOptionsProvider = "dynamic"
-	Google    LoginRequestOptionsProvider = "google"
-	Microsoft LoginRequestOptionsProvider = "microsoft"
-)
-
 // Defines values for Oauth2ErrorError.
 const (
 	AccessDenied            Oauth2ErrorError = "access_denied"
@@ -125,14 +118,11 @@ type LoginRequestOptions struct {
 	Email *string `json:"email"`
 
 	// Provider The explcit provider type.
-	Provider LoginRequestOptionsProvider `json:"provider"`
+	Provider *string `json:"provider"`
 
-	// Query The query string supplied to the authorization endpoint.
-	Query string `json:"query"`
+	// State The state string supplied by the authorization endpoint.
+	State string `json:"state"`
 }
-
-// LoginRequestOptionsProvider The explcit provider type.
-type LoginRequestOptionsProvider string
 
 // Oauth2Error Generic error message.
 type Oauth2Error struct {

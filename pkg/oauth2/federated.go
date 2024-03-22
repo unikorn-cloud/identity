@@ -36,6 +36,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -50,6 +51,13 @@ import (
 )
 
 type Options struct {
+	loginRedirectURL string
+	errorRedirectURL string
+}
+
+func (o *Options) AddFlags(f *pflag.FlagSet) {
+	f.StringVar(&o.loginRedirectURL, "login-redirect-url", "", "External page to handle login requests")
+	f.StringVar(&o.errorRedirectURL, "error-redirect-url", "", "External page to handle errors")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -384,6 +392,18 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	loginQuery := url.Values{}
+
+	loginQuery.Set("state", query.Encode())
+	loginQuery.Set("callback", "https://"+r.Host+"/oauth2/v2/login")
+
+	// Redirect to an external login handler, if you have chosen to.
+	if a.options.loginRedirectURL != "" {
+		http.Redirect(w, r, fmt.Sprintf("%s?%s", a.options.loginRedirectURL, loginQuery.Encode()), http.StatusFound)
+		return
+	}
+
+	// Otherwise use the internal version.
 	tmpl, err := template.New("login").Parse(loginTemplate)
 	if err != nil {
 		log.Info("oauth2: failed to parse template", "error", err)
@@ -391,7 +411,7 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templateContext := map[string]interface{}{
-		"query": query.Encode(),
+		"state": query.Encode(),
 	}
 
 	var buffer bytes.Buffer
@@ -566,27 +586,18 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !r.Form.Has("email") {
-		log.Info("email doesn't exist in form")
+	if !r.Form.Has("state") {
+		log.Info("state doesn't exist in form")
 		return
 	}
 
-	if !r.Form.Has("query") {
-		log.Info("query doesn't exist in form")
-		return
-	}
-
-	if !r.Form.Has("provider") {
-		log.Info("provider doesn't exist in form")
-	}
-
-	query, err := url.ParseQuery(r.Form.Get("query"))
+	query, err := url.ParseQuery(r.Form.Get("state"))
 	if err != nil {
 		log.Error(err, "failed to parse query")
 		return
 	}
 
-	if providerType := r.Form.Get("provider"); providerType != "dynamic" {
+	if providerType := r.Form.Get("provider"); providerType != "" {
 		provider, err := a.lookupProviderByType(r.Context(), unikornv1.IdentityProviderType(providerType))
 		if err != nil {
 			authorizationError(w, r, query.Get("redirect_uri"), ErrorServerError, err.Error())
@@ -605,6 +616,20 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 
 		a.providerAuthenticationRequest(w, r, r.Form.Get("email"), provider, query)
 
+		return
+	}
+
+	// Remove the cookie otherwise.
+	cookie := &http.Cookie{
+		Name:   ProviderCookie,
+		Value:  "undefined",
+		MaxAge: -1,
+	}
+
+	w.Header().Add("Set-Cookie", cookie.String())
+
+	if !r.Form.Has("email") {
+		log.Info("email doesn't exist in form")
 		return
 	}
 

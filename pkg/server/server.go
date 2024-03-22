@@ -72,6 +72,7 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.Options.AddFlags(flags)
 	s.HandlerOptions.AddFlags(flags)
 	s.JoseOptions.AddFlags(flags)
+	s.OAuth2Options.AddFlags(flags)
 	s.CORSOptions.AddFlags(flags)
 }
 

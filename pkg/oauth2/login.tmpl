@@ -71,10 +71,8 @@
 		function submitWithProvider(provider) {
 			const providerInput = document.getElementById('provider');
 			providerInput.value = provider;
-			console.log(providerInput);
 
 			const form = document.getElementById('form');
-			console.log(form);
 			form.submit();
 		}
 	</script>
@@ -87,10 +85,10 @@
 		<main>
 			<form id="form" method="post" action="/oauth2/v2/login">
 				<!-- Use this to hold state across the dialog -->
-				<input id="query" name="query" type="hidden" value="{{ .query }}" />
+				<input id="state" name="state" type="hidden" value="{{ .state }}" />
 
 				<!-- Use this to cummuncate the provider to use -->
-				<input id="provider" name="provider" type="hidden" value="dynamic"/>
+				<input id="provider" name="provider" type="hidden" value=""/>
 
 				<section>
 					<p>Enter your e-mail address to continue if using a domain login</p>
