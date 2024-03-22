@@ -453,8 +453,7 @@ components:
       description: Login request options.
       type: object
       required:
-      - provider
-      - query
+      - state
       properties:
         email:
           description: The user's email address.
@@ -463,12 +462,9 @@ components:
         provider:
           description: The explcit provider type.
           type: string
-          enum:
-          - dynamic
-          - google
-          - microsoft
-        query:
-          description: The query string supplied to the authorization endpoint.
+          nullable: true
+        state:
+          description: The state string supplied by the authorization endpoint.
           type: string
     tokenRequestOptions:
       description: oauth2 token endpoint.
