@@ -21,9 +21,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/getkin/kin-openapi/openapi3filter"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 )
@@ -57,7 +57,7 @@ func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *oidc.UserInfo, error) {
+func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInfo, error) {
 	authorizationScheme, token, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
 		return "", nil, err
@@ -68,15 +68,26 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *oidc.UserInfo, e
 	}
 
 	// Check the token is from us, for us, and in date.
-	if _, err := a.authenticator.Verify(r, token); err != nil {
+	claims, err := a.authenticator.Verify(r, token)
+	if err != nil {
 		return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 	}
 
-	return token, nil, nil
+	permissions, err := a.authenticator.GetRBAC().UserPermissions(r.Context(), claims.Subject)
+	if err != nil {
+		return "", nil, errors.OAuth2AccessDenied("failed to get user permissions").WithError(err)
+	}
+
+	ui := &userinfo.UserInfo{
+		Claims: claims.Claims,
+		RBAC:   permissions,
+	}
+
+	return token, ui, nil
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
-func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *oidc.UserInfo, error) {
+func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *userinfo.UserInfo, error) {
 	if authentication.SecurityScheme.Type == "oauth2" {
 		return a.authorizeOAuth2(authentication.RequestValidationInput.Request)
 	}

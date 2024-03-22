@@ -86,6 +86,10 @@ func New(options *Options, namespace string, client client.Client, issuer *jose.
 	}
 }
 
+func (a *Authenticator) GetRBAC() *rbac.RBAC {
+	return a.rbac
+}
+
 type Error string
 
 const (

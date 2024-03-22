@@ -21,37 +21,12 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
 	"github.com/unikorn-cloud/core/pkg/authorization/roles"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-// GroupPermissions are privilege grants for a project.
-type GroupPermissions struct {
-	// ID is the unique, immutable project identifier.
-	ID string `json:"id"`
-	// Roles are the privileges a user has for the group.
-	Roles []roles.Role `json:"roles"`
-}
-
-// OrganizationPermissions are privilege grants for an organization.
-type OrganizationPermissions struct {
-	// IsAdmin allows the user to play with all resources in an organization.
-	IsAdmin bool `json:"isAdmin,omitempty"`
-	// Name is the name of the organization.
-	Name string `json:"name"`
-	// Groups are any groups the user belongs to in an organization.
-	Groups []GroupPermissions `json:"groups,omitempty"`
-}
-
-// Permissions are privilege grants for the entire system.
-type Permissions struct {
-	// IsSuperAdmin HAS SUPER COW POWERS!!!
-	IsSuperAdmin bool `json:"isSuperAdmin,omitempty"`
-	// Organizations are any organizations the user has access to.
-	Organizations []OrganizationPermissions `json:"organizations,omitempty"`
-}
 
 // RBAC contains all the scoping rules for services across the platform.
 type RBAC struct {
@@ -80,8 +55,10 @@ func (r *RBAC) GetOrganizatons(ctx context.Context) (*unikornv1.OrganizationList
 
 // UserPermissions builds up a hierarchy of permissions for a user, this is used
 // both internally and given out to resource servers via token introspection.
-func (r *RBAC) UserPermissions(ctx context.Context, email string) (*Permissions, error) {
-	permissions := &Permissions{}
+//
+//nolint:cyclop
+func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permissions, error) {
+	permissions := &rbac.Permissions{}
 
 	organizations, err := r.GetOrganizatons(ctx)
 	if err != nil {
@@ -89,7 +66,9 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*Permissions,
 	}
 
 	for _, organization := range organizations.Items {
-		organizationPermissions := OrganizationPermissions{}
+		var isAdmin bool
+
+		var groups []rbac.GroupPermissions
 
 		for _, group := range organization.Spec.Groups {
 			// TODO: implicit groups.
@@ -104,18 +83,33 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*Permissions,
 
 			// Hoist admin powers.
 			if slices.Contains(group.Roles, roles.Admin) {
-				organizationPermissions.IsAdmin = true
+				isAdmin = true
 			}
 
-			organizationPermissions.Groups = append(organizationPermissions.Groups, GroupPermissions{
+			// Remove any special roles.
+			minifiedRoles := slices.DeleteFunc(group.Roles, func(role roles.Role) bool {
+				return role == roles.SuperAdmin || role == roles.Admin
+			})
+
+			if len(minifiedRoles) == 0 {
+				continue
+			}
+
+			groups = append(groups, rbac.GroupPermissions{
 				ID:    group.ID,
-				Roles: group.Roles,
+				Roles: minifiedRoles,
 			})
 		}
 
-		if organizationPermissions.IsAdmin || len(organizationPermissions.Groups) > 0 {
-			permissions.Organizations = append(permissions.Organizations, organizationPermissions)
+		if !isAdmin && len(groups) == 0 {
+			continue
 		}
+
+		permissions.Organizations = append(permissions.Organizations, rbac.OrganizationPermissions{
+			Name:    organization.Name,
+			IsAdmin: isAdmin,
+			Groups:  groups,
+		})
 	}
 
 	return permissions, nil
