@@ -18,9 +18,6 @@ type ServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request)
 
-	// (GET /api/v1/oauth2/providers)
-	GetApiV1Oauth2Providers(w http.ResponseWriter, r *http.Request)
-
 	// (GET /api/v1/organizations)
 	GetApiV1Organizations(w http.ResponseWriter, r *http.Request)
 
@@ -41,6 +38,9 @@ type ServerInterface interface {
 
 	// (PUT /api/v1/organizations/{organization}/groups/{groupid})
 	PutApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, groupid GroupidParameter)
+
+	// (GET /api/v1/organizations/{organization}/oauth2/providers)
+	GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
 	// (GET /oauth2/v2/authorization)
 	GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request)
@@ -76,23 +76,6 @@ func (siw *ServerInterfaceWrapper) GetWellKnownOpenidConfiguration(w http.Respon
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetWellKnownOpenidConfiguration(w, r)
-	})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// GetApiV1Oauth2Providers operation middleware
-func (siw *ServerInterfaceWrapper) GetApiV1Oauth2Providers(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
-
-	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV1Oauth2Providers(w, r)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -285,6 +268,34 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationGroupsGroupi
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutApiV1OrganizationsOrganizationGroupsGroupid(w, r, organization, groupid)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetApiV1OrganizationsOrganizationOauth2Providers operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "organization" -------------
+	var organization OrganizationParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "organization", runtime.ParamLocationPath, chi.URLParam(r, "organization"), &organization)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
+		return
+	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1OrganizationsOrganizationOauth2Providers(w, r, organization)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -503,9 +514,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetWellKnownOpenidConfiguration)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/oauth2/providers", wrapper.GetApiV1Oauth2Providers)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations", wrapper.GetApiV1Organizations)
 	})
 	r.Group(func(r chi.Router) {
@@ -525,6 +533,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/organizations/{organization}/groups/{groupid}", wrapper.PutApiV1OrganizationsOrganizationGroupsGroupid)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/oauth2/providers", wrapper.GetApiV1OrganizationsOrganizationOauth2Providers)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oauth2/v2/authorization", wrapper.GetOauth2V2Authorization)
