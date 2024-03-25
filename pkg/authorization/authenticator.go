@@ -18,9 +18,6 @@ limitations under the License.
 package authorization
 
 import (
-	"net/http"
-
-	"github.com/unikorn-cloud/core/pkg/authorization/accesstoken"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
@@ -42,17 +39,6 @@ func NewAuthenticator(issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator) *Aut
 		issuer: issuer,
 		OAuth2: oauth2,
 	}
-}
-
-func (a *Authenticator) Userinfo(r *http.Request) (interface{}, error) {
-	token := accesstoken.FromContext(r.Context())
-
-	claims, err := a.OAuth2.Verify(r, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return claims, nil
 }
 
 func (a *Authenticator) JWKS() (interface{}, error) {

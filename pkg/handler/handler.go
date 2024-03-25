@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/generated"
@@ -134,14 +135,8 @@ func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
-	result, err := h.authenticator.Userinfo(r)
-	if err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
+	util.WriteJSONResponse(w, r, http.StatusOK, userinfo.FromContext(r.Context()))
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
