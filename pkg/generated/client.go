@@ -92,9 +92,6 @@ type ClientInterface interface {
 	// GetWellKnownOpenidConfiguration request
 	GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetApiV1Oauth2Providers request
-	GetApiV1Oauth2Providers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetApiV1Organizations request
 	GetApiV1Organizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -124,6 +121,9 @@ type ClientInterface interface {
 
 	PutApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1OrganizationsOrganizationOauth2Providers request
+	GetApiV1OrganizationsOrganizationOauth2Providers(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOauth2V2Authorization request
 	GetOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -149,18 +149,6 @@ type ClientInterface interface {
 
 func (c *Client) GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWellKnownOpenidConfigurationRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetApiV1Oauth2Providers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1Oauth2ProvidersRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -303,6 +291,18 @@ func (c *Client) PutApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Cont
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetApiV1OrganizationsOrganizationOauth2Providers(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest(c.Server, organization)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOauth2V2AuthorizationRequest(c.Server)
 	if err != nil {
@@ -409,33 +409,6 @@ func NewGetWellKnownOpenidConfigurationRequest(server string) (*http.Request, er
 	}
 
 	operationPath := fmt.Sprintf("/.well-known/openid-configuration")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetApiV1Oauth2ProvidersRequest generates requests for GetApiV1Oauth2Providers
-func NewGetApiV1Oauth2ProvidersRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/oauth2/providers")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -743,6 +716,40 @@ func NewPutApiV1OrganizationsOrganizationGroupsGroupidRequestWithBody(server str
 	return req, nil
 }
 
+// NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest generates requests for GetApiV1OrganizationsOrganizationOauth2Providers
+func NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest(server string, organization OrganizationParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/oauth2/providers", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetOauth2V2AuthorizationRequest generates requests for GetOauth2V2Authorization
 func NewGetOauth2V2AuthorizationRequest(server string) (*http.Request, error) {
 	var err error
@@ -977,9 +984,6 @@ type ClientWithResponsesInterface interface {
 	// GetWellKnownOpenidConfiguration request
 	GetWellKnownOpenidConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWellKnownOpenidConfigurationResponse, error)
 
-	// GetApiV1Oauth2Providers request
-	GetApiV1Oauth2ProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1Oauth2ProvidersResponse, error)
-
 	// GetApiV1Organizations request
 	GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error)
 
@@ -1008,6 +1012,9 @@ type ClientWithResponsesInterface interface {
 	PutApiV1OrganizationsOrganizationGroupsGroupidWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error)
 
 	PutApiV1OrganizationsOrganizationGroupsGroupidWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error)
+
+	// GetApiV1OrganizationsOrganizationOauth2Providers request
+	GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationOauth2ProvidersResponse, error)
 
 	// GetOauth2V2Authorization request
 	GetOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2AuthorizationResponse, error)
@@ -1048,30 +1055,6 @@ func (r GetWellKnownOpenidConfigurationResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetWellKnownOpenidConfigurationResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetApiV1Oauth2ProvidersResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Oauth2Providers
-	JSON401      *Oauth2Error
-	JSON500      *Oauth2Error
-}
-
-// Status returns HTTPResponse.Status
-func (r GetApiV1Oauth2ProvidersResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetApiV1Oauth2ProvidersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1234,6 +1217,30 @@ func (r PutApiV1OrganizationsOrganizationGroupsGroupidResponse) StatusCode() int
 	return 0
 }
 
+type GetApiV1OrganizationsOrganizationOauth2ProvidersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Oauth2Providers
+	JSON401      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsOrganizationOauth2ProvidersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsOrganizationOauth2ProvidersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetOauth2V2AuthorizationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1377,15 +1384,6 @@ func (c *ClientWithResponses) GetWellKnownOpenidConfigurationWithResponse(ctx co
 	return ParseGetWellKnownOpenidConfigurationResponse(rsp)
 }
 
-// GetApiV1Oauth2ProvidersWithResponse request returning *GetApiV1Oauth2ProvidersResponse
-func (c *ClientWithResponses) GetApiV1Oauth2ProvidersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1Oauth2ProvidersResponse, error) {
-	rsp, err := c.GetApiV1Oauth2Providers(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetApiV1Oauth2ProvidersResponse(rsp)
-}
-
 // GetApiV1OrganizationsWithResponse request returning *GetApiV1OrganizationsResponse
 func (c *ClientWithResponses) GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error) {
 	rsp, err := c.GetApiV1Organizations(ctx, reqEditors...)
@@ -1481,6 +1479,15 @@ func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationGroupsGroupidWith
 	return ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp)
 }
 
+// GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse request returning *GetApiV1OrganizationsOrganizationOauth2ProvidersResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationOauth2ProvidersResponse, error) {
+	rsp, err := c.GetApiV1OrganizationsOrganizationOauth2Providers(ctx, organization, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsOrganizationOauth2ProvidersResponse(rsp)
+}
+
 // GetOauth2V2AuthorizationWithResponse request returning *GetOauth2V2AuthorizationResponse
 func (c *ClientWithResponses) GetOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2AuthorizationResponse, error) {
 	rsp, err := c.GetOauth2V2Authorization(ctx, reqEditors...)
@@ -1571,46 +1578,6 @@ func ParseGetWellKnownOpenidConfigurationResponse(rsp *http.Response) (*GetWellK
 			return nil, err
 		}
 		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetApiV1Oauth2ProvidersResponse parses an HTTP response from a GetApiV1Oauth2ProvidersWithResponse call
-func ParseGetApiV1Oauth2ProvidersResponse(rsp *http.Response) (*GetApiV1Oauth2ProvidersResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetApiV1Oauth2ProvidersResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Oauth2Providers
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Oauth2Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest Oauth2Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
 
 	}
 
@@ -1796,6 +1763,46 @@ func ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp *http.Respo
 	response := &PutApiV1OrganizationsOrganizationGroupsGroupidResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1OrganizationsOrganizationOauth2ProvidersResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse call
+func ParseGetApiV1OrganizationsOrganizationOauth2ProvidersResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationOauth2ProvidersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsOrganizationOauth2ProvidersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Oauth2Providers
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
 	}
 
 	return response, nil

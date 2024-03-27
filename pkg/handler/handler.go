@@ -154,8 +154,8 @@ func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 	h.authenticator.OAuth2.OIDCCallback(w, r)
 }
 
-func (h *Handler) GetApiV1Oauth2Providers(w http.ResponseWriter, r *http.Request) {
-	result, err := oauth2providers.New(h.client, h.namespace).List(r.Context())
+func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	result, err := oauth2providers.New(h.client, h.namespace).List(r.Context(), organization)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return

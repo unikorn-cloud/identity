@@ -106,9 +106,8 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permiss
 		}
 
 		permissions.Organizations = append(permissions.Organizations, rbac.OrganizationPermissions{
-			Name:    organization.Name,
-			IsAdmin: isAdmin,
-			Groups:  groups,
+			Name:   organization.Name,
+			Groups: groups,
 		})
 	}
 

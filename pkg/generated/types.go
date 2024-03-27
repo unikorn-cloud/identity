@@ -138,10 +138,22 @@ type Oauth2ErrorError string
 
 // Oauth2Provider An oauth2 provider.
 type Oauth2Provider struct {
-	ClientID    string `json:"clientID"`
+	// ClientID The client identification, only shown for super admin or organization owned providers
+	// that you are an admin for.
+	ClientID *string `json:"clientID,omitempty"`
+
+	// ClientSecret The client secret, only shown for super admin or organization owned providers
+	// that you are an admin for.
+	ClientSecret *string `json:"clientSecret,omitempty"`
+
+	// DisplayName The name to display for the provider.
 	DisplayName string `json:"displayName"`
-	Issuer      string `json:"issuer"`
-	Name        string `json:"name"`
+
+	// Issuer The OIDC issuer, typically where to perform auto discovery relative to.
+	Issuer string `json:"issuer"`
+
+	// Name A description of the provider.
+	Name string `json:"name"`
 }
 
 // Oauth2Providers A list of oauth2 providers.

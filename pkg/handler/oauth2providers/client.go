@@ -21,8 +21,16 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
+	"github.com/unikorn-cloud/core/pkg/authorization/roles"
+	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
+	"github.com/unikorn-cloud/core/pkg/constants"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -39,18 +47,37 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func convert(in *unikornv1.OAuth2Provider) *generated.Oauth2Provider {
+func showDetails(permissions *rbac.Permissions, item *unikornv1.OAuth2Provider) bool {
+	// Super admin can see everything.
+	if permissions.IsSuperAdmin {
+		return true
+	}
+
+	// If it's a private one, show the details.
+	if _, ok := item.Labels[constants.OrganizationLabel]; ok {
+		return false
+	}
+
+	return false
+}
+
+func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider) *generated.Oauth2Provider {
 	out := &generated.Oauth2Provider{
 		Name:        in.Name,
 		DisplayName: in.Spec.DisplayName,
 		Issuer:      in.Spec.Issuer,
-		ClientID:    in.Spec.ClientID,
+	}
+
+	// Only show sensitive details for organizations you are an admin of.
+	if showDetails(permissions, in) {
+		out.ClientID = &in.Spec.ClientID
+		out.ClientSecret = in.Spec.ClientSecret
 	}
 
 	return out
 }
 
-func convertList(in *unikornv1.OAuth2ProviderList) []generated.Oauth2Provider {
+func convertList(permissions *rbac.Permissions, in *unikornv1.OAuth2ProviderList) []generated.Oauth2Provider {
 	slices.SortStableFunc(in.Items, func(a, b unikornv1.OAuth2Provider) int {
 		return strings.Compare(a.Name, b.Name)
 	})
@@ -58,18 +85,68 @@ func convertList(in *unikornv1.OAuth2ProviderList) []generated.Oauth2Provider {
 	out := make([]generated.Oauth2Provider, len(in.Items))
 
 	for i := range in.Items {
-		out[i] = *convert(&in.Items[i])
+		out[i] = *convert(permissions, &in.Items[i])
 	}
 
 	return out
 }
 
-func (c *Client) List(ctx context.Context) ([]generated.Oauth2Provider, error) {
-	var result unikornv1.OAuth2ProviderList
+func (c *Client) List(ctx context.Context, organizationName string) ([]generated.Oauth2Provider, error) {
+	// RBAC
+	authorizer, err := userinfo.NewAuthorizer(ctx, organizationName)
+	if err != nil {
+		return nil, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
+	}
 
-	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
+	if err := authorizer.Allow("oauth2providers:public", roles.Read); err != nil {
+		return nil, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
+	}
+
+	if err := authorizer.Allow("oauth2providers:private", roles.Read); err != nil {
+		return nil, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
+	}
+
+	// Get any generic public providers.
+	publicRequirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.DoesNotExist, nil)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("unable to create selection requirement").WithError(err)
+	}
+
+	publicSelector := labels.NewSelector()
+	publicSelector = publicSelector.Add(*publicRequirement)
+
+	publicOptions := &client.ListOptions{
+		Namespace:     c.namespace,
+		LabelSelector: publicSelector,
+	}
+
+	var public unikornv1.OAuth2ProviderList
+
+	if err := c.client.List(ctx, &public, publicOptions); err != nil {
 		return nil, err
 	}
 
-	return convertList(&result), nil
+	// Get any private providers.
+	organizationRequirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.Equals, []string{organizationName})
+	if err != nil {
+		return nil, errors.OAuth2ServerError("unable to create selection requirement").WithError(err)
+	}
+
+	privateSelector := labels.NewSelector()
+	privateSelector = privateSelector.Add(*organizationRequirement)
+
+	privateOptions := &client.ListOptions{
+		Namespace:     c.namespace,
+		LabelSelector: privateSelector,
+	}
+
+	var private unikornv1.OAuth2ProviderList
+
+	if err := c.client.List(ctx, &private, privateOptions); err != nil {
+		return nil, err
+	}
+
+	userinfo := userinfo.FromContext(ctx)
+
+	return slices.Concat(convertList(userinfo.RBAC, &public), convertList(userinfo.RBAC, &private)), nil
 }

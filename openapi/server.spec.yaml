@@ -111,23 +111,6 @@ paths:
           $ref: '#/components/responses/jwksResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/oauth2/providers:
-    description: |-
-      Allows management of oauth2 providers.  The identity service is typically
-      registered with an identity provider who provides us a client identitifier
-      and possibly a secret that we need to authenticate the user.
-    get:
-      description: |-
-        Returns a list of identity providers.
-      security:
-      - oauth2Authentication: []
-      responses:
-        '200':
-          $ref: '#/components/responses/oauth2ProvidersResponse'
-        '401':
-          $ref: '#/components/responses/unauthorizedResponse'
-        '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
   /api/v1/organizations:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -190,6 +173,25 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '403':
           $ref: '#/components/responses/forbiddenResponse'
+  /api/v1/organizations/{organization}/oauth2/providers:
+    description: |-
+      Allows management of oauth2 providers.  The identity service is typically
+      registered with an identity provider who provides us a client identitifier
+      and possibly a secret that we need to authenticate the user.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    get:
+      description: |-
+        Returns a list of identity providers, either public or owned by the organization.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/oauth2ProvidersResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
   # TODO: in order to create a group, we'd need to know from the identity
   # provider what groups are available, and to do that we'd need to have
   # the access token available.  We could pass it around in our access token
@@ -559,19 +561,25 @@ components:
       - name
       - displayName
       - issuer
-      - clientID
       properties:
         name:
-          description:
+          description: A description of the provider.
           type: string
         displayName:
-          description:
+          description: The name to display for the provider.
           type: string
         issuer:
-          description:
+          description: The OIDC issuer, typically where to perform auto discovery relative to.
           type: string
         clientID:
-          description:
+          description: |
+            The client identification, only shown for super admin or organization owned providers
+            that you are an admin for.
+          type: string
+        clientSecret:
+          description: |
+            The client secret, only shown for super admin or organization owned providers
+            that you are an admin for.
           type: string
     oauth2Providers:
       description: A list of oauth2 providers.
