@@ -216,9 +216,11 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          description: A list of groups.
+          $ref: '#/components/responses/groupsResponse'
         '401':
-          description: Invalid credentials were provided.
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
     post:
       description: |-
         Allows creation of a new group.
@@ -230,11 +232,11 @@ paths:
         '201':
           description: Group successfully created and returned.
         '401':
-          description: Invalid credentials were provided.
+          $ref: '#/components/responses/unauthorizedResponse'
         '403':
-          description: The user is forbidden from creating groups.
+          $ref: '#/components/responses/forbiddenResponse'
         '409':
-          description: The group already exists.
+          $ref: '#/components/responses/conflictResponse'
   /api/v1/organizations/{organization}/groups/{groupid}:
     description: |-
       Allows management of organization groups. Groups provide an identity
@@ -255,25 +257,25 @@ paths:
         '200':
           description: Group successfully updated and returned.
         '401':
-          description: Invalid credentials were provided.
+          $ref: '#/components/responses/unauthorizedResponse'
         '403':
-          description: The user is forbidden from creating groups.
+          $ref: '#/components/responses/forbiddenResponse'
         '404':
-          description: The requested group does not exist.
+          $ref: '#/components/responses/notFoundResponse'
     delete:
       description: |-
           Allows the deletion of an existing group.
       security:
       - oauth2Authentication: []
       responses:
-        '204':
+        '200':
           description: Group successfully deleted.
         '401':
-          description: Invalid credentials were provided.
+          $ref: '#/components/responses/unauthorizedResponse'
         '403':
-          description: The user is forbidden from deleting groups.
-        '410':
-          description: The requested group does not exist.
+          $ref: '#/components/responses/forbiddenResponse'
+        '404':
+          $ref: '#/components/responses/notFoundResponse'
 components:
   parameters:
     organizationParameter:
@@ -606,6 +608,41 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/organization'
+    userList:
+      description: A list of users.
+      type: array
+      items:
+        description: A canonical user name (e.g email address).
+        type: string
+    roleList:
+      description: A list of roles.
+      type: array
+      items:
+        description: A role name.
+        type: string
+    group:
+      description: A group.
+      type: object
+      required:
+      - id
+      - name
+      - roles
+      properties:
+        id:
+          description: An immutable group ID.
+          type: string
+        name:
+          description: The group name.
+          type: string
+        users:
+          $ref: '#/components/schemas/userList'
+        roles:
+          $ref: '#/components/schemas/roleList'
+    groups:
+      description: A list of groups.
+      type: array
+      items:
+        $ref: '#/components/schemas/group'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -650,14 +687,14 @@ components:
       content:
         application/json:
           schema:
-            type: object
+            $ref: '#/components/schemas/group'
     updateGroupRequest:
       description: Body required to update a group.
       required: true
       content:
         application/json:
           schema:
-            type: object
+            $ref: '#/components/schemas/group'
   responses:
     badRequestResponse:
       description: |-
@@ -800,6 +837,20 @@ components:
           - name: acme-corp
             domain: acme.corp
             providerName: google-identity
+    groupsResponse:
+      description: |-
+        A list of groups for the organization.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/groups'
+          example:
+          - id: 401cfc2c-2135-4619-a6ff-1ac247a3b2ad
+            name: The A-Team
+            users:
+            - face@a-team.com
+            roles:
+            - admin
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.

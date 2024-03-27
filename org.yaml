@@ -1,0 +1,15 @@
+apiVersion: identity.unikorn-cloud.org/v1alpha1
+kind: Organization
+metadata:
+  name: nscale
+  namespace: unikorn-identity
+spec:
+    domain: nscale.com
+    providerName: google-identity
+    groups:
+    - id: 8e4516ed-69f1-4509-889b-a1de21738294
+      name: Platform Administrators
+      roles:
+      - superAdmin
+      users:
+      - simon.murray@nscale.com

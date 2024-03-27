@@ -19,13 +19,16 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/roles"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/generated"
+	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/util"
@@ -45,6 +48,19 @@ type Handler struct {
 
 	// options allows behaviour to be defined on the CLI.
 	options *Options
+}
+
+func checkRBAC(ctx context.Context, organization, scope string, permission roles.Permission) error {
+	authorizer, err := userinfo.NewAuthorizer(ctx, organization)
+	if err != nil {
+		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
+	}
+
+	if err := authorizer.Allow(scope, permission); err != nil {
+		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
+	}
+
+	return nil
 }
 
 func New(client client.Client, namespace string, authenticator *authorization.Authenticator, options *Options) (*Handler, error) {
@@ -183,6 +199,19 @@ func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *ht
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := checkRBAC(r.Context(), organization, "groups", roles.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := groups.New(h.client, h.namespace).List(r.Context(), organization)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) PostApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {

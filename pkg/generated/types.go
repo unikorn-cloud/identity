@@ -103,6 +103,24 @@ type CodeChallengeMethod string
 // GrantType Supported grant type.
 type GrantType string
 
+// Group A group.
+type Group struct {
+	// Id An immutable group ID.
+	Id string `json:"id"`
+
+	// Name The group name.
+	Name string `json:"name"`
+
+	// Roles A list of roles.
+	Roles RoleList `json:"roles"`
+
+	// Users A list of users.
+	Users *UserList `json:"users,omitempty"`
+}
+
+// Groups A list of groups.
+type Groups = []Group
+
 // JsonWebKey JSON web key. See the relevant JWKS documentation for further details.
 type JsonWebKey = map[string]interface{}
 
@@ -216,6 +234,9 @@ type Organizations = []Organization
 // ResponseType Supported response types.
 type ResponseType string
 
+// RoleList A list of roles.
+type RoleList = []string
+
 // Scope Supported scopes.
 type Scope string
 
@@ -272,6 +293,9 @@ type TokenRequestOptions1 struct {
 	GrantType *interface{} `json:"grant_type,omitempty"`
 }
 
+// UserList A list of users.
+type UserList = []string
+
 // GroupidParameter defines model for groupidParameter.
 type GroupidParameter = string
 
@@ -287,12 +311,18 @@ type ConflictResponse = Oauth2Error
 // ForbiddenResponse Generic error message.
 type ForbiddenResponse = Oauth2Error
 
+// GroupsResponse A list of groups.
+type GroupsResponse = Groups
+
 // InternalServerErrorResponse Generic error message.
 type InternalServerErrorResponse = Oauth2Error
 
 // JwksResponse JSON web key set. This data type is defined by an external 3rd party standards
 // committee. Consult the relevant documentation for further details.
 type JwksResponse = JsonWebKeySet
+
+// NotFoundResponse Generic error message.
+type NotFoundResponse = Oauth2Error
 
 // Oauth2ProvidersResponse A list of oauth2 providers.
 type Oauth2ProvidersResponse = Oauth2Providers
@@ -312,23 +342,17 @@ type UnauthorizedResponse = Oauth2Error
 // UserinfoResponse defines model for userinfoResponse.
 type UserinfoResponse interface{}
 
-// CreateGroupRequest defines model for createGroupRequest.
-type CreateGroupRequest = map[string]interface{}
+// CreateGroupRequest A group.
+type CreateGroupRequest = Group
 
 // CreateOrganizationRequest An organization.
 type CreateOrganizationRequest = Organization
 
-// UpdateGroupRequest defines model for updateGroupRequest.
-type UpdateGroupRequest = map[string]interface{}
+// UpdateGroupRequest A group.
+type UpdateGroupRequest = Group
 
 // UpdateOrganizationRequest An organization.
 type UpdateOrganizationRequest = Organization
-
-// PostApiV1OrganizationsOrganizationGroupsJSONBody defines parameters for PostApiV1OrganizationsOrganizationGroups.
-type PostApiV1OrganizationsOrganizationGroupsJSONBody = map[string]interface{}
-
-// PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody defines parameters for PutApiV1OrganizationsOrganizationGroupsGroupid.
-type PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody = map[string]interface{}
 
 // PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
 type PostApiV1OrganizationsJSONRequestBody = Organization
@@ -337,10 +361,10 @@ type PostApiV1OrganizationsJSONRequestBody = Organization
 type PutApiV1OrganizationsOrganizationJSONRequestBody = Organization
 
 // PostApiV1OrganizationsOrganizationGroupsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationGroups for application/json ContentType.
-type PostApiV1OrganizationsOrganizationGroupsJSONRequestBody = PostApiV1OrganizationsOrganizationGroupsJSONBody
+type PostApiV1OrganizationsOrganizationGroupsJSONRequestBody = Group
 
 // PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody defines body for PutApiV1OrganizationsOrganizationGroupsGroupid for application/json ContentType.
-type PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody = PutApiV1OrganizationsOrganizationGroupsGroupidJSONBody
+type PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody = Group
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions
