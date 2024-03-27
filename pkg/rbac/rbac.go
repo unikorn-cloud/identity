@@ -55,8 +55,6 @@ func (r *RBAC) GetOrganizatons(ctx context.Context) (*unikornv1.OrganizationList
 
 // UserPermissions builds up a hierarchy of permissions for a user, this is used
 // both internally and given out to resource servers via token introspection.
-//
-//nolint:cyclop
 func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permissions, error) {
 	permissions := &rbac.Permissions{}
 
@@ -66,8 +64,6 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permiss
 	}
 
 	for _, organization := range organizations.Items {
-		var isAdmin bool
-
 		var groups []rbac.GroupPermissions
 
 		for _, group := range organization.Spec.Groups {
@@ -81,14 +77,9 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permiss
 				permissions.IsSuperAdmin = true
 			}
 
-			// Hoist admin powers.
-			if slices.Contains(group.Roles, roles.Admin) {
-				isAdmin = true
-			}
-
 			// Remove any special roles.
 			minifiedRoles := slices.DeleteFunc(group.Roles, func(role roles.Role) bool {
-				return role == roles.SuperAdmin || role == roles.Admin
+				return role == roles.SuperAdmin
 			})
 
 			if len(minifiedRoles) == 0 {
@@ -101,7 +92,7 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permiss
 			})
 		}
 
-		if !isAdmin && len(groups) == 0 {
+		if len(groups) == 0 {
 			continue
 		}
 
