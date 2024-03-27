@@ -1136,6 +1136,9 @@ func (r PutApiV1OrganizationsOrganizationResponse) StatusCode() int {
 type GetApiV1OrganizationsOrganizationGroupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON200      *Groups
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1157,6 +1160,9 @@ func (r GetApiV1OrganizationsOrganizationGroupsResponse) StatusCode() int {
 type PostApiV1OrganizationsOrganizationGroupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON409      *Oauth2Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1178,6 +1184,9 @@ func (r PostApiV1OrganizationsOrganizationGroupsResponse) StatusCode() int {
 type DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON404      *Oauth2Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1199,6 +1208,9 @@ func (r DeleteApiV1OrganizationsOrganizationGroupsGroupidResponse) StatusCode() 
 type PutApiV1OrganizationsOrganizationGroupsGroupidResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON404      *Oauth2Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1717,6 +1729,30 @@ func ParseGetApiV1OrganizationsOrganizationGroupsResponse(rsp *http.Response) (*
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Groups
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -1731,6 +1767,30 @@ func ParsePostApiV1OrganizationsOrganizationGroupsResponse(rsp *http.Response) (
 	response := &PostApiV1OrganizationsOrganizationGroupsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -1749,6 +1809,30 @@ func ParseDeleteApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp *http.Re
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -1763,6 +1847,30 @@ func ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp *http.Respo
 	response := &PutApiV1OrganizationsOrganizationGroupsGroupidResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	}
 
 	return response, nil
