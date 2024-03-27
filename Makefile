@@ -66,7 +66,7 @@ FLAGS=-trimpath -ldflags '-X $(MODULE)/pkg/constants.Version=$(VERSION) -X $(MOD
 LINT_VERSION=v1.54.2
 
 # Defines the version of the CRD generation tools to use.
-CONTROLLER_TOOLS_VERSION=v0.12.1
+CONTROLLER_TOOLS_VERSION=v0.14.0
 
 # Defines the version of code generator tools to use.
 # This should be kept in sync with the Kubenetes library versions defined in go.mod.

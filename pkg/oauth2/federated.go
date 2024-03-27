@@ -51,13 +51,9 @@ import (
 )
 
 type Options struct {
-	loginRedirectURL string
-	errorRedirectURL string
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
-	f.StringVar(&o.loginRedirectURL, "login-redirect-url", "", "External page to handle login requests")
-	f.StringVar(&o.errorRedirectURL, "error-redirect-url", "", "External page to handle errors")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -367,6 +363,8 @@ func (a *Authenticator) providerGetters() []providerGetter {
 // either returning an authorization grant or error via a HTTP 302 redirect,
 // or returning a HTML fragment for errors that cannot follow the provided
 // redirect URI.
+//
+//nolint:cyclop
 func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	log := log.FromContext(r.Context())
 
@@ -400,10 +398,18 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 
 	loginQuery.Set("state", query.Encode())
 	loginQuery.Set("callback", "https://"+r.Host+"/oauth2/v2/login")
+	// TODO: this needs to be driven by the available oauth2providers
+	loginQuery.Set("providers", "google microsoft")
+
+	client, ok := a.lookupClient(w, r, query.Get("client_id"))
+	if !ok {
+		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
+		return
+	}
 
 	// Redirect to an external login handler, if you have chosen to.
-	if a.options.loginRedirectURL != "" {
-		http.Redirect(w, r, fmt.Sprintf("%s?%s", a.options.loginRedirectURL, loginQuery.Encode()), http.StatusFound)
+	if client.Spec.LoginURI != nil {
+		http.Redirect(w, r, fmt.Sprintf("%s?%s", *client.Spec.LoginURI, loginQuery.Encode()), http.StatusFound)
 		return
 	}
 

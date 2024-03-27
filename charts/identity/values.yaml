@@ -35,6 +35,8 @@ host: identity.acme.org
 #   id: f15d7ab0-7cf2-4389-b662-493c39d78d3a
 #   # A redirect URI to return control back to the client.
 #   redirectURI: http://app.acme.org
+#   # An optional, trusted, login dialog.
+#   loginURI: http://app.acme.org/login
 
 # A static list of registered oauth2 providers.
 # providers:

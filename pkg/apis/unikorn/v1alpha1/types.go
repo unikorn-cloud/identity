@@ -61,6 +61,8 @@ type OAuth2ClientSpec struct {
 	ID string `json:"id"`
 	// RedirectURI is the URI to pass control back to the client.
 	RedirectURI string `json:"redirectUri"`
+	// LoginURI is a URI to pass control to for login dialogs.
+	LoginURI *string `json:"loginUri,omitempty"`
 }
 
 // OAuth2ClientStatus defines the status of the client.

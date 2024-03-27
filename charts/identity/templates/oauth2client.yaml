@@ -9,4 +9,7 @@ metadata:
 spec:
   id: {{ $client.id }}
   redirectUri: {{ $client.redirectURI }}
+  {{- if $client.loginURI }}
+  loginUri: {{ $client.loginURI }}
+  {{- end }}
 {{- end }}
