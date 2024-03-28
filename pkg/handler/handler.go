@@ -115,7 +115,7 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 			generated.ClaimEmail,
 			generated.ClaimEmailVerified,
 			generated.ClaimExp,
-			generated.ClaimFamilityName,
+			generated.ClaimFamiliyName,
 			generated.ClaimGivenName,
 			generated.ClaimIat,
 			generated.ClaimIss,
