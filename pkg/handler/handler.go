@@ -50,8 +50,21 @@ type Handler struct {
 	options *Options
 }
 
+func checkRBACUnscoped(ctx context.Context, scope string, permission roles.Permission) error {
+	authorizer, err := userinfo.NewUnscopedAuthorizer(ctx)
+	if err != nil {
+		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
+	}
+
+	if err := authorizer.Allow(scope, permission); err != nil {
+		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
+	}
+
+	return nil
+}
+
 func checkRBAC(ctx context.Context, organization, scope string, permission roles.Permission) error {
-	authorizer, err := userinfo.NewAuthorizer(ctx, organization)
+	authorizer, err := userinfo.NewScopedAuthorizer(ctx, organization)
 	if err != nil {
 		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
 	}
@@ -192,7 +205,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.Respon
 }
 
 func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
-	if err := checkRBAC(r.Context(), "", "organizations", roles.Read); err != nil {
+	if err := checkRBACUnscoped(r.Context(), "organizations", roles.Read); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -208,14 +221,14 @@ func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
-	if err := checkRBAC(r.Context(), "", "organizations", roles.Create); err != nil {
+	if err := checkRBACUnscoped(r.Context(), "organizations", roles.Create); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 }
 
 func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
-	if err := checkRBAC(r.Context(), "", "organizations", roles.Update); err != nil {
+	if err := checkRBACUnscoped(r.Context(), "organizations", roles.Update); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
