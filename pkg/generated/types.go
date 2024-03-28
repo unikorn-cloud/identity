@@ -26,7 +26,7 @@ const (
 	ClaimEmail         Claim = "email"
 	ClaimEmailVerified Claim = "email_verified"
 	ClaimExp           Claim = "exp"
-	ClaimFamiliyName   Claim = "familiy_name"
+	ClaimFamilyName    Claim = "family_name"
 	ClaimGivenName     Claim = "given_name"
 	ClaimIat           Claim = "iat"
 	ClaimIss           Claim = "iss"
