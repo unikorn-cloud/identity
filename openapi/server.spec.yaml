@@ -432,7 +432,7 @@ components:
       - email
       - email_verified
       - exp
-      - familiy_name
+      - family_name
       - given_name
       - iat
       - iss
