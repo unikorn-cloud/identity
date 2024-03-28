@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
-	"github.com/unikorn-cloud/core/pkg/authorization/roles"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -92,20 +91,6 @@ func convertList(permissions *rbac.Permissions, in *unikornv1.OAuth2ProviderList
 }
 
 func (c *Client) List(ctx context.Context, organizationName string) ([]generated.Oauth2Provider, error) {
-	// RBAC
-	authorizer, err := userinfo.NewAuthorizer(ctx, organizationName)
-	if err != nil {
-		return nil, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
-	}
-
-	if err := authorizer.Allow("oauth2providers:public", roles.Read); err != nil {
-		return nil, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
-	}
-
-	if err := authorizer.Allow("oauth2providers:private", roles.Read); err != nil {
-		return nil, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
-	}
-
 	// Get any generic public providers.
 	publicRequirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.DoesNotExist, nil)
 	if err != nil {

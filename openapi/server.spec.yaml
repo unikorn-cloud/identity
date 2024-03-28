@@ -221,6 +221,8 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '403':
           $ref: '#/components/responses/forbiddenResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
     post:
       description: |-
         Allows creation of a new group.
@@ -237,6 +239,8 @@ paths:
           $ref: '#/components/responses/forbiddenResponse'
         '409':
           $ref: '#/components/responses/conflictResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organization}/groups/{groupid}:
     description: |-
       Allows management of organization groups. Groups provide an identity
@@ -246,6 +250,20 @@ paths:
     parameters:
     - $ref: '#/components/parameters/organizationParameter'
     - $ref: '#/components/parameters/groupidParameter'
+    get:
+      description: |-
+        Allows a single group to be polled.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/groupResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
     put:
       description: |-
         Allows a group to be updated.
@@ -262,6 +280,8 @@ paths:
           $ref: '#/components/responses/forbiddenResponse'
         '404':
           $ref: '#/components/responses/notFoundResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
     delete:
       description: |-
           Allows the deletion of an existing group.
@@ -276,6 +296,8 @@ paths:
           $ref: '#/components/responses/forbiddenResponse'
         '404':
           $ref: '#/components/responses/notFoundResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
 components:
   parameters:
     organizationParameter:
@@ -837,6 +859,20 @@ components:
           - name: acme-corp
             domain: acme.corp
             providerName: google-identity
+    groupResponse:
+      description: |-
+        A group in the organization.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/group'
+          example:
+            id: 401cfc2c-2135-4619-a6ff-1ac247a3b2ad
+            name: The A-Team
+            users:
+            - face@a-team.com
+            roles:
+            - admin
     groupsResponse:
       description: |-
         A list of groups for the organization.

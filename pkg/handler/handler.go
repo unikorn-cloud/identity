@@ -171,6 +171,16 @@ func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := checkRBAC(r.Context(), organization, "oauth2providers:public", roles.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := checkRBAC(r.Context(), organization, "oauth2providers:private", roles.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
 	result, err := oauth2providers.New(h.client, h.namespace).List(r.Context(), organization)
 	if err != nil {
 		errors.HandleError(w, r, err)
@@ -182,6 +192,11 @@ func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.Respon
 }
 
 func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	if err := checkRBAC(r.Context(), "", "organizations", roles.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
 	result, err := organizations.New(h.client, h.namespace).List(r.Context())
 	if err != nil {
 		errors.HandleError(w, r, err)
@@ -193,9 +208,17 @@ func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	if err := checkRBAC(r.Context(), "", "organizations", roles.Create); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
 }
 
 func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := checkRBAC(r.Context(), "", "organizations", roles.Update); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
@@ -215,10 +238,76 @@ func (h *Handler) GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter,
 }
 
 func (h *Handler) PostApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := checkRBAC(r.Context(), organization, "groups", roles.Create); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &generated.Group{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := groups.New(h.client, h.namespace).Create(r.Context(), organization, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) GetApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
+	if err := checkRBAC(r.Context(), organization, "groups", roles.Delete); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := groups.New(h.client, h.namespace).Get(r.Context(), organization, groupid)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) DeleteApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
+	if err := checkRBAC(r.Context(), organization, "groups", roles.Delete); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := groups.New(h.client, h.namespace).Delete(r.Context(), organization, groupid); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) PutApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
+	if err := checkRBAC(r.Context(), organization, "groups", roles.Update); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &generated.Group{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := groups.New(h.client, h.namespace).Update(r.Context(), organization, groupid, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusOK)
 }

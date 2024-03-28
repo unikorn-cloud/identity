@@ -36,6 +36,9 @@ type ServerInterface interface {
 	// (DELETE /api/v1/organizations/{organization}/groups/{groupid})
 	DeleteApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, groupid GroupidParameter)
 
+	// (GET /api/v1/organizations/{organization}/groups/{groupid})
+	GetApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, groupid GroupidParameter)
+
 	// (PUT /api/v1/organizations/{organization}/groups/{groupid})
 	PutApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, groupid GroupidParameter)
 
@@ -231,6 +234,43 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationGroupsGro
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteApiV1OrganizationsOrganizationGroupsGroupid(w, r, organization, groupid)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetApiV1OrganizationsOrganizationGroupsGroupid operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "organization" -------------
+	var organization OrganizationParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "organization", runtime.ParamLocationPath, chi.URLParam(r, "organization"), &organization)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "groupid" -------------
+	var groupid GroupidParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "groupid", runtime.ParamLocationPath, chi.URLParam(r, "groupid"), &groupid)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "groupid", Err: err})
+		return
+	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1OrganizationsOrganizationGroupsGroupid(w, r, organization, groupid)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -530,6 +570,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/organizations/{organization}/groups/{groupid}", wrapper.DeleteApiV1OrganizationsOrganizationGroupsGroupid)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/groups/{groupid}", wrapper.GetApiV1OrganizationsOrganizationGroupsGroupid)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/organizations/{organization}/groups/{groupid}", wrapper.PutApiV1OrganizationsOrganizationGroupsGroupid)
