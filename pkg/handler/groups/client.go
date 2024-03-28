@@ -21,7 +21,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/unikorn-cloud/core/pkg/authorization/roles"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 
@@ -86,4 +89,84 @@ func (c *Client) List(ctx context.Context, organizationName string) (generated.G
 	}
 
 	return convertList(organization.Spec.Groups), nil
+}
+
+func (c *Client) Get(ctx context.Context, organizationName, groupID string) (*generated.Group, error) {
+	var organization unikornv1.Organization
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
+		return nil, errors.OAuth2ServerError("failed to read organization").WithError(err)
+	}
+
+	index := slices.IndexFunc(organization.Spec.Groups, func(group unikornv1.OrganizationGroup) bool {
+		return group.ID == groupID
+	})
+
+	if index < 0 {
+		return nil, errors.HTTPNotFound()
+	}
+
+	return convert(&organization.Spec.Groups[index]), nil
+}
+
+func generateRoleList(in generated.RoleList) []roles.Role {
+	out := make([]roles.Role, len(in))
+
+	for i, role := range in {
+		out[i] = roles.Role(role)
+	}
+
+	return out
+}
+
+func generate(in *generated.Group) unikornv1.OrganizationGroup {
+	out := unikornv1.OrganizationGroup{
+		ID:    uuid.New().String(),
+		Name:  in.Name,
+		Roles: generateRoleList(in.Roles),
+	}
+
+	if in.Users != nil {
+		out.Users = *in.Users
+	}
+
+	return out
+}
+
+func (c *Client) Create(ctx context.Context, organizationName string, group *generated.Group) error {
+	var organization unikornv1.Organization
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
+		return errors.OAuth2ServerError("failed to read organization").WithError(err)
+	}
+
+	organization.Spec.Groups = append(organization.Spec.Groups, generate(group))
+
+	if err := c.client.Update(ctx, &organization); err != nil {
+		return errors.OAuth2ServerError("failed to update organization").WithError(err)
+	}
+
+	return nil
+}
+
+func (c *Client) Update(ctx context.Context, organizationName, groupID string, group *generated.Group) error {
+	return nil
+}
+
+func (c *Client) Delete(ctx context.Context, organizationName, groupID string) error {
+	var organization unikornv1.Organization
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
+		return errors.OAuth2ServerError("failed to read organization").WithError(err)
+	}
+
+	organization.Spec.Groups = slices.DeleteFunc(organization.Spec.Groups, func(group unikornv1.OrganizationGroup) bool {
+		return group.ID == groupID
+	})
+
+	if err := c.client.Update(ctx, &organization); err != nil {
+		return errors.OAuth2ServerError("failed to update organization").WithError(err)
+	}
+
+	return nil
 }

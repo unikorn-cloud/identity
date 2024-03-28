@@ -311,6 +311,9 @@ type ConflictResponse = Oauth2Error
 // ForbiddenResponse Generic error message.
 type ForbiddenResponse = Oauth2Error
 
+// GroupResponse A group.
+type GroupResponse = Group
+
 // GroupsResponse A list of groups.
 type GroupsResponse = Groups
 
