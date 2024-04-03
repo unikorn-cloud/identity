@@ -90,13 +90,6 @@ spec:
                     roles:
                       description: Roles are a list of roles users of the group inherit.
                       items:
-                        description: Role defines the role a user has within the Scope
-                          of a group.
-                        enum:
-                        - superAdmin
-                        - admin
-                        - user
-                        - reader
                         type: string
                       type: array
                     users:

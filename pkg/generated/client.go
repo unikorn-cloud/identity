@@ -105,6 +105,9 @@ type ClientInterface interface {
 
 	PutApiV1OrganizationsOrganization(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1OrganizationsOrganizationAcl request
+	GetApiV1OrganizationsOrganizationAcl(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiV1OrganizationsOrganizationGroups request
 	GetApiV1OrganizationsOrganizationGroups(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -212,6 +215,18 @@ func (c *Client) PutApiV1OrganizationsOrganizationWithBody(ctx context.Context, 
 
 func (c *Client) PutApiV1OrganizationsOrganization(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutApiV1OrganizationsOrganizationRequest(c.Server, organization, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1OrganizationsOrganizationAcl(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsOrganizationAclRequest(c.Server, organization)
 	if err != nil {
 		return nil, err
 	}
@@ -551,6 +566,40 @@ func NewPutApiV1OrganizationsOrganizationRequestWithBody(server string, organiza
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetApiV1OrganizationsOrganizationAclRequest generates requests for GetApiV1OrganizationsOrganizationAcl
+func NewGetApiV1OrganizationsOrganizationAclRequest(server string, organization OrganizationParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/acl", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -1053,6 +1102,9 @@ type ClientWithResponsesInterface interface {
 
 	PutApiV1OrganizationsOrganizationWithResponse(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationResponse, error)
 
+	// GetApiV1OrganizationsOrganizationAcl request
+	GetApiV1OrganizationsOrganizationAclWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationAclResponse, error)
+
 	// GetApiV1OrganizationsOrganizationGroups request
 	GetApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationGroupsResponse, error)
 
@@ -1186,6 +1238,30 @@ func (r PutApiV1OrganizationsOrganizationResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutApiV1OrganizationsOrganizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApiV1OrganizationsOrganizationAclResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Acl
+	JSON401      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsOrganizationAclResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsOrganizationAclResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1527,6 +1603,15 @@ func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationWithResponse(ctx 
 	return ParsePutApiV1OrganizationsOrganizationResponse(rsp)
 }
 
+// GetApiV1OrganizationsOrganizationAclWithResponse request returning *GetApiV1OrganizationsOrganizationAclResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationAclWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationAclResponse, error) {
+	rsp, err := c.GetApiV1OrganizationsOrganizationAcl(ctx, organization, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsOrganizationAclResponse(rsp)
+}
+
 // GetApiV1OrganizationsOrganizationGroupsWithResponse request returning *GetApiV1OrganizationsOrganizationGroupsResponse
 func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationGroupsResponse, error) {
 	rsp, err := c.GetApiV1OrganizationsOrganizationGroups(ctx, organization, reqEditors...)
@@ -1807,6 +1892,46 @@ func ParsePutApiV1OrganizationsOrganizationResponse(rsp *http.Response) (*PutApi
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1OrganizationsOrganizationAclResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationAclWithResponse call
+func ParseGetApiV1OrganizationsOrganizationAclResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationAclResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsOrganizationAclResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Acl
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 

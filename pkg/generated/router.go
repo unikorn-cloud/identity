@@ -27,6 +27,9 @@ type ServerInterface interface {
 	// (PUT /api/v1/organizations/{organization})
 	PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
+	// (GET /api/v1/organizations/{organization}/acl)
+	GetApiV1OrganizationsOrganizationAcl(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+
 	// (GET /api/v1/organizations/{organization}/groups)
 	GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
@@ -141,6 +144,34 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganization(w http.Resp
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutApiV1OrganizationsOrganization(w, r, organization)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// GetApiV1OrganizationsOrganizationAcl operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationAcl(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "organization" -------------
+	var organization OrganizationParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "organization", runtime.ParamLocationPath, chi.URLParam(r, "organization"), &organization)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
+		return
+	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1OrganizationsOrganizationAcl(w, r, organization)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -561,6 +592,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/organizations/{organization}", wrapper.PutApiV1OrganizationsOrganization)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/acl", wrapper.GetApiV1OrganizationsOrganizationAcl)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/groups", wrapper.GetApiV1OrganizationsOrganizationGroups)

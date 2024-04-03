@@ -91,6 +91,30 @@ const (
 	ES512 SigningAlgorithm = "ES512"
 )
 
+// Acl A list of access control scopes and permissions.
+type Acl struct {
+	// IsSuperAdmin Indicates the user can do all the things.
+	IsSuperAdmin *bool `json:"isSuperAdmin,omitempty"`
+
+	// Scopes A list of access control scopes.
+	Scopes *AclScopes `json:"scopes,omitempty"`
+}
+
+// AclPermissions A list of access control permissions.
+type AclPermissions = []string
+
+// AclScope An access control scope.
+type AclScope struct {
+	// Name The scope name
+	Name string `json:"name"`
+
+	// Permissions A list of access control permissions.
+	Permissions AclPermissions `json:"permissions"`
+}
+
+// AclScopes A list of access control scopes.
+type AclScopes = []AclScope
+
 // AuthMethod Supported authentication methods.
 type AuthMethod string
 
@@ -301,6 +325,9 @@ type GroupidParameter = string
 
 // OrganizationParameter defines model for organizationParameter.
 type OrganizationParameter = string
+
+// AclResponse A list of access control scopes and permissions.
+type AclResponse = Acl
 
 // BadRequestResponse Generic error message.
 type BadRequestResponse = Oauth2Error

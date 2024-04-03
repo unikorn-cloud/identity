@@ -21,8 +21,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/constants"
 	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
-	"github.com/unikorn-cloud/core/pkg/authorization/roles"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,8 +42,8 @@ func New(client client.Client, namespace string) *RBAC {
 	}
 }
 
-// GetOrganizatons grabs all organizations for the system.
-func (r *RBAC) GetOrganizatons(ctx context.Context) (*unikornv1.OrganizationList, error) {
+// getOrganizatons grabs all organizations for the system.
+func (r *RBAC) getOrganizatons(ctx context.Context) (*unikornv1.OrganizationList, error) {
 	var organizations unikornv1.OrganizationList
 
 	if err := r.client.List(ctx, &organizations, &client.ListOptions{Namespace: r.namespace}); err != nil {
@@ -58,7 +58,7 @@ func (r *RBAC) GetOrganizatons(ctx context.Context) (*unikornv1.OrganizationList
 func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permissions, error) {
 	permissions := &rbac.Permissions{}
 
-	organizations, err := r.GetOrganizatons(ctx)
+	organizations, err := r.getOrganizatons(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -73,13 +73,13 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permiss
 			}
 
 			// Hoist super admin powers.
-			if slices.Contains(group.Roles, roles.SuperAdmin) {
+			if slices.Contains(group.Roles, constants.SuperAdmin) {
 				permissions.IsSuperAdmin = true
 			}
 
 			// Remove any special roles.
-			minifiedRoles := slices.DeleteFunc(group.Roles, func(role roles.Role) bool {
-				return role == roles.SuperAdmin
+			minifiedRoles := slices.DeleteFunc(group.Roles, func(role string) bool {
+				return role == constants.SuperAdmin
 			})
 
 			if len(minifiedRoles) == 0 {
@@ -113,7 +113,7 @@ func (r *RBAC) UserExists(ctx context.Context, email string) (bool, error) {
 
 	domain := parts[1]
 
-	organizations, err := r.GetOrganizatons(ctx)
+	organizations, err := r.getOrganizatons(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -131,4 +131,69 @@ func (r *RBAC) UserExists(ctx context.Context, email string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// GetACL returns a granualr set of permissions for a user based on their scope.
+// This is used for API leval access control and UX.
+func (r *RBAC) GetACL(ctx context.Context, permissions *rbac.Permissions, organization string) (*rbac.ACL, error) {
+	// Super user gets everything, so shortcut.
+	if permissions.IsSuperAdmin {
+		acl := &rbac.ACL{
+			IsSuperAdmin: true,
+		}
+
+		return acl, nil
+	}
+
+	// If this is scoped to an organization, do the lookup and deny entry if the user
+	// is not part of the organization.
+	var organizationPermissions *rbac.OrganizationPermissions
+
+	if organization != "" {
+		temp, err := permissions.LookupOrganization(organization)
+		if err != nil {
+			return nil, err
+		}
+
+		organizationPermissions = temp
+	}
+
+	var roles unikornv1.RoleList
+
+	if err := r.client.List(ctx, &roles, &client.ListOptions{Namespace: r.namespace}); err != nil {
+		return nil, err
+	}
+
+	acl := &rbac.ACL{}
+
+	for _, role := range roles.Items {
+		// If it's not a default role that everyone gets, or the user doesn't have
+		// access to it, ignore.
+		if !role.Spec.IsDefault && !organizationPermissions.HasRole(role.Name) {
+			continue
+		}
+
+		for _, scope := range role.Spec.Scopes {
+			// Lookup the scope, it may be defined by a different role already,
+			// if it doesn't exist, create it and add to the ACL.
+			aclScope := acl.GetScope(scope.Name)
+
+			if aclScope == nil {
+				aclScope = &rbac.Scope{
+					Name: scope.Name,
+				}
+
+				acl.Scopes = append(acl.Scopes, aclScope)
+			}
+
+			// Do a boolean union of existing permissions and any new ones.
+			permissions := slices.Concat(aclScope.Permissions, scope.Permissions)
+
+			slices.Sort(permissions)
+
+			aclScope.Permissions = slices.Compact(permissions)
+		}
+	}
+
+	return acl, nil
 }
