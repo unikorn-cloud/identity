@@ -23,7 +23,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/roles"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
@@ -43,21 +42,11 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func convertRoleList(in []roles.Role) generated.RoleList {
-	out := make([]string, len(in))
-
-	for i, role := range in {
-		out[i] = string(role)
-	}
-
-	return out
-}
-
 func convert(in *unikornv1.OrganizationGroup) *generated.Group {
 	out := &generated.Group{
 		Id:    in.ID,
 		Name:  in.Name,
-		Roles: convertRoleList(in.Roles),
+		Roles: in.Roles,
 	}
 
 	if len(in.Users) > 0 {
@@ -109,21 +98,11 @@ func (c *Client) Get(ctx context.Context, organizationName, groupID string) (*ge
 	return convert(&organization.Spec.Groups[index]), nil
 }
 
-func generateRoleList(in generated.RoleList) []roles.Role {
-	out := make([]roles.Role, len(in))
-
-	for i, role := range in {
-		out[i] = roles.Role(role)
-	}
-
-	return out
-}
-
 func generate(in *generated.Group) unikornv1.OrganizationGroup {
 	out := unikornv1.OrganizationGroup{
 		ID:    uuid.New().String(),
 		Name:  in.Name,
-		Roles: generateRoleList(in.Roles),
+		Roles: in.Roles,
 	}
 
 	if in.Users != nil {

@@ -1,0 +1,100 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: roles.identity.unikorn-cloud.org
+spec:
+  group: identity.unikorn-cloud.org
+  names:
+    categories:
+    - unikorn
+    kind: Role
+    listKind: RoleList
+    plural: roles
+    singular: role
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Role defines a role type that forms the basis of RBAC.  Permissions are
+          applied to arbitrary scopes that are used by individual components to
+          allow or prevent API access.  Roles are additive, so effective RBAC
+          permssions should be create from the boolean union for any roles that apply
+          to a user.  Roles can optionally be scoped to an organization to allow
+          deep customization of roles and permissions within that organization, for
+          example the system management organization may have an onboarding role that
+          allows basic account creation before handing off to the user.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RoleSpec defines the role's requested state.
+            properties:
+              isDefault:
+                description: |-
+                  IsDefault indicates that all authenticated users are granted
+                  the following scopes regardless of organizational group membership
+                  and typically are required for organization discovery and RBAC functionality
+                  in the first instance.
+                type: boolean
+              scopes:
+                description: Scopes are a list of uniquely named scopes for the role.
+                items:
+                  properties:
+                    name:
+                      description: |-
+                        Name is a unique name that applies to the scope.  Individual APIs should
+                        coordinate with one another to avoid clashes and privilege escallation.
+                      type: string
+                    permissions:
+                      description: Permissions defines a set of CRUD permissions for
+                        the scope.
+                      items:
+                        enum:
+                        - create
+                        - read
+                        - update
+                        - delete
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - name
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+            type: object
+          status:
+            description: RoleStatus defines any role status information.
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

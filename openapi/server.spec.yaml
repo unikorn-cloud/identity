@@ -173,6 +173,25 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '403':
           $ref: '#/components/responses/forbiddenResponse'
+  /api/v1/organizations/{organization}/acl:
+    description: |-
+      Gets an ACL associated with the user, scoped to the organization.
+      This is used to perform basic RBAC on remote services and to control
+      UX.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    get:
+      description: |-
+        Returns access control properties for the user.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/aclResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organization}/oauth2/providers:
     description: |-
       Allows management of oauth2 providers.  The identity service is typically
@@ -630,6 +649,43 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/organization'
+    aclPermissions:
+      description: A list of access control permissions.
+      type: array
+      items:
+        description: An access control permission.
+        type: string
+        enum:
+        - create
+        - read
+        - update
+        - delete
+    aclScope:
+      description: An access control scope.
+      type: object
+      required:
+      - name
+      - permissions
+      properties:
+        name:
+          description: The scope name
+          type: string
+        permissions:
+          $ref: '#/components/schemas/aclPermissions'
+    aclScopes:
+      description: A list of access control scopes.
+      type: array
+      items:
+        $ref: '#/components/schemas/aclScope'
+    acl:
+      description: A list of access control scopes and permissions.
+      type: object
+      properties:
+        isSuperAdmin:
+          description: Indicates the user can do all the things.
+          type: boolean
+        scopes:
+          $ref: '#/components/schemas/aclScopes'
     userList:
       description: A list of users.
       type: array
@@ -859,6 +915,18 @@ components:
           - name: acme-corp
             domain: acme.corp
             providerName: google-identity
+    aclResponse:
+      description: |-
+        A list of access controls.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/acl'
+          example:
+            isSuperAdmin: false
+            scopes:
+              organizations:
+              - read
     groupResponse:
       description: |-
         A group in the organization.

@@ -18,7 +18,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/unikorn-cloud/core/pkg/authorization/roles"
+	"github.com/unikorn-cloud/core/pkg/authorization/constants"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -117,6 +117,58 @@ type OAuth2ProviderSpec struct {
 type OAuth2ProviderStatus struct {
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type RoleList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Role `json:"items"`
+}
+
+// Role defines a role type that forms the basis of RBAC.  Permissions are
+// applied to arbitrary scopes that are used by individual components to
+// allow or prevent API access.  Roles are additive, so effective RBAC
+// permssions should be create from the boolean union for any roles that apply
+// to a user.  Roles can optionally be scoped to an organization to allow
+// deep customization of roles and permissions within that organization, for
+// example the system management organization may have an onboarding role that
+// allows basic account creation before handing off to the user.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
+type Role struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              RoleSpec   `json:"spec"`
+	Status            RoleStatus `json:"status,omitempty"`
+}
+
+// RoleSpec defines the role's requested state.
+type RoleSpec struct {
+	// IsDefault indicates that all authenticated users are granted
+	// the following scopes regardless of organizational group membership
+	// and typically are required for organization discovery and RBAC functionality
+	// in the first instance.
+	IsDefault bool `json:"isDefault,omitempty"`
+	// Scopes are a list of uniquely named scopes for the role.
+	// +listType=map
+	// +listMapKey=name
+	Scopes []RoleScope `json:"scopes,omitempty"`
+}
+
+type RoleScope struct {
+	// Name is a unique name that applies to the scope.  Individual APIs should
+	// coordinate with one another to avoid clashes and privilege escallation.
+	Name string `json:"name"`
+	// Permissions defines a set of CRUD permissions for the scope.
+	// +listType=set
+	Permissions []constants.Permission `json:"permissions,omitempty"`
+}
+
+// RoleStatus defines any role status information.
+type RoleStatus struct {
+}
+
 // OrganizationList is a typed list of identity mappings.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type OrganizationList struct {
@@ -189,7 +241,7 @@ type OrganizationGroup struct {
 	// Users are a list of user names that are members of the group.
 	Users []string `json:"users,omitempty"`
 	// Roles are a list of roles users of the group inherit.
-	Roles []roles.Role `json:"roles,omitempty"`
+	Roles []string `json:"roles,omitempty"`
 }
 
 // OrganizationStatus defines the status of the server.

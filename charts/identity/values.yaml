@@ -54,6 +54,33 @@ host: identity.acme.org
 #   # The client secret assigned by the identity provider.
 #   clientSecret:  GOCSPX-akjfdns3238r328r9832rewjbds
 
+# A static list of roles.
+roles:
+  # A default role contains permissions that work at any scope
+  # in the system, and are a set of minimum required permissions.
+  default:
+    isDefault: true
+    scopes:
+      roles: [read]
+      organizations: [read]
+  reader:
+    scopes:
+      projects: [read]
+      infrastructure: [read]
+  user:
+    scopes:
+      projects: [read]
+      infrastructure: [create,read,update,delete]
+  admin:
+    scopes:
+      roles: [read]
+      organizations: [read,update]
+      groups: [create,read,update,delete]
+      oauth2providers-public: [read]
+      oauth2providers-private: [create,read,update,delete]
+      projects: [create,read,update,delete]
+      infrastructure: [create,read,update,delete]
+
 # A static list of oauth2 domain mappings.
 # organizations:
 # - # Must be a member of the the domain.
@@ -106,3 +133,6 @@ ingress:
 #   allowOrigin: ['*']
 #   # How long to cache the CORS preflight for, mostly useless as browsers override this.
 #   maxAge: 86400
+
+# Sets the OTLP endpoint for shipping spans.
+# otlpEndpoint: jaeger-collector.default:4318

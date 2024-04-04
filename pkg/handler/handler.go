@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/roles"
+	"github.com/unikorn-cloud/core/pkg/authorization/constants"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/authorization"
@@ -50,26 +50,13 @@ type Handler struct {
 	options *Options
 }
 
-func checkRBACUnscoped(ctx context.Context, scope string, permission roles.Permission) error {
-	authorizer, err := userinfo.NewUnscopedAuthorizer(ctx)
+func (h *Handler) checkRBAC(ctx context.Context, organization, scope string, permission constants.Permission) error {
+	authorizer, err := userinfo.NewAuthorizer(ctx, newACLGetter(h.client, h.namespace, organization))
 	if err != nil {
 		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
 	}
 
-	if err := authorizer.Allow(scope, permission); err != nil {
-		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
-	}
-
-	return nil
-}
-
-func checkRBAC(ctx context.Context, organization, scope string, permission roles.Permission) error {
-	authorizer, err := userinfo.NewScopedAuthorizer(ctx, organization)
-	if err != nil {
-		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
-	}
-
-	if err := authorizer.Allow(scope, permission); err != nil {
+	if err := authorizer.Allow(ctx, scope, permission); err != nil {
 		return errors.HTTPForbidden("operation is not allowed by rbac").WithError(err)
 	}
 
@@ -183,13 +170,25 @@ func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 	h.authenticator.OAuth2.OIDCCallback(w, r)
 }
 
+func (h *Handler) GetApiV1OrganizationsOrganizationAcl(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	result, err := newACLGetter(h.client, h.namespace, organization).Get(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err))
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
-	if err := checkRBAC(r.Context(), organization, "oauth2providers:public", roles.Read); err != nil {
+	// TODO: separate into different scopes as per unikornv1
+	if err := h.checkRBAC(r.Context(), organization, "oauth2providers-public", constants.Read); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err := checkRBAC(r.Context(), organization, "oauth2providers:private", roles.Read); err != nil {
+	if err := h.checkRBAC(r.Context(), organization, "oauth2providers-private", constants.Read); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -205,7 +204,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.Respon
 }
 
 func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
-	if err := checkRBACUnscoped(r.Context(), "organizations", roles.Read); err != nil {
+	if err := h.checkRBAC(r.Context(), "", "organizations", constants.Read); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -221,21 +220,21 @@ func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
-	if err := checkRBACUnscoped(r.Context(), "organizations", roles.Create); err != nil {
+	if err := h.checkRBAC(r.Context(), "", "organizations", constants.Create); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 }
 
 func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
-	if err := checkRBACUnscoped(r.Context(), "organizations", roles.Update); err != nil {
+	if err := h.checkRBAC(r.Context(), "", "organizations", constants.Update); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
-	if err := checkRBAC(r.Context(), organization, "groups", roles.Read); err != nil {
+	if err := h.checkRBAC(r.Context(), organization, "groups", constants.Read); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -251,7 +250,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter,
 }
 
 func (h *Handler) PostApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
-	if err := checkRBAC(r.Context(), organization, "groups", roles.Create); err != nil {
+	if err := h.checkRBAC(r.Context(), organization, "groups", constants.Create); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -273,7 +272,7 @@ func (h *Handler) PostApiV1OrganizationsOrganizationGroups(w http.ResponseWriter
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
-	if err := checkRBAC(r.Context(), organization, "groups", roles.Delete); err != nil {
+	if err := h.checkRBAC(r.Context(), organization, "groups", constants.Delete); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -289,7 +288,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationGroupsGroupid(w http.Response
 }
 
 func (h *Handler) DeleteApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
-	if err := checkRBAC(r.Context(), organization, "groups", roles.Delete); err != nil {
+	if err := h.checkRBAC(r.Context(), organization, "groups", constants.Delete); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -304,7 +303,7 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationGroupsGroupid(w http.Respo
 }
 
 func (h *Handler) PutApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, groupid generated.GroupidParameter) {
-	if err := checkRBAC(r.Context(), organization, "groups", roles.Update); err != nil {
+	if err := h.checkRBAC(r.Context(), organization, "groups", constants.Update); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}

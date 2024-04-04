@@ -49,6 +49,7 @@ var (
 func init() {
 	SchemeBuilder.Register(&OAuth2Client{}, &OAuth2ClientList{})
 	SchemeBuilder.Register(&OAuth2Provider{}, &OAuth2ProviderList{})
+	SchemeBuilder.Register(&Role{}, &RoleList{})
 	SchemeBuilder.Register(&Organization{}, &OrganizationList{})
 }
 
