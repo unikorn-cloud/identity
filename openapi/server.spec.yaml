@@ -192,6 +192,26 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organization}/roles:
+    description: |-
+      Allows management of roles that define access control permissions for
+      users that are linked to them via a group.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    get:
+      description: |-
+        Returns roles that can be used by the organization.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/rolesResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organization}/oauth2/providers:
     description: |-
       Allows management of oauth2 providers.  The identity service is typically
@@ -927,6 +947,17 @@ components:
             scopes:
               organizations:
               - read
+    rolesResponse:
+      description: |-
+        A set of roles within the organization.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/roleList'
+          example:
+          - admin
+          - user
+          - reader
     groupResponse:
       description: |-
         A group in the organization.
