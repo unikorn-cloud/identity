@@ -31,6 +31,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/handler/roles"
 	"github.com/unikorn-cloud/identity/pkg/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -174,6 +175,22 @@ func (h *Handler) GetApiV1OrganizationsOrganizationAcl(w http.ResponseWriter, r 
 	result, err := newACLGetter(h.client, h.namespace, organization).Get(r.Context())
 	if err != nil {
 		errors.HandleError(w, r, errors.HTTPForbidden("operation is not allowed by rbac").WithError(err))
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) GetApiV1OrganizationsOrganizationRoles(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "roles", constants.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := roles.New(h.client, h.namespace).List(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, err)
 		return
 	}
 

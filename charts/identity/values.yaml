@@ -61,7 +61,6 @@ roles:
   default:
     isDefault: true
     scopes:
-      roles: [read]
       organizations: [read]
   reader:
     scopes:

@@ -48,6 +48,9 @@ type ServerInterface interface {
 	// (GET /api/v1/organizations/{organization}/oauth2/providers)
 	GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
+	// (GET /api/v1/organizations/{organization}/roles)
+	GetApiV1OrganizationsOrganizationRoles(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+
 	// (GET /oauth2/v2/authorization)
 	GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request)
 
@@ -376,6 +379,34 @@ func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationOauth2Provid
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
+// GetApiV1OrganizationsOrganizationRoles operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationRoles(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "organization" -------------
+	var organization OrganizationParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "organization", runtime.ParamLocationPath, chi.URLParam(r, "organization"), &organization)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
+		return
+	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1OrganizationsOrganizationRoles(w, r, organization)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
 // GetOauth2V2Authorization operation middleware
 func (siw *ServerInterfaceWrapper) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -613,6 +644,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/oauth2/providers", wrapper.GetApiV1OrganizationsOrganizationOauth2Providers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/roles", wrapper.GetApiV1OrganizationsOrganizationRoles)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oauth2/v2/authorization", wrapper.GetOauth2V2Authorization)

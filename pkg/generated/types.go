@@ -363,6 +363,9 @@ type OpenidConfigurationResponse = OpenidConfiguration
 // OrganizationsResponse A list of organizations.
 type OrganizationsResponse = Organizations
 
+// RolesResponse A list of roles.
+type RolesResponse = RoleList
+
 // TokenResponse Oauth2 token result.
 type TokenResponse = Token
 
