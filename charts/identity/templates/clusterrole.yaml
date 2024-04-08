@@ -1,5 +1,5 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   name: unikorn-identity
   labels:
@@ -12,6 +12,7 @@ rules:
   - oauth2providers
   - roles
   - organizations
+  - projects
   verbs:
   - list
   - watch

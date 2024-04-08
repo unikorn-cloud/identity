@@ -23,8 +23,11 @@ import (
 
 	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -39,6 +42,39 @@ func New(client client.Client, namespace string) *Client {
 		client:    client,
 		namespace: namespace,
 	}
+}
+
+// Meta describes the organization.
+type Meta struct {
+	// Name is the organization's Kubernetes name, so a higher level resource
+	// can reference it.
+	Name string
+
+	// Namespace is the namespace that is provisioned by the organization.
+	// Should be usable set when the organization is active.
+	Namespace string
+
+	// Deleting tells us if we should allow new child objects to be created
+	// in this resource's namespace.
+	Deleting bool
+}
+
+// GetMetadata retrieves the organization metadata.
+// Clients should consult at least the Active status before doing anything
+// with the organization.
+func (c *Client) GetMetadata(ctx context.Context, name string) (*Meta, error) {
+	result, err := c.get(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata := &Meta{
+		Name:      name,
+		Namespace: result.Status.Namespace,
+		Deleting:  result.DeletionTimestamp != nil,
+	}
+
+	return metadata, nil
 }
 
 func convert(in *unikornv1.Organization) *generated.Organization {
@@ -81,10 +117,25 @@ func hasAccess(permissions *rbac.Permissions, name string) bool {
 	return false
 }
 
+// get returns the implicit organization identified by the JWT claims.
+func (c *Client) get(ctx context.Context, name string) (*unikornv1.Organization, error) {
+	// TODO: hasAccess()
+	result := &unikornv1.Organization{}
+
+	if err := c.client.Get(ctx, client.ObjectKey{Name: name}, result); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, errors.HTTPNotFound().WithError(err)
+		}
+
+		return nil, errors.OAuth2ServerError("failed to get organization").WithError(err)
+	}
+
+	return result, nil
+}
+
 func (c *Client) List(ctx context.Context) ([]generated.Organization, error) {
 	var result unikornv1.OrganizationList
 
-	// TODO: we should use RBAC, but that needs an organiation to start with.
 	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
 		return nil, err
 	}

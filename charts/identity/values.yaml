@@ -17,6 +17,16 @@ imagePullSecret: ~
 # Allows override of the global default image.
 image: ~
 
+# Organization controller specifc configuration.
+organizationController:
+  # Allows override of the global default image.
+  image:
+
+# Project controller specific configuration.
+projectController:
+  # Allows override of the global default image.
+  image:
+
 # Sets the DNS hosts, X.509 certificate subject alternative names and
 # oauth2 issuer etc.
 host: identity.acme.org
@@ -62,13 +72,12 @@ roles:
     isDefault: true
     scopes:
       organizations: [read]
+      projects: [read]
   reader:
     scopes:
-      projects: [read]
       infrastructure: [read]
   user:
     scopes:
-      projects: [read]
       infrastructure: [create,read,update,delete]
   admin:
     scopes:

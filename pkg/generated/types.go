@@ -6,6 +6,7 @@ package generated
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 )
@@ -142,6 +143,9 @@ type Group struct {
 	Users *UserList `json:"users,omitempty"`
 }
 
+// GroupIDs A list of group IDs.
+type GroupIDs = []string
+
 // Groups A list of groups.
 type Groups = []Group
 
@@ -255,6 +259,43 @@ type Organization struct {
 // Organizations A list of organizations.
 type Organizations = []Organization
 
+// Project A project.
+type Project struct {
+	// Metadata Required metadata for projects.
+	Metadata ProjectMetadata `json:"metadata"`
+
+	// Spec A project.
+	Spec ProjectSpec `json:"spec"`
+}
+
+// ProjectMetadata Required metadata for projects.
+type ProjectMetadata struct {
+	// CreationTime The time the resource was created.
+	CreationTime time.Time `json:"creationTime"`
+
+	// DeletionTime The time the resource was deleted.
+	DeletionTime *time.Time `json:"deletionTime,omitempty"`
+
+	// Status The current status of the resource. Intially the status will be "Unknown" until
+	// the resource is reconciled by the relevant controller. It then will transition to
+	// "Provisioning" and will be ready for use when it changes to "Provisioned". The status
+	// will also transition to the "Provisioning" status during an update. The
+	// status will change to "Deprovisioning" when a delete request is being processed.
+	// It may also change to "Error" if an unexpected error occurred during any operation.
+	// Errors may be transient.
+	Status string `json:"status"`
+}
+
+// ProjectSpec A project.
+type ProjectSpec struct {
+	// GroupIDs A list of group IDs.
+	GroupIDs *GroupIDs `json:"groupIDs,omitempty"`
+	Name     string    `json:"name"`
+}
+
+// Projects A list of projects.
+type Projects = []Project
+
 // ResponseType Supported response types.
 type ResponseType string
 
@@ -326,6 +367,9 @@ type GroupidParameter = string
 // OrganizationParameter defines model for organizationParameter.
 type OrganizationParameter = string
 
+// ProjectParameter defines model for projectParameter.
+type ProjectParameter = string
+
 // AclResponse A list of access control scopes and permissions.
 type AclResponse = Acl
 
@@ -363,6 +407,9 @@ type OpenidConfigurationResponse = OpenidConfiguration
 // OrganizationsResponse A list of organizations.
 type OrganizationsResponse = Organizations
 
+// ProjectsResponse A list of projects.
+type ProjectsResponse = Projects
+
 // RolesResponse A list of roles.
 type RolesResponse = RoleList
 
@@ -381,6 +428,9 @@ type CreateGroupRequest = Group
 // CreateOrganizationRequest An organization.
 type CreateOrganizationRequest = Organization
 
+// CreateProjectRequest A project.
+type CreateProjectRequest = ProjectSpec
+
 // UpdateGroupRequest A group.
 type UpdateGroupRequest = Group
 
@@ -398,6 +448,9 @@ type PostApiV1OrganizationsOrganizationGroupsJSONRequestBody = Group
 
 // PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody defines body for PutApiV1OrganizationsOrganizationGroupsGroupid for application/json ContentType.
 type PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody = Group
+
+// PostApiV1OrganizationsOrganizationProjectsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationProjects for application/json ContentType.
+type PostApiV1OrganizationsOrganizationProjectsJSONRequestBody = ProjectSpec
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions

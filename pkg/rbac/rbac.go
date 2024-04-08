@@ -23,7 +23,11 @@ import (
 
 	"github.com/unikorn-cloud/core/pkg/authorization/constants"
 	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
+	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -53,6 +57,89 @@ func (r *RBAC) getOrganizatons(ctx context.Context) (*unikornv1.OrganizationList
 	return &organizations, nil
 }
 
+func (r *RBAC) organizationGroups(organization *unikornv1.Organization, email string) ([]rbac.GroupPermissions, bool) {
+	//nolint:prealloc
+	var groups []rbac.GroupPermissions
+
+	for _, group := range organization.Spec.Groups {
+		// TODO: implicit groups.
+		if !slices.Contains(group.Users, email) {
+			continue
+		}
+
+		// Hoist super admin powers.
+		if slices.Contains(group.Roles, constants.SuperAdmin) {
+			return nil, true
+		}
+
+		// Remove any special roles.
+		minifiedRoles := slices.DeleteFunc(group.Roles, func(role string) bool {
+			return role == constants.SuperAdmin
+		})
+
+		if len(minifiedRoles) == 0 {
+			continue
+		}
+
+		groups = append(groups, rbac.GroupPermissions{
+			ID:    group.ID,
+			Roles: minifiedRoles,
+		})
+	}
+
+	return groups, false
+}
+
+func (r *RBAC) organizationProjects(ctx context.Context, organization *unikornv1.Organization, groups []rbac.GroupPermissions) ([]rbac.ProjectPermissions, error) {
+	orgRequirement, err := labels.NewRequirement(coreconstants.OrganizationLabel, selection.Equals, []string{organization.Name})
+	if err != nil {
+		return nil, err
+	}
+
+	selector := labels.NewSelector()
+	selector = selector.Add(*orgRequirement)
+
+	options := &client.ListOptions{
+		LabelSelector: selector,
+	}
+
+	result := &unikornv1.ProjectList{}
+
+	if err := r.client.List(ctx, result, options); err != nil {
+		return nil, err
+	}
+
+	//nolint:prealloc
+	var projectPermissions []rbac.ProjectPermissions
+
+	for _, project := range result.Items {
+		var roles []string
+
+		// Accumulate any roles we have on a project if we are a member of a
+		// group that has access to the project, or if we have admin access.
+		for _, group := range groups {
+			if !slices.Contains(project.Spec.GroupIDs, group.ID) && !slices.Contains(group.Roles, "admin") {
+				continue
+			}
+
+			roles = append(roles, group.Roles...)
+		}
+
+		if len(roles) == 0 {
+			continue
+		}
+
+		slices.Sort(roles)
+
+		projectPermissions = append(projectPermissions, rbac.ProjectPermissions{
+			Name:  project.Name,
+			Roles: slices.Compact(roles),
+		})
+	}
+
+	return projectPermissions, nil
+}
+
 // UserPermissions builds up a hierarchy of permissions for a user, this is used
 // both internally and given out to resource servers via token introspection.
 func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permissions, error) {
@@ -63,42 +150,27 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permiss
 		return nil, err
 	}
 
-	for _, organization := range organizations.Items {
-		var groups []rbac.GroupPermissions
+	for i := range organizations.Items {
+		organization := &organizations.Items[i]
 
-		for _, group := range organization.Spec.Groups {
-			// TODO: implicit groups.
-			if !slices.Contains(group.Users, email) {
-				continue
-			}
-
-			// Hoist super admin powers.
-			if slices.Contains(group.Roles, constants.SuperAdmin) {
-				permissions.IsSuperAdmin = true
-			}
-
-			// Remove any special roles.
-			minifiedRoles := slices.DeleteFunc(group.Roles, func(role string) bool {
-				return role == constants.SuperAdmin
-			})
-
-			if len(minifiedRoles) == 0 {
-				continue
-			}
-
-			groups = append(groups, rbac.GroupPermissions{
-				ID:    group.ID,
-				Roles: minifiedRoles,
-			})
+		groups, isSuperAdmin := r.organizationGroups(organization, email)
+		if isSuperAdmin {
+			permissions.IsSuperAdmin = true
 		}
 
 		if len(groups) == 0 {
 			continue
 		}
 
+		projects, err := r.organizationProjects(ctx, organization, groups)
+		if err != nil {
+			return nil, err
+		}
+
 		permissions.Organizations = append(permissions.Organizations, rbac.OrganizationPermissions{
-			Name:   organization.Name,
-			Groups: groups,
+			Name:     organization.Name,
+			Groups:   groups,
+			Projects: projects,
 		})
 	}
 

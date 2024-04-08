@@ -29,7 +29,8 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/unikorn-cloud/identity/pkg/client"
+	"github.com/unikorn-cloud/core/pkg/client"
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/constants"
 	"github.com/unikorn-cloud/identity/pkg/server"
 
@@ -62,7 +63,7 @@ func start() {
 		return
 	}
 
-	client, err := client.New(ctx, s.Options.Namespace)
+	client, err := client.New(ctx, unikornv1.AddToScheme)
 	if err != nil {
 		logger.Error(err, "failed to create client")
 

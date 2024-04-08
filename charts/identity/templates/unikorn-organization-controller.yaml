@@ -1,0 +1,132 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: unikorn-organization-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+{{- with ( include "unikorn.imagePullSecrets" . ) }}
+imagePullSecrets:
+{{ . }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: unikorn-organization-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+rules:
+# Manage organizations (my job).
+- apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - organizations
+  verbs:
+  - list
+  - get
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - organizations/status
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - delete
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: unikorn-organization-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+rules:
+# Controller prerequisites.
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: unikorn-organization-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+subjects:
+- kind: ServiceAccount
+  namespace: {{ .Release.Namespace }}
+  name: unikorn-organization-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: unikorn-organization-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: unikorn-organization-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+subjects:
+- kind: ServiceAccount
+  namespace: {{ .Release.Namespace }}
+  name: unikorn-organization-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: unikorn-organization-controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unikorn-organization-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unikorn-organization-controller
+  template:
+    metadata:
+      labels:
+        app: unikorn-organization-controller
+    spec:
+      containers:
+      - name: unikorn-organization-controller
+        image: {{ include "unikorn.organizationControllerImage" . }}
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+      serviceAccountName: unikorn-organization-controller
+      securityContext:
+        runAsNonRoot: true
