@@ -337,12 +337,85 @@ paths:
           $ref: '#/components/responses/notFoundResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organization}/projects:
+    x-documentation-group: main
+    description: |-
+      Implements project management services. Projects, as currently defined
+      by the Kubernetes service, are implicitly scoped to the access token's
+      organization.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    get:
+      description: |-
+        List all projects for the organization.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/projectsResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
+    post:
+      description: |-
+        Creates a new project resource for the user's organization.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/createProjectRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/acceptedResponse'
+        '400':
+          $ref: '#/components/responses/badRequestResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '409':
+          $ref: '#/components/responses/conflictResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organization}/projects/{project}:
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/projectParameter'
+    delete:
+      description: |-
+        Deletes the project associated with the authenticated user's scoped
+        authorisation token. This is a cascading operation and will delete all
+        contained cluster managers and clusters.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '202':
+          $ref: '#/components/responses/acceptedResponse'
+        '400':
+          $ref: '#/components/responses/badRequestResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '404':
+          $ref: '#/components/responses/notFoundResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
 components:
   parameters:
     organizationParameter:
       name: organization
       in: path
       description: An organization name.
+      required: true
+      schema:
+        type: string
+    projectParameter:
+      name: project
+      in: path
+      description: A project name.
       required: true
       schema:
         type: string
@@ -741,6 +814,63 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/group'
+    projectMetadata:
+      description: Required metadata for projects.
+      type: object
+      required:
+      - creationTime
+      - status
+      properties:
+        creationTime:
+          description: The time the resource was created.
+          type: string
+          format: date-time
+        deletionTime:
+          description: The time the resource was deleted.
+          type: string
+          format: date-time
+        status:
+          description: |-
+            The current status of the resource. Intially the status will be "Unknown" until
+            the resource is reconciled by the relevant controller. It then will transition to
+            "Provisioning" and will be ready for use when it changes to "Provisioned". The status
+            will also transition to the "Provisioning" status during an update. The
+            status will change to "Deprovisioning" when a delete request is being processed.
+            It may also change to "Error" if an unexpected error occurred during any operation.
+            Errors may be transient.
+          type: string
+    groupIDs:
+      description: A list of group IDs.
+      type: array
+      items:
+        description: A group ID.
+        type: string
+    projectSpec:
+      description: A project.
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+        groupIDs:
+          $ref: '#/components/schemas/groupIDs'
+    project:
+      description: A project.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: '#/components/schemas/projectMetadata'
+        spec:
+          $ref: '#/components/schemas/projectSpec'
+    projects:
+      description: A list of projects.
+      type: array
+      items:
+        $ref: '#/components/schemas/project'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -793,7 +923,20 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/group'
+    createProjectRequest:
+      description: Project request parameters.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/projectSpec'
+          example:
+            name: my-project
   responses:
+    acceptedResponse:
+      description: |-
+        The request has been accepted and will be fulfilled asynchronously.
+        You may poll the resource and monitor its status for completion.
     badRequestResponse:
       description: |-
         Request body failed schema validation, or the request does not contain
@@ -986,6 +1129,18 @@ components:
             - face@a-team.com
             roles:
             - admin
+    projectsResponse:
+      description: A list of projects.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/projects'
+          example:
+          - metadata:
+              creationTime: 2023-07-31T10:45:42Z
+              status: Provisioned
+            spec:
+              name: my-project
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.

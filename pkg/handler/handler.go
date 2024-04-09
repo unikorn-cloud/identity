@@ -31,6 +31,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/handler/projects"
 	"github.com/unikorn-cloud/identity/pkg/handler/roles"
 	"github.com/unikorn-cloud/identity/pkg/util"
 
@@ -339,4 +340,57 @@ func (h *Handler) PutApiV1OrganizationsOrganizationGroupsGroupid(w http.Response
 
 	h.setUncacheable(w)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) GetApiV1OrganizationsOrganizationProjects(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "projects", constants.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := projects.New(h.client, h.namespace).List(r.Context(), organization)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV1OrganizationsOrganizationProjects(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "projects", constants.Create); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &generated.ProjectSpec{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := projects.New(h.client, h.namespace).Create(r.Context(), organization, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *Handler) DeleteApiV1OrganizationsOrganizationProjectsProject(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, project generated.ProjectParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "projects", constants.Delete); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := projects.New(h.client, h.namespace).Delete(r.Context(), organization, project); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusAccepted)
 }

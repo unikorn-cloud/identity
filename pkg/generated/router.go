@@ -48,6 +48,15 @@ type ServerInterface interface {
 	// (GET /api/v1/organizations/{organization}/oauth2/providers)
 	GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
+	// (GET /api/v1/organizations/{organization}/projects)
+	GetApiV1OrganizationsOrganizationProjects(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+
+	// (POST /api/v1/organizations/{organization}/projects)
+	PostApiV1OrganizationsOrganizationProjects(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+
+	// (DELETE /api/v1/organizations/{organization}/projects/{project})
+	DeleteApiV1OrganizationsOrganizationProjectsProject(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, project ProjectParameter)
+
 	// (GET /api/v1/organizations/{organization}/roles)
 	GetApiV1OrganizationsOrganizationRoles(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
@@ -379,6 +388,99 @@ func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationOauth2Provid
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
+// GetApiV1OrganizationsOrganizationProjects operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "organization" -------------
+	var organization OrganizationParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "organization", runtime.ParamLocationPath, chi.URLParam(r, "organization"), &organization)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
+		return
+	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1OrganizationsOrganizationProjects(w, r, organization)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// PostApiV1OrganizationsOrganizationProjects operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationProjects(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "organization" -------------
+	var organization OrganizationParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "organization", runtime.ParamLocationPath, chi.URLParam(r, "organization"), &organization)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
+		return
+	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiV1OrganizationsOrganizationProjects(w, r, organization)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// DeleteApiV1OrganizationsOrganizationProjectsProject operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationProjectsProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	var err error
+
+	// ------------- Path parameter "organization" -------------
+	var organization OrganizationParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "organization", runtime.ParamLocationPath, chi.URLParam(r, "organization"), &organization)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organization", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "project" -------------
+	var project ProjectParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "project", runtime.ParamLocationPath, chi.URLParam(r, "project"), &project)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "project", Err: err})
+		return
+	}
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
+
+	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteApiV1OrganizationsOrganizationProjectsProject(w, r, organization, project)
+	})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
 // GetApiV1OrganizationsOrganizationRoles operation middleware
 func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationRoles(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -644,6 +746,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/oauth2/providers", wrapper.GetApiV1OrganizationsOrganizationOauth2Providers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/projects", wrapper.GetApiV1OrganizationsOrganizationProjects)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/organizations/{organization}/projects", wrapper.PostApiV1OrganizationsOrganizationProjects)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/organizations/{organization}/projects/{project}", wrapper.DeleteApiV1OrganizationsOrganizationProjectsProject)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/roles", wrapper.GetApiV1OrganizationsOrganizationRoles)

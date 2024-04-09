@@ -51,6 +51,7 @@ func init() {
 	SchemeBuilder.Register(&OAuth2Provider{}, &OAuth2ProviderList{})
 	SchemeBuilder.Register(&Role{}, &RoleList{})
 	SchemeBuilder.Register(&Organization{}, &OrganizationList{})
+	SchemeBuilder.Register(&Project{}, &ProjectList{})
 }
 
 // Resource maps a resource type to a group resource.
