@@ -122,7 +122,7 @@ func (c *Client) get(ctx context.Context, name string) (*unikornv1.Organization,
 	// TODO: hasAccess()
 	result := &unikornv1.Organization{}
 
-	if err := c.client.Get(ctx, client.ObjectKey{Name: name}, result); err != nil {
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: name}, result); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, errors.HTTPNotFound().WithError(err)
 		}
