@@ -59,7 +59,7 @@ We define a number of default roles, but the system is flexible enough to have a
 The `admin` role allows broad access across the organization, it can edit organizations, create roles and associate users with them, and create projects and associate groups with them.
 Admin users can generally see all resources within the organization defined for other services, and manage them.
 
-The `user` role cannot modify anything defined by the identity service, it's only allowed to discover organizatins and projects its a member of.
+The `user` role cannot modify anything defined by the identity service, it's only allowed to discover organizations and projects its a member of.
 Users SHOULD have additional permissions defined for external services, e.g. provisioning and management of compute infrastructure.
 
 The `reader` is similar to the `user` but allows read only access, typically used by billing and auditing teams.
