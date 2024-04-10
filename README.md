@@ -68,6 +68,6 @@ The `reader` is similar to the `user` but allows read only access, typically use
 
 Projects provide workspaces for use by external services.
 Projects are visible to all `admin` users.
-Other users are included in a project by associating it with a group, therefore each group SHOULD have at least on group associated with it.
+Other users are included in a project by associating it with a group, therefore each group SHOULD have at least one group associated with it.
 
 Like most other components, flexibility is built in by design, so a project can be shared with multiple groups.
