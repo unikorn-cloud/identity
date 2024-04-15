@@ -71,3 +71,32 @@ Projects are visible to all `admin` users.
 Other users are included in a project by associating it with a group, therefore each group SHOULD have at least one group associated with it.
 
 Like most other components, flexibility is built in by design, so a project can be shared with multiple groups.
+
+## RBAC
+
+The identity service provides centralized role based access control to the unikorn suite of services.
+As described previously, roles can be arbitrary and apply to services outside of the identity service.
+
+A role is composed of a set of arbitrary scopes, that typically define an API end point group e.g. clusters or projects.
+Within a scope is a set of permissions; create, read, update and delete (i.e. CRUD).
+
+As everything should be scoped to an organization, with the exception of organization discovery etc, you can poll an API on the organization requesting an access control list (ACL).
+An ACL is a list of all projects that the user if a member of within that organization, and each project contains a union of all the scopes and CRUD permissions granted within that project.
+
+The ACL can be used to:
+
+* Control API access to endpoint resources.
+* Drive UI views tailored to what actions the user can actually perform.
+
+There is a special shortcut for a "super admin" user, who as a platform administrator can see and do anything.
+
+## Scoping
+
+Further to basic RBAC and ACLs, a second API details what the user can see.
+
+For example, you may want to view all resource of one type within the organization as an overview.
+You need to only be returned resources that belong to projects you have read access to.
+
+Typically this information is used to construct label selectors for Unikorn services.
+
+This functionality piggy-backs on the `userinfo` OIDC API, but don't rely on that, instead a shared library provided by Unikorn Core should be used to provide this functionality in your services.
