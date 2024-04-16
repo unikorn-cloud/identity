@@ -74,6 +74,16 @@ Like most other components, flexibility is built in by design, so a project can 
 
 ## Security
 
+### OIDC Clients
+
+Any compliant OIDC client library should be able to interact with the identity service.
+It features service discovery for simple configuration, and the login hint extension for seemless token refresh.
+
+To enable a client, you will need to create a `oauth2client` resource in the identity service namespace, featuring the client ID (must be unique, typically you can use `uuidgen` for this), and an OIDC callback URI.
+
+Optionally you can override the branding with a custom login URL callback too.
+See the [reference implementation](pkg/oauth2/login.tmpl) for the interface.
+
 ### RBAC
 
 The identity service provides centralized role based access control to the unikorn suite of services.
