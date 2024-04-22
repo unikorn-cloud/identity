@@ -24,9 +24,10 @@ import (
 	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/core/pkg/constants"
+	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/constants"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 
@@ -180,8 +181,8 @@ func generate(organization *organizations.Meta, request *generated.ProjectSpec) 
 			Name:      request.Name,
 			Namespace: organization.Namespace,
 			Labels: map[string]string{
-				constants.VersionLabel:      constants.Version,
-				constants.OrganizationLabel: organization.Name,
+				coreconstants.VersionLabel:      constants.Version,
+				coreconstants.OrganizationLabel: organization.Name,
 			},
 		},
 	}

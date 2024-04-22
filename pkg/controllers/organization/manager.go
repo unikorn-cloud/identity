@@ -19,10 +19,10 @@ package organization
 
 import (
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
-	"github.com/unikorn-cloud/core/pkg/constants"
 	coremanager "github.com/unikorn-cloud/core/pkg/manager"
 	"github.com/unikorn-cloud/core/pkg/manager/options"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/constants"
 	"github.com/unikorn-cloud/identity/pkg/provisioners/organization"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,7 +46,7 @@ func (*Factory) Metadata() (string, string, string) {
 
 // Reconciler returns a new reconciler instance.
 func (*Factory) Reconciler(options *options.Options, manager manager.Manager) reconcile.Reconciler {
-	return coremanager.NewReconciler(options, manager.GetClient(), organization.New)
+	return coremanager.NewReconciler(options, manager, organization.New)
 }
 
 // RegisterWatches adds any watches that would trigger a reconcile.
