@@ -63,7 +63,7 @@ func (a *Authenticator) Issue(r *http.Request, code *Code, expiresAt time.Time) 
 	claims := &Claims{
 		Claims: jwt.Claims{
 			ID:      uuid.New().String(),
-			Subject: code.Subject,
+			Subject: code.IDToken.OIDCClaimsEmail.Email,
 			Audience: jwt.Audience{
 				r.Host,
 			},
