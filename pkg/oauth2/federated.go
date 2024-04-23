@@ -569,7 +569,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		oidcState.ClientNonce = query.Get("nonce")
 	}
 
-	state, err := a.issuer.EncodeJWEToken(oidcState)
+	state, err := a.issuer.EncodeJWEToken(oidcState, jose.TokenTypeLoginState)
 	if err != nil {
 		authorizationError(w, r, clientRedirectURI, ErrorServerError, "failed to encode oidc state: "+err.Error())
 		return
@@ -697,7 +697,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	// Extract our state for the next part...
 	state := &State{}
 
-	if err := a.issuer.DecodeJWEToken(query.Get("state"), state); err != nil {
+	if err := a.issuer.DecodeJWEToken(query.Get("state"), state, jose.TokenTypeLoginState); err != nil {
 		htmlError(w, r, http.StatusBadRequest, "oidc state failed to decode")
 		return
 	}
@@ -797,7 +797,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		Groups:              groups,
 	}
 
-	code, err := a.issuer.EncodeJWEToken(oauth2Code)
+	code, err := a.issuer.EncodeJWEToken(oauth2Code, jose.TokenTypeAuthorizationCode)
 	if err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to encode authorization code: "+err.Error())
 		return
@@ -912,7 +912,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 
 	code := &Code{}
 
-	if err := a.issuer.DecodeJWEToken(r.Form.Get("code"), code); err != nil {
+	if err := a.issuer.DecodeJWEToken(r.Form.Get("code"), code, jose.TokenTypeAuthorizationCode); err != nil {
 		return nil, errors.OAuth2InvalidRequest("failed to parse code: " + err.Error())
 	}
 

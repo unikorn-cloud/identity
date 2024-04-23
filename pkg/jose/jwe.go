@@ -148,7 +148,27 @@ func (i *JWTIssuer) DecodeJWT(tokenString string, claims interface{}) error {
 	return nil
 }
 
-func (i *JWTIssuer) EncodeJWEToken(claims interface{}) (string, error) {
+// TokenType is used to define the specific use of a token.
+type TokenType string
+
+const (
+	// TokenTypeAccessToken is defined by RFC9068 to prevent reuse in other contexts.
+	TokenTypeAccessToken TokenType = "at+jwt"
+
+	// TokenTypeAuthorizationCode is defined by us to prevent reuse in other contexts.
+	//nolint:gosec
+	TokenTypeAuthorizationCode TokenType = "unikorn-cloud.org/authcode+jwt"
+
+	// TokenTypeLoginState is deinfed by us to prevent reuse in other contexts.
+	//nolint:gosec
+	TokenTypeLoginState TokenType = "unikorn-cloud.org/loginstate+jwt"
+)
+
+// EncodeJWEToken encodes, signs and encrypts as set of claims.
+// For access tokens this implemenrs https://datatracker.ietf.org/doc/html/rfc9068
+func (i *JWTIssuer) EncodeJWEToken(claims interface{}, tokenType TokenType) (string, error) {
+	// TODO: according to the spec we MUST support RS256, but we do both
+	// issue and verification, so not strictly necessary.
 	publicKey, privateKey, kid, err := i.GetKeyPair()
 	if err != nil {
 		return "", fmt.Errorf("failed to get key pair: %w", err)
@@ -171,7 +191,7 @@ func (i *JWTIssuer) EncodeJWEToken(claims interface{}) (string, error) {
 	}
 
 	encrypterOptions := &jose.EncrypterOptions{}
-	encrypterOptions = encrypterOptions.WithType("JWT").WithContentType("JWT")
+	encrypterOptions = encrypterOptions.WithType(jose.ContentType(tokenType)).WithContentType("JWT")
 
 	encrypter, err := jose.NewEncrypter(jose.A256GCM, recipient, encrypterOptions)
 	if err != nil {
@@ -186,7 +206,7 @@ func (i *JWTIssuer) EncodeJWEToken(claims interface{}) (string, error) {
 	return token, nil
 }
 
-func (i *JWTIssuer) DecodeJWEToken(tokenString string, claims interface{}) error {
+func (i *JWTIssuer) DecodeJWEToken(tokenString string, claims interface{}, tokenType TokenType) error {
 	publicKey, privateKey, _, err := i.GetKeyPair()
 	if err != nil {
 		return fmt.Errorf("failed to get key pair: %w", err)
@@ -196,6 +216,19 @@ func (i *JWTIssuer) DecodeJWEToken(tokenString string, claims interface{}) error
 	nestedToken, err := jwt.ParseSignedAndEncrypted(tokenString)
 	if err != nil {
 		return fmt.Errorf("failed to parse encrypted token: %w", err)
+	}
+
+	if len(nestedToken.Headers) != 1 {
+		return fmt.Errorf("%w: expected exactly one header", ErrTokenVerification)
+	}
+
+	t, ok := nestedToken.Headers[0].ExtraHeaders["typ"].(string)
+	if !ok {
+		return fmt.Errorf("%w: typ header not present", ErrTokenVerification)
+	}
+
+	if t != string(tokenType) {
+		return fmt.Errorf("%w: typ header incorrect", ErrTokenVerification)
 	}
 
 	token, err := nestedToken.Decrypt(privateKey)

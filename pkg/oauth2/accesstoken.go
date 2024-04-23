@@ -25,6 +25,8 @@ import (
 
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
+
+	"github.com/unikorn-cloud/identity/pkg/jose"
 )
 
 var (
@@ -77,7 +79,7 @@ func (a *Authenticator) Issue(r *http.Request, code *Code, expiresAt time.Time) 
 		},
 	}
 
-	token, err := a.issuer.EncodeJWEToken(claims)
+	token, err := a.issuer.EncodeJWEToken(claims, jose.TokenTypeAccessToken)
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +92,7 @@ func (a *Authenticator) Verify(r *http.Request, tokenString string) (*Claims, er
 	// Parse and verify the claims with the public key.
 	claims := &Claims{}
 
-	if err := a.issuer.DecodeJWEToken(tokenString, claims); err != nil {
+	if err := a.issuer.DecodeJWEToken(tokenString, claims, jose.TokenTypeAccessToken); err != nil {
 		return nil, fmt.Errorf("failed to decrypt claims: %w", err)
 	}
 
