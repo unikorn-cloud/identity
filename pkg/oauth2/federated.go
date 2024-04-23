@@ -20,7 +20,6 @@ package oauth2
 import (
 	"bytes"
 	"context"
-	"crypto/md5" //nolint:gosec
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -148,8 +147,8 @@ type Code struct {
 	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
-	// Subject is the canonical subject name (not an alias).
-	Subject string `json:"sub"`
+	// IDToken is the full set of claims returned by the provider.
+	IDToken IDToken
 	// Groups is the set of groups the user has with the IdP.
 	Groups []string `json:"grp,omitempty"`
 }
@@ -757,14 +756,14 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var claims OIDCClaimsEmail
+	var idTokenClaims IDToken
 
-	if err := idToken.Claims(&claims); err != nil {
+	if err := idToken.Claims(&idTokenClaims); err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to extract id_token email claims: "+err.Error())
 		return
 	}
 
-	userExists, err := a.rbac.UserExists(r.Context(), claims.Email)
+	userExists, err := a.rbac.UserExists(r.Context(), idTokenClaims.Email)
 	if err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to perform RBAC user lookup: "+err.Error())
 		return
@@ -776,7 +775,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Grab user RBAC information while we have the access token.
-	organization, _ := a.lookupOrganization(r.Context(), claims.Email)
+	organization, _ := a.lookupOrganization(r.Context(), idTokenClaims.Email)
 
 	driver := providers.New(providerResource.Spec.Type)
 
@@ -794,7 +793,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		ClientCodeChallenge: state.ClientCodeChallenge,
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
-		Subject:             claims.Email,
+		IDToken:             idTokenClaims,
 		Groups:              groups,
 	}
 
@@ -862,23 +861,17 @@ func oidcHash(value string) string {
 	return base64.RawURLEncoding.EncodeToString(sum[:sha512.Size>>1])
 }
 
-// oidcPicture returns a URL to a picture for the user.
-func oidcPicture(email string) string {
-	//nolint:gosec
-	return fmt.Sprintf("https://www.gravatar.com/avatar/%x", md5.Sum([]byte(email)))
-}
-
 // oidcIDToken builds an OIDC ID token.
-func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Time, atHash string, code *Code) (*string, error) {
+func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Time, atHash string) (*string, error) {
 	//nolint:nilnil
-	if !slices.Contains(scope, "openid") {
+	if !slices.Contains(code.ClientScope, "openid") {
 		return nil, nil
 	}
 
 	claims := &IDToken{
 		Claims: jwt.Claims{
 			Issuer:  "https://" + r.Host,
-			Subject: code.Subject,
+			Subject: code.IDToken.OIDCClaimsEmail.Email,
 			Audience: []string{
 				code.ClientID,
 			},
@@ -891,13 +884,12 @@ func (a *Authenticator) oidcIDToken(r *http.Request, scope Scope, expiry time.Ti
 		},
 	}
 
-	// TODO: we should just pass through the federated id_token in the code...
-	if slices.Contains(scope, "email") {
-		claims.OIDCClaimsEmail.Email = code.Subject
+	if slices.Contains(code.ClientScope, "email") {
+		claims.OIDCClaimsEmail = code.IDToken.OIDCClaimsEmail
 	}
 
-	if slices.Contains(scope, "profile") {
-		claims.OIDCClaimsProfile.Picture = oidcPicture(code.Subject)
+	if slices.Contains(code.ClientScope, "profile") {
+		claims.OIDCClaimsProfile = code.IDToken.OIDCClaimsProfile
 	}
 
 	idToken, err := a.issuer.EncodeJWT(claims)
@@ -937,7 +929,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	}
 
 	// Handle OIDC.
-	idToken, err := a.oidcIDToken(r, code.ClientScope, expiry, oidcHash(accessToken), code)
+	idToken, err := a.oidcIDToken(r, code, expiry, oidcHash(accessToken))
 	if err != nil {
 		return nil, err
 	}
