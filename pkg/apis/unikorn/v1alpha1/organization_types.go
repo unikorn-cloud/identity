@@ -93,7 +93,7 @@ type OrganizationGroup struct {
 	// ProviderName is the name of the group as returned by the provider.
 	// For example a query of https://cloudidentity.googleapis.com/v1/groups/
 	// will return something like groups/01664s551ax43ok.
-	ProviderGroupName *string `json:"providerGroupName,omitempty"`
+	ProviderGroupNames []string `json:"providerGroupNames,omitempty"`
 	// Users are a list of user names that are members of the group.
 	Users []string `json:"users,omitempty"`
 	// Roles are a list of roles users of the group inherit.

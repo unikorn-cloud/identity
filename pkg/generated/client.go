@@ -108,6 +108,9 @@ type ClientInterface interface {
 	// GetApiV1OrganizationsOrganizationAcl request
 	GetApiV1OrganizationsOrganizationAcl(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1OrganizationsOrganizationAvailableGroups request
+	GetApiV1OrganizationsOrganizationAvailableGroups(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiV1OrganizationsOrganizationGroups request
 	GetApiV1OrganizationsOrganizationGroups(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -241,6 +244,18 @@ func (c *Client) PutApiV1OrganizationsOrganization(ctx context.Context, organiza
 
 func (c *Client) GetApiV1OrganizationsOrganizationAcl(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1OrganizationsOrganizationAclRequest(c.Server, organization)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1OrganizationsOrganizationAvailableGroups(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsOrganizationAvailableGroupsRequest(c.Server, organization)
 	if err != nil {
 		return nil, err
 	}
@@ -661,6 +676,40 @@ func NewGetApiV1OrganizationsOrganizationAclRequest(server string, organization 
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/organizations/%s/acl", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApiV1OrganizationsOrganizationAvailableGroupsRequest generates requests for GetApiV1OrganizationsOrganizationAvailableGroups
+func NewGetApiV1OrganizationsOrganizationAvailableGroupsRequest(server string, organization OrganizationParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/available-groups", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1335,6 +1384,9 @@ type ClientWithResponsesInterface interface {
 	// GetApiV1OrganizationsOrganizationAcl request
 	GetApiV1OrganizationsOrganizationAclWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationAclResponse, error)
 
+	// GetApiV1OrganizationsOrganizationAvailableGroups request
+	GetApiV1OrganizationsOrganizationAvailableGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationAvailableGroupsResponse, error)
+
 	// GetApiV1OrganizationsOrganizationGroups request
 	GetApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationGroupsResponse, error)
 
@@ -1506,6 +1558,31 @@ func (r GetApiV1OrganizationsOrganizationAclResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetApiV1OrganizationsOrganizationAclResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApiV1OrganizationsOrganizationAvailableGroupsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *AvailableGroups
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsOrganizationAvailableGroupsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsOrganizationAvailableGroupsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1958,6 +2035,15 @@ func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationAclWithResponse(c
 	return ParseGetApiV1OrganizationsOrganizationAclResponse(rsp)
 }
 
+// GetApiV1OrganizationsOrganizationAvailableGroupsWithResponse request returning *GetApiV1OrganizationsOrganizationAvailableGroupsResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationAvailableGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationAvailableGroupsResponse, error) {
+	rsp, err := c.GetApiV1OrganizationsOrganizationAvailableGroups(ctx, organization, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsOrganizationAvailableGroupsResponse(rsp)
+}
+
 // GetApiV1OrganizationsOrganizationGroupsWithResponse request returning *GetApiV1OrganizationsOrganizationGroupsResponse
 func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationGroupsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationGroupsResponse, error) {
 	rsp, err := c.GetApiV1OrganizationsOrganizationGroups(ctx, organization, reqEditors...)
@@ -2315,6 +2401,53 @@ func ParseGetApiV1OrganizationsOrganizationAclResponse(rsp *http.Response) (*Get
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1OrganizationsOrganizationAvailableGroupsResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationAvailableGroupsWithResponse call
+func ParseGetApiV1OrganizationsOrganizationAvailableGroupsResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationAvailableGroupsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsOrganizationAvailableGroupsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AvailableGroups
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Oauth2Error

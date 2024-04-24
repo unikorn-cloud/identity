@@ -25,9 +25,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/coreos/go-oidc/v3/oidc"
-
+	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/types"
 )
 
 var (
@@ -48,14 +48,15 @@ func (*Provider) Scopes() []string {
 }
 
 type Group struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
 }
 
 type Groups struct {
 	Groups []Group `json:"groups"`
 }
 
-func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, idToken *oidc.IDToken, accessToken string) ([]string, error) {
+func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
 	if organization == nil || organization.Spec.ProviderOptions == nil || organization.Spec.ProviderOptions.Google == nil {
 		return nil, nil
 	}
@@ -106,10 +107,13 @@ func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organizat
 		return nil, err
 	}
 
-	result := make([]string, 0, len(groups.Groups))
+	result := make([]types.Group, 0, len(groups.Groups))
 
 	for _, group := range groups.Groups {
-		result = append(result, group.Name)
+		result = append(result, types.Group{
+			Name:        group.Name,
+			DisplayName: util.ToPointer(group.DisplayName),
+		})
 	}
 
 	return result, nil

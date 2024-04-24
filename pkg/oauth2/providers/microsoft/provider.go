@@ -19,9 +19,8 @@ package microsoft
 import (
 	"context"
 
-	"github.com/coreos/go-oidc/v3/oidc"
-
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/types"
 )
 
 type Provider struct {
@@ -35,14 +34,6 @@ func (*Provider) Scopes() []string {
 	return []string{}
 }
 
-func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, idToken *oidc.IDToken, accessToken string) ([]string, error) {
-	var claims struct {
-		Groups []string `json:"groups"`
-	}
-
-	if err := idToken.Claims(&claims); err != nil {
-		return nil, err
-	}
-
-	return claims.Groups, nil
+func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
+	return nil, nil
 }

@@ -14,26 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package providers
+package types
 
-import (
-	"context"
+type Group struct {
+	Name string
 
-	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/types"
-)
-
-// nullProvider does nothing.
-type nullProvider struct{}
-
-func newNullProvider() Provider {
-	return &nullProvider{}
-}
-
-func (*nullProvider) Scopes() []string {
-	return nil
-}
-
-func (*nullProvider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
-	return nil, nil
+	DisplayName *string
 }
