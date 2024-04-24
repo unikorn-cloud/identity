@@ -251,6 +251,22 @@ func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *ht
 	}
 }
 
+func (h *Handler) GetApiV1OrganizationsOrganizationAvailableGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "groups", constants.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.authenticator.OAuth2.Groups(w, r)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) GetApiV1OrganizationsOrganizationGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
 	if err := h.checkRBAC(r.Context(), organization, "groups", constants.Read); err != nil {
 		errors.HandleError(w, r, err)

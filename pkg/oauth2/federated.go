@@ -38,6 +38,7 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
@@ -148,9 +149,11 @@ type Code struct {
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
 	// IDToken is the full set of claims returned by the provider.
-	IDToken IDToken
-	// Groups is the set of groups the user has with the IdP.
-	Groups []string `json:"grp,omitempty"`
+	IDToken IDToken `json:"idt"`
+	// AccessToken is the user' access token.
+	AccessToken string `json:"at"`
+	// AccessTokenExpiry tells us how long the token will last for.
+	AccessTokenExpiry time.Time `json:"ate"`
 }
 
 var (
@@ -774,17 +777,6 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Grab user RBAC information while we have the access token.
-	organization, _ := a.lookupOrganization(r.Context(), idTokenClaims.Email)
-
-	driver := providers.New(providerResource.Spec.Type)
-
-	groups, err := driver.Groups(r.Context(), organization, idToken, tokens.AccessToken)
-	if err != nil {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to lookup user groups: "+err.Error())
-		return
-	}
-
 	// NOTE: the email is the canonical one returned by the IdP, which removes
 	// aliases from the equation.
 	oauth2Code := &Code{
@@ -794,7 +786,8 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
 		IDToken:             idTokenClaims,
-		Groups:              groups,
+		AccessToken:         tokens.AccessToken,
+		AccessTokenExpiry:   tokens.Expiry,
 	}
 
 	code, err := a.issuer.EncodeJWEToken(oauth2Code, jose.TokenTypeAuthorizationCode)
@@ -939,6 +932,47 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 		AccessToken: accessToken,
 		IdToken:     idToken,
 		ExpiresIn:   int(time.Until(expiry).Seconds()),
+	}
+
+	return result, nil
+}
+
+func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (generated.AvailableGroups, error) {
+	userinfo := userinfo.FromContext(r.Context())
+
+	organization, err := a.lookupOrganization(r.Context(), userinfo.Subject)
+	if err != nil {
+		return nil, errors.OAuth2InvalidRequest("user not a member of this domain").WithError(err)
+	}
+
+	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderName)
+	if err != nil {
+		return nil, errors.OAuth2InvalidRequest("unable to lookup provider for domain").WithError(err)
+	}
+
+	header := r.Header.Get("Authorization")
+
+	parts := strings.Split(header, " ")
+
+	claims, err := a.Verify(r, parts[1])
+	if err != nil {
+		return nil, errors.OAuth2ServerError("unable to verify token").WithError(err)
+	}
+
+	driver := providers.New(provider.Spec.Type)
+
+	groups, err := driver.Groups(r.Context(), organization, claims.Unikorn.AccessToken)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("unable to get groups").WithError(err)
+	}
+
+	result := make([]generated.AvailableGroup, 0, len(groups))
+
+	for _, group := range groups {
+		result = append(result, generated.AvailableGroup{
+			Name:        group.Name,
+			DisplayName: group.DisplayName,
+		})
 	}
 
 	return result, nil

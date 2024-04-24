@@ -231,15 +231,25 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  # TODO: in order to create a group, we'd need to know from the identity
-  # provider what groups are available, and to do that we'd need to have
-  # the access token available.  We could pass it around in our access token
-  # using JWE, but then that has the knock on effect of having to worry about
-  # key distribution to resource servers.  The other option is to cache the
-  # result in Redis or something.  A final option is to read the groups on
-  # login by a domain owener, as that's the only time they can be updated,
-  # and cache the results in the custom resource for use later on, but then
-  # that does lead to split-brain/race conditions with multiple owners.
+  /api/v1/organizations/{organization}/available-groups:
+    description: |-
+      Polls the identity provider for group information.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    get:
+      description: |-
+        Returns a list of groups that are defined for the organization in the domain provider.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/availableGroupsResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organization}/groups:
     description: |-
       Allows management of organization groups. Groups provide an identity
@@ -791,6 +801,23 @@ components:
       items:
         description: A role name.
         type: string
+    availableGroup:
+      description: An IdP group
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          description: The canonical group name.
+          type: string
+        displayName:
+          description: A human readable group name.
+          type: string
+    availableGroups:
+      description: A list of IdP groups.
+      type: array
+      items:
+        $ref: '#/components/schemas/availableGroup'
     group:
       description: A group.
       type: object
@@ -1101,6 +1128,16 @@ components:
           - admin
           - user
           - reader
+    availableGroupsResponse:
+      description: |-
+        A provider group in the organization.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/availableGroups'
+          example:
+            - name: groups/omyocHoGreph6
+              displayName: Administrators
     groupResponse:
       description: |-
         A group in the organization.

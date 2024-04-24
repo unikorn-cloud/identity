@@ -119,6 +119,18 @@ type AclScopes = []AclScope
 // AuthMethod Supported authentication methods.
 type AuthMethod string
 
+// AvailableGroup An IdP group
+type AvailableGroup struct {
+	// DisplayName A human readable group name.
+	DisplayName *string `json:"displayName,omitempty"`
+
+	// Name The canonical group name.
+	Name string `json:"name"`
+}
+
+// AvailableGroups A list of IdP groups.
+type AvailableGroups = []AvailableGroup
+
 // Claim Supported claims.
 type Claim string
 
@@ -372,6 +384,9 @@ type ProjectParameter = string
 
 // AclResponse A list of access control scopes and permissions.
 type AclResponse = Acl
+
+// AvailableGroupsResponse A list of IdP groups.
+type AvailableGroupsResponse = AvailableGroups
 
 // BadRequestResponse Generic error message.
 type BadRequestResponse = Oauth2Error

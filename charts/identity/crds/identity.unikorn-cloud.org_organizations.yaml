@@ -81,12 +81,14 @@ spec:
                         interfaces.  This should again be unique within the organization to
                         avoid ambiguity, but may be changed.
                       type: string
-                    providerGroupName:
+                    providerGroupNames:
                       description: |-
                         ProviderName is the name of the group as returned by the provider.
                         For example a query of https://cloudidentity.googleapis.com/v1/groups/
                         will return something like groups/01664s551ax43ok.
-                      type: string
+                      items:
+                        type: string
+                      type: array
                     roles:
                       description: Roles are a list of roles users of the group inherit.
                       items:

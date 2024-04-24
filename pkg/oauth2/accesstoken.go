@@ -41,8 +41,7 @@ var (
 // UnikornClaims contains all application specific claims in a single
 // top-level claim that won't clash with the ones defined by IETF.
 type UnikornClaims struct {
-	// Groups is a list of groups the user has on the backend IdP.
-	Groups []string `json:"groups,omitempty"`
+	AccessToken string `json:"at"`
 }
 
 // Claims is an application specific set of claims.
@@ -75,7 +74,7 @@ func (a *Authenticator) Issue(r *http.Request, code *Code, expiresAt time.Time) 
 			Expiry:    &expiresAtRFC7519,
 		},
 		Unikorn: &UnikornClaims{
-			Groups: code.Groups,
+			AccessToken: code.AccessToken,
 		},
 	}
 
