@@ -19,7 +19,6 @@ package google
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,11 +26,8 @@ import (
 
 	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/errors"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/types"
-)
-
-var (
-	ErrUnexpectedStatusCode = errors.New("unexpected status code")
 )
 
 type Provider struct{}
@@ -56,6 +52,7 @@ type Groups struct {
 	Groups []Group `json:"groups"`
 }
 
+//nolint:cyclop
 func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
 	if organization == nil || organization.Spec.ProviderOptions == nil || organization.Spec.ProviderOptions.Google == nil {
 		return nil, nil
@@ -95,10 +92,26 @@ func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organizat
 		return nil, err
 	}
 
-	expectedStatusCode := http.StatusOK
-
-	if response.StatusCode != expectedStatusCode {
-		return nil, fmt.Errorf("%w: wanted %d, got %d, body %s", ErrUnexpectedStatusCode, expectedStatusCode, response.StatusCode, string(body))
+	// Google's default access token lifetime is 1h, whereas ours is configurable,
+	// and default to 24h, if we get a 401, assume we should resturn the same back to
+	// the client to reauthenticate.
+	//
+	// FYI they error body looks like:
+	//
+	// {
+	//   "error": {
+	//     "code": 401,
+	//     "message": "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.",
+	//     "status": "UNAUTHENTICATED"
+	//   }
+	// }
+	switch response.StatusCode {
+	case http.StatusOK:
+		break
+	case http.StatusUnauthorized:
+		return nil, errors.ErrUnauthorized
+	default:
+		return nil, fmt.Errorf("%w: got %d, body %s", errors.ErrUnexpectedStatusCode, response.StatusCode, string(body))
 	}
 
 	var groups Groups

@@ -53,6 +53,10 @@ func convert(in *unikornv1.OrganizationGroup) *generated.Group {
 		out.Users = &in.Users
 	}
 
+	if len(in.ProviderGroupNames) > 0 {
+		out.ProviderGroups = &in.ProviderGroupNames
+	}
+
 	return out
 }
 
@@ -109,6 +113,10 @@ func generate(in *generated.Group) unikornv1.OrganizationGroup {
 		out.Users = *in.Users
 	}
 
+	if in.ProviderGroups != nil {
+		out.ProviderGroupNames = *in.ProviderGroups
+	}
+
 	return out
 }
 
@@ -129,6 +137,32 @@ func (c *Client) Create(ctx context.Context, organizationName string, group *gen
 }
 
 func (c *Client) Update(ctx context.Context, organizationName, groupID string, group *generated.Group) error {
+	var organization unikornv1.Organization
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
+		return errors.OAuth2ServerError("failed to read organization").WithError(err)
+	}
+
+	// Preserve the group ID, generate() will create a new one.
+	newGroup := generate(group)
+	newGroup.ID = groupID
+
+	temp := organization.DeepCopy()
+
+	for i, existing := range temp.Spec.Groups {
+		if newGroup.ID != existing.ID {
+			continue
+		}
+
+		temp.Spec.Groups[i] = newGroup
+
+		break
+	}
+
+	if err := c.client.Patch(ctx, temp, client.MergeFrom(&organization)); err != nil {
+		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+	}
+
 	return nil
 }
 

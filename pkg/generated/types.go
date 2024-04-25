@@ -148,6 +148,9 @@ type Group struct {
 	// Name The group name.
 	Name string `json:"name"`
 
+	// ProviderGroups A list of provider groups.
+	ProviderGroups *ProviderGroupList `json:"providerGroups,omitempty"`
+
 	// Roles A list of roles.
 	Roles RoleList `json:"roles"`
 
@@ -307,6 +310,9 @@ type ProjectSpec struct {
 
 // Projects A list of projects.
 type Projects = []Project
+
+// ProviderGroupList A list of provider groups.
+type ProviderGroupList = []string
 
 // ResponseType Supported response types.
 type ResponseType string
