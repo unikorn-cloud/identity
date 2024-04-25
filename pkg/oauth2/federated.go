@@ -25,6 +25,7 @@ import (
 	"crypto/sha512"
 	_ "embed"
 	"encoding/base64"
+	goerrors "errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -44,6 +45,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
+	providererrors "github.com/unikorn-cloud/identity/pkg/oauth2/providers/errors"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -963,6 +965,10 @@ func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (generate
 
 	groups, err := driver.Groups(r.Context(), organization, claims.Unikorn.AccessToken)
 	if err != nil {
+		if goerrors.Is(err, providererrors.ErrUnauthorized) {
+			return nil, errors.OAuth2AccessDenied("unable to get groups from provider").WithError(err)
+		}
+
 		return nil, errors.OAuth2ServerError("unable to get groups").WithError(err)
 	}
 

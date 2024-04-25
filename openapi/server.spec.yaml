@@ -818,6 +818,12 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/availableGroup'
+    providerGroupList:
+      description: A list of provider groups.
+      type: array
+      items:
+        description: A provider group.
+        type: string
     group:
       description: A group.
       type: object
@@ -836,6 +842,8 @@ components:
           $ref: '#/components/schemas/userList'
         roles:
           $ref: '#/components/schemas/roleList'
+        providerGroups:
+          $ref: '#/components/schemas/providerGroupList'
     groups:
       description: A list of groups.
       type: array
