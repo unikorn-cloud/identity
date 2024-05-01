@@ -20,14 +20,7 @@ spec:
         args:
         - --namespace={{ .Release.Namespace }}
         - --host=https://{{ .Values.host }}
-        {{- with $branding := .Values.branding }}
-          {{- if $branding.loginRedirectURL }}
-            {{ printf "- --login-redirect-url=%s" $branding.loginRedirectURL | nindent 8 }}
-          {{- end }}
-          {{- if $branding.errorRedirectURL }}
-            {{ printf "- --error-redirect-url=%s" $branding.errorRedirectURL | nindent 8 }}
-          {{- end }}
-        {{- end }}
+        - --jose-tls-secret=unikorn-identity-jose-tls
         {{- with $cors := .Values.cors }}
           {{- range $origin := $cors.allowOrigin }}
             {{ printf "- --cors-allow-origin=%s" $origin | nindent 8 }}
@@ -39,10 +32,6 @@ spec:
         {{- if .Values.otlpEndpoint }}
           {{ printf "- --otlp-endpoint=%s" .Values.otlpEndpoint | nindent 8 }}
         {{- end }}
-        volumeMounts:
-        - name: unikorn-identity-jose-tls
-          mountPath: /var/lib/secrets/unikorn-cloud.org/jose
-          readOnly: true
         ports:
         - name: http
           containerPort: 6080
@@ -58,7 +47,3 @@ spec:
       serviceAccountName: unikorn-identity
       securityContext:
         runAsNonRoot: true
-      volumes:
-      - name: unikorn-identity-jose-tls
-        secret:
-          secretName: unikorn-identity-jose-tls

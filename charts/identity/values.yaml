@@ -31,11 +31,14 @@ projectController:
 # oauth2 issuer etc.
 host: identity.acme.org
 
-# Branding options allow you to "white-box" and apply your own spin on the
-# login and error pages.
-# branding:
-#   loginRedirectURL: https://my-host/login
-#   errorRedirectURL: https://my-host/error
+# Issuer related configuration.
+issuer:
+  # maxTokenDurationDays defines the maximum length of time an issued JWT
+  # can last for.  Due to key rotation by cert-manager, the certificate will
+  # live twice as long as this value, but refresh at this age, so JWT tokens
+  # issued just before the rotation will function for their lifetime (or near
+  # enough).
+  maxTokenDurationDays: 90
 
 # A static list of registered client applications.
 # clients:

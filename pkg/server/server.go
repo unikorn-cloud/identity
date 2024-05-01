@@ -126,7 +126,11 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 	router.MethodNotAllowed(http.HandlerFunc(handler.MethodNotAllowed))
 
 	// Setup authn/authz
-	issuer := jose.NewJWTIssuer(&s.JoseOptions)
+	issuer := jose.NewJWTIssuer(client, s.Options.Namespace, &s.JoseOptions)
+	if err := issuer.Run(context.TODO(), &jose.InClusterCoordinationClientGetter{}); err != nil {
+		return nil, err
+	}
+
 	rbac := rbac.New(client, s.Options.Namespace)
 	oauth2 := oauth2.New(&s.OAuth2Options, s.Options.Namespace, client, issuer, rbac)
 	authenticator := authorization.NewAuthenticator(issuer, oauth2)

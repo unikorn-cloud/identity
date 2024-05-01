@@ -68,7 +68,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 	}
 
 	// Check the token is from us, for us, and in date.
-	claims, err := a.authenticator.Verify(r, token)
+	claims, err := a.authenticator.Verify(r.Context(), r, token)
 	if err != nil {
 		return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 	}

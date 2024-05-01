@@ -158,7 +158,7 @@ func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
-	result, err := h.authenticator.JWKS()
+	result, err := h.authenticator.JWKS(r.Context())
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
