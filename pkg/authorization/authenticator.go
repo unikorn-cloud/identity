@@ -18,6 +18,8 @@ limitations under the License.
 package authorization
 
 import (
+	"context"
+
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
@@ -41,8 +43,8 @@ func NewAuthenticator(issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator) *Aut
 	}
 }
 
-func (a *Authenticator) JWKS() (interface{}, error) {
-	result, err := a.issuer.JWKS()
+func (a *Authenticator) JWKS(ctx context.Context) (interface{}, error) {
+	result, err := a.issuer.JWKS(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to generate json web key set").WithError(err)
 	}

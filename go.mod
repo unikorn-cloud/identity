@@ -10,6 +10,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/google/uuid v1.6.0
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.9.0
 	github.com/unikorn-cloud/core v0.1.29
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.24.0
@@ -17,6 +18,7 @@ require (
 	golang.org/x/oauth2 v0.18.0
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3
+	k8s.io/client-go v0.29.3
 	sigs.k8s.io/controller-runtime v0.17.2
 )
 
@@ -37,6 +39,7 @@ require (
 	github.com/chenzhuoyu/iasm v0.9.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
+	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/flosch/pongo2/v4 v4.0.2 // indirect
@@ -94,6 +97,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.51.1 // indirect
@@ -134,7 +138,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/client-go v0.29.3 // indirect
 	k8s.io/component-base v0.29.3 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240322212309-b815d8309940 // indirect

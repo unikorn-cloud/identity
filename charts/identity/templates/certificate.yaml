@@ -12,3 +12,6 @@ spec:
     size: 521
   commonName : Unikorn Server JOSE Key
   secretName: unikorn-identity-jose-tls
+  # Twice the duration to caterfor overlap, then convert to hours (2 * 24).
+  duration: {{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 48) }}
+  renewBefore: {{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}

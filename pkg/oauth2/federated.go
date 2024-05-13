@@ -574,7 +574,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		oidcState.ClientNonce = query.Get("nonce")
 	}
 
-	state, err := a.issuer.EncodeJWEToken(oidcState, jose.TokenTypeLoginState)
+	state, err := a.issuer.EncodeJWEToken(r.Context(), oidcState, jose.TokenTypeLoginState)
 	if err != nil {
 		authorizationError(w, r, clientRedirectURI, ErrorServerError, "failed to encode oidc state: "+err.Error())
 		return
@@ -702,7 +702,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	// Extract our state for the next part...
 	state := &State{}
 
-	if err := a.issuer.DecodeJWEToken(query.Get("state"), state, jose.TokenTypeLoginState); err != nil {
+	if err := a.issuer.DecodeJWEToken(r.Context(), query.Get("state"), state, jose.TokenTypeLoginState); err != nil {
 		htmlError(w, r, http.StatusBadRequest, "oidc state failed to decode")
 		return
 	}
@@ -792,7 +792,7 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		AccessTokenExpiry:   tokens.Expiry,
 	}
 
-	code, err := a.issuer.EncodeJWEToken(oauth2Code, jose.TokenTypeAuthorizationCode)
+	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
 	if err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to encode authorization code: "+err.Error())
 		return
@@ -887,7 +887,7 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Tim
 		claims.OIDCClaimsProfile = code.IDToken.OIDCClaimsProfile
 	}
 
-	idToken, err := a.issuer.EncodeJWT(claims)
+	idToken, err := a.issuer.EncodeJWT(r.Context(), claims)
 	if err != nil {
 		return nil, err
 	}
@@ -907,7 +907,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 
 	code := &Code{}
 
-	if err := a.issuer.DecodeJWEToken(r.Form.Get("code"), code, jose.TokenTypeAuthorizationCode); err != nil {
+	if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("code"), code, jose.TokenTypeAuthorizationCode); err != nil {
 		return nil, errors.OAuth2InvalidRequest("failed to parse code: " + err.Error())
 	}
 
@@ -918,7 +918,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	expiry := time.Now().Add(24 * time.Hour)
 
 	// TODO: add some scopes, these hould probably be derived from the organization.
-	accessToken, err := a.Issue(r, code, expiry)
+	accessToken, err := a.Issue(r.Context(), r, code, expiry)
 	if err != nil {
 		return nil, err
 	}
@@ -956,7 +956,7 @@ func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (generate
 
 	parts := strings.Split(header, " ")
 
-	claims, err := a.Verify(r, parts[1])
+	claims, err := a.Verify(r.Context(), r, parts[1])
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to verify token").WithError(err)
 	}

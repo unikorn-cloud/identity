@@ -18,6 +18,7 @@ limitations under the License.
 package oauth2
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -55,7 +56,7 @@ type Claims struct {
 }
 
 // Issue issues a new JWT access token.
-func (a *Authenticator) Issue(r *http.Request, code *Code, expiresAt time.Time) (string, error) {
+func (a *Authenticator) Issue(ctx context.Context, r *http.Request, code *Code, expiresAt time.Time) (string, error) {
 	now := time.Now()
 
 	nowRFC7519 := jwt.NumericDate(now.Unix())
@@ -78,7 +79,7 @@ func (a *Authenticator) Issue(r *http.Request, code *Code, expiresAt time.Time) 
 		},
 	}
 
-	token, err := a.issuer.EncodeJWEToken(claims, jose.TokenTypeAccessToken)
+	token, err := a.issuer.EncodeJWEToken(ctx, claims, jose.TokenTypeAccessToken)
 	if err != nil {
 		return "", err
 	}
@@ -87,11 +88,11 @@ func (a *Authenticator) Issue(r *http.Request, code *Code, expiresAt time.Time) 
 }
 
 // Verify checks the access token parses and validates.
-func (a *Authenticator) Verify(r *http.Request, tokenString string) (*Claims, error) {
+func (a *Authenticator) Verify(ctx context.Context, r *http.Request, tokenString string) (*Claims, error) {
 	// Parse and verify the claims with the public key.
 	claims := &Claims{}
 
-	if err := a.issuer.DecodeJWEToken(tokenString, claims, jose.TokenTypeAccessToken); err != nil {
+	if err := a.issuer.DecodeJWEToken(ctx, tokenString, claims, jose.TokenTypeAccessToken); err != nil {
 		return nil, fmt.Errorf("failed to decrypt claims: %w", err)
 	}
 
