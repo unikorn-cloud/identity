@@ -60,6 +60,10 @@ func (*FakeCoordinationClientGetter) Client() (coordinationv1.CoordinationV1Inte
 	return coordination, nil
 }
 
+type TestClaims struct {
+	Foo string `json:"foo"`
+}
+
 func generateSerial(t *testing.T) *big.Int {
 	t.Helper()
 
@@ -154,6 +158,8 @@ func checkCertificateNotExist(t *testing.T, cli client.Client, name string) {
 	require.Error(t, cli.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: name}, &secret))
 }
 
+// TestRotation tests the behaviour of the low level certificate rotation code, ensuring
+// our shadown keys are kept in sync with what's provided by cert-manager.
 func TestRotation(t *testing.T) {
 	t.Parallel()
 
@@ -167,7 +173,7 @@ func TestRotation(t *testing.T) {
 		RotationPeriod:   refreshPeriod,
 	}
 
-	issuer := jose.NewJWTIssuer(client, "default", options)
+	issuer := jose.NewJWTIssuer(client, namespace, options)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -205,4 +211,122 @@ func TestRotation(t *testing.T) {
 	time.Sleep(refreshPeriod * 2)
 	checkCertificate(t, client, issuer.GetPrimaryKeyName(), serial3)
 	checkCertificate(t, client, issuer.GetSecondaryKeyName(), serial2)
+}
+
+// TestJWTIssue tests that issued JWTs validate across key rotation, and cease working
+// when a key is rotated out.
+func TestJWTIssue(t *testing.T) {
+	t.Parallel()
+
+	client := fake.NewFakeClient()
+
+	serial1 := generateSerial(t)
+	rotateCertificate(t, client, serial1)
+
+	options := &jose.Options{
+		IssuerSecretName: keySecretName,
+		RotationPeriod:   refreshPeriod,
+	}
+
+	issuer := jose.NewJWTIssuer(client, namespace, options)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	require.NoError(t, issuer.Run(ctx, &FakeCoordinationClientGetter{}))
+
+	// Wait for the primary key to be rotated in.
+	time.Sleep(refreshPeriod * 2)
+
+	claims := &TestClaims{
+		Foo: "bar",
+	}
+
+	// Check the token can be issued, and validates.
+	token1, err := issuer.EncodeJWT(ctx, claims)
+	require.NoError(t, err)
+
+	var decodedClaims TestClaims
+
+	require.NoError(t, issuer.DecodeJWT(ctx, token1, &decodedClaims))
+
+	// Rotate the key, check the existing token and a new on validate.
+	serial2 := generateSerial(t)
+	rotateCertificate(t, client, serial2)
+
+	time.Sleep(refreshPeriod * 2)
+
+	token2, err := issuer.EncodeJWT(ctx, claims)
+	require.NoError(t, err)
+
+	require.NoError(t, issuer.DecodeJWT(ctx, token1, &decodedClaims))
+	require.NoError(t, issuer.DecodeJWT(ctx, token2, &decodedClaims))
+
+	// Do it again, the first token shouldn't work any more, but the second one should.
+	serial3 := generateSerial(t)
+	rotateCertificate(t, client, serial3)
+
+	time.Sleep(refreshPeriod * 2)
+
+	require.Error(t, issuer.DecodeJWT(ctx, token1, &decodedClaims))
+	require.NoError(t, issuer.DecodeJWT(ctx, token2, &decodedClaims))
+}
+
+// TestJWEIssue tests that issued encrypted JWTs validate across key rotation, and cease working
+// when a key is rotated out.
+func TestJWEIssue(t *testing.T) {
+	t.Parallel()
+
+	client := fake.NewFakeClient()
+
+	serial1 := generateSerial(t)
+	rotateCertificate(t, client, serial1)
+
+	options := &jose.Options{
+		IssuerSecretName: keySecretName,
+		RotationPeriod:   refreshPeriod,
+	}
+
+	issuer := jose.NewJWTIssuer(client, namespace, options)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	require.NoError(t, issuer.Run(ctx, &FakeCoordinationClientGetter{}))
+
+	// Wait for the primary key to be rotated in.
+	time.Sleep(refreshPeriod * 2)
+
+	claims := &TestClaims{
+		Foo: "bar",
+	}
+
+	// Check the token can be issued, and validates.
+	token1, err := issuer.EncodeJWEToken(ctx, claims, jose.TokenTypeAccessToken)
+	require.NoError(t, err)
+
+	var decodedClaims TestClaims
+
+	require.NoError(t, issuer.DecodeJWEToken(ctx, token1, &decodedClaims, jose.TokenTypeAccessToken))
+
+	// Rotate the key, check the existing token and a new on validate.
+	serial2 := generateSerial(t)
+	rotateCertificate(t, client, serial2)
+
+	time.Sleep(refreshPeriod * 2)
+
+	token2, err := issuer.EncodeJWEToken(ctx, claims, jose.TokenTypeAccessToken)
+	require.NoError(t, err)
+
+	require.NoError(t, issuer.DecodeJWEToken(ctx, token1, &decodedClaims, jose.TokenTypeAccessToken))
+	require.NoError(t, issuer.DecodeJWEToken(ctx, token2, &decodedClaims, jose.TokenTypeAccessToken))
+
+	// Do it again, the first token shouldn't work any more, but the second one should.
+	serial3 := generateSerial(t)
+	rotateCertificate(t, client, serial3)
+
+	time.Sleep(refreshPeriod * 2)
+
+	require.Error(t, issuer.DecodeJWEToken(ctx, token1, &decodedClaims, jose.TokenTypeAccessToken))
+	require.NoError(t, issuer.DecodeJWEToken(ctx, token2, &decodedClaims, jose.TokenTypeAccessToken))
 }
