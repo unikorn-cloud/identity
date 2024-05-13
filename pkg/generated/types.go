@@ -337,6 +337,9 @@ type Token struct {
 	// IdToken An OIDC ID token.
 	IdToken *string `json:"id_token,omitempty"`
 
+	// RefreshToken The opaque refresh token.
+	RefreshToken string `json:"refresh_token"`
+
 	// TokenType How the access token is to be presented to the resource server.
 	TokenType string `json:"token_type"`
 }
@@ -360,6 +363,9 @@ type TokenRequestOptions struct {
 
 	// RedirectUri Client redirect URI. Required with the "code" grant type.
 	RedirectUri *string `json:"redirect_uri"`
+
+	// RefreshToken A refresh token for the refresh_token grant type.
+	RefreshToken *string `json:"refresh_token"`
 
 	// Username Resource owner username. Required with the "password" grant type.
 	Username *string `json:"username"`
@@ -584,6 +590,13 @@ func (t TokenRequestOptions) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	if t.RefreshToken != nil {
+		object["refresh_token"], err = json.Marshal(t.RefreshToken)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'refresh_token': %w", err)
+		}
+	}
+
 	if t.Username != nil {
 		object["username"], err = json.Marshal(t.Username)
 		if err != nil {
@@ -644,6 +657,13 @@ func (t *TokenRequestOptions) UnmarshalJSON(b []byte) error {
 		err = json.Unmarshal(raw, &t.RedirectUri)
 		if err != nil {
 			return fmt.Errorf("error reading 'redirect_uri': %w", err)
+		}
+	}
+
+	if raw, found := object["refresh_token"]; found {
+		err = json.Unmarshal(raw, &t.RefreshToken)
+		if err != nil {
+			return fmt.Errorf("error reading 'refresh_token': %w", err)
 		}
 	}
 

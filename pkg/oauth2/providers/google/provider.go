@@ -36,6 +36,16 @@ func New() *Provider {
 	return &Provider{}
 }
 
+func (*Provider) AuthorizationRequestParameters() map[string]string {
+	// This grants us access to a refresh token.
+	// See: https://developers.google.com/identity/openid-connect/openid-connect#access-type-param
+	// And: https://stackoverflow.com/questions/10827920/not-receiving-google-oauth-refresh-token
+	return map[string]string{
+		"prompt":      "consent",
+		"access_type": "offline",
+	}
+}
+
 func (*Provider) Scopes() []string {
 	return []string{
 		// This provides read-only access to a user's groups.

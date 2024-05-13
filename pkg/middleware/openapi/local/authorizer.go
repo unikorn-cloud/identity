@@ -67,8 +67,14 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 		return "", nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
 	}
 
+	info := &oauth2.VerifyInfo{
+		Issuer:   "https://" + r.Host,
+		Audience: r.Host,
+		Token:    token,
+	}
+
 	// Check the token is from us, for us, and in date.
-	claims, err := a.authenticator.Verify(r.Context(), r, token)
+	claims, err := a.authenticator.Verify(r.Context(), info)
 	if err != nil {
 		return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 	}

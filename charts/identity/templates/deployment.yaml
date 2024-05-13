@@ -21,6 +21,7 @@ spec:
         - --namespace={{ .Release.Namespace }}
         - --host=https://{{ .Values.host }}
         - --jose-tls-secret=unikorn-identity-jose-tls
+        - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
         {{- with $cors := .Values.cors }}
           {{- range $origin := $cors.allowOrigin }}
             {{ printf "- --cors-allow-origin=%s" $origin | nindent 8 }}

@@ -53,9 +53,22 @@ import (
 )
 
 type Options struct {
+	// AccessTokenDuration should be short to prevent long term use.
+	AccessTokenDuration time.Duration
+
+	// RefreshTokenDuration should be driven by the signing key rotation
+	// period.
+	RefreshTokenDuration time.Duration
+
+	// TokenVerificationLeeway tells us how permissive we should or shouldn't
+	// be of timing.
+	TokenVerificationLeeway time.Duration
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
+	f.DurationVar(&o.AccessTokenDuration, "access-token-duration", time.Hour, "Maximum time an access token can be active for.")
+	f.DurationVar(&o.RefreshTokenDuration, "refresh-token-duration", 0, "Maximum time a refresh token can be active for.")
+	f.DurationVar(&o.TokenVerificationLeeway, "token-verification-leeway", 0, "How mush leeway to permit for verification of token validity.")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -152,10 +165,15 @@ type Code struct {
 	ClientNonce string `json:"cno,omitempty"`
 	// IDToken is the full set of claims returned by the provider.
 	IDToken IDToken `json:"idt"`
-	// AccessToken is the user' access token.
+	// AccessToken is the user's access token.
 	AccessToken string `json:"at"`
+	// RefreshToken is the users's refresh token.
+	RefreshToken string `json:"rt"`
 	// AccessTokenExpiry tells us how long the token will last for.
 	AccessTokenExpiry time.Time `json:"ate"`
+	// OAuth2Provider is the name of the provider configuration in
+	// use, this will reference the issuer and allow discovery.
+	OAuth2Provider string `json:"oap"`
 }
 
 var (
@@ -302,7 +320,7 @@ func (a *Authenticator) oidcConfig(r *http.Request, provider *unikornv1.OAuth2Pr
 
 	s = append(s, scopes...)
 
-	return &oauth2.Config{
+	config := &oauth2.Config{
 		ClientID: provider.Spec.ClientID,
 		Endpoint: endpoint,
 		// TODO: the ingress converts this all into a relative URL
@@ -311,6 +329,12 @@ func (a *Authenticator) oidcConfig(r *http.Request, provider *unikornv1.OAuth2Pr
 		RedirectURL: "https://" + r.Host + "/oidc/callback",
 		Scopes:      s,
 	}
+
+	if provider.Spec.ClientSecret != nil {
+		config.ClientSecret = *provider.Spec.ClientSecret
+	}
+
+	return config
 }
 
 // encodeCodeChallengeS256 performs code verifier to code challenge translation
@@ -588,6 +612,10 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		oidc.Nonce(nonce),
 	}
 
+	for k, v := range driver.AuthorizationRequestParameters() {
+		authURLParams = append(authURLParams, oauth2.SetAuthURLParam(k, v))
+	}
+
 	http.Redirect(w, r, a.oidcConfig(r, providerResource, endpoint, driver.Scopes()).AuthCodeURL(state, authURLParams...), http.StatusFound)
 }
 
@@ -787,8 +815,10 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		ClientCodeChallenge: state.ClientCodeChallenge,
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
+		OAuth2Provider:      state.OAuth2Provider,
 		IDToken:             idTokenClaims,
 		AccessToken:         tokens.AccessToken,
+		RefreshToken:        tokens.RefreshToken,
 		AccessTokenExpiry:   tokens.Expiry,
 	}
 
@@ -857,7 +887,7 @@ func oidcHash(value string) string {
 }
 
 // oidcIDToken builds an OIDC ID token.
-func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Time, atHash string) (*string, error) {
+func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Duration, atHash string) (*string, error) {
 	//nolint:nilnil
 	if !slices.Contains(code.ClientScope, "openid") {
 		return nil, nil
@@ -870,7 +900,7 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Tim
 			Audience: []string{
 				code.ClientID,
 			},
-			Expiry:   jwt.NewNumericDate(expiry),
+			Expiry:   jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 		OIDCClaims: OIDCClaims{
@@ -895,10 +925,71 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Tim
 	return &idToken, nil
 }
 
-// Token issues an OAuth2 access token from the provided autorization code.
+// Token issues an OAuth2 access token from the provided authorization code.
+//
+//nolint:cyclop
 func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generated.Token, error) {
 	if err := r.ParseForm(); err != nil {
 		return nil, errors.OAuth2InvalidRequest("failed to parse form data: " + err.Error())
+	}
+
+	//nolint:nestif
+	if r.Form.Get("grant_type") == "refresh_token" {
+		// Validate the refresh token and extract the claims.
+		claims := &RefreshTokenClaims{}
+
+		if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("refresh_token"), claims, jose.TokenTypeRefreshToken); err != nil {
+			return nil, err
+		}
+
+		// Lookup the provider details, then do a token refresh against that to update
+		// the access token.
+		providerResource, err := a.lookupProviderByName(r.Context(), claims.Custom.Provider)
+		if err != nil {
+			return nil, err
+		}
+
+		provider, err := newOIDCProvider(r.Context(), providerResource)
+		if err != nil {
+			return nil, err
+		}
+
+		refreshToken := &oauth2.Token{
+			Expiry:       time.Now(),
+			RefreshToken: claims.Custom.RefreshToken,
+		}
+
+		providerTokens, err := a.oidcConfig(r, providerResource, provider.Endpoint(), nil).TokenSource(r.Context(), refreshToken).Token()
+		if err != nil {
+			return nil, err
+		}
+
+		info := &IssueInfo{
+			Issuer:               "https://" + r.Host,
+			Audience:             r.Host,
+			Subject:              claims.Claims.Subject,
+			AccessTokenDuration:  a.options.AccessTokenDuration,
+			RefreshTokenDuration: a.options.RefreshTokenDuration,
+			Provider:             claims.Custom.Provider,
+			Tokens: Tokens{
+				AccessToken:  providerTokens.AccessToken,
+				RefreshToken: providerTokens.RefreshToken,
+			},
+		}
+
+		tokens, err := a.Issue(r.Context(), info)
+		if err != nil {
+			return nil, err
+		}
+
+		result := &generated.Token{
+			TokenType:    "Bearer",
+			AccessToken:  tokens.AccessToken,
+			RefreshToken: tokens.RefreshToken,
+			ExpiresIn:    int(a.options.AccessTokenDuration.Seconds()),
+		}
+
+		return result, nil
 	}
 
 	if err := tokenValidate(r); err != nil {
@@ -915,25 +1006,36 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 		return nil, err
 	}
 
-	expiry := time.Now().Add(24 * time.Hour)
+	info := &IssueInfo{
+		Issuer:               "https://" + r.Host,
+		Audience:             r.Host,
+		Subject:              code.IDToken.OIDCClaimsEmail.Email,
+		AccessTokenDuration:  a.options.AccessTokenDuration,
+		RefreshTokenDuration: a.options.RefreshTokenDuration,
+		Provider:             code.OAuth2Provider,
+		Tokens: Tokens{
+			AccessToken:  code.AccessToken,
+			RefreshToken: code.RefreshToken,
+		},
+	}
 
-	// TODO: add some scopes, these hould probably be derived from the organization.
-	accessToken, err := a.Issue(r.Context(), r, code, expiry)
+	tokens, err := a.Issue(r.Context(), info)
 	if err != nil {
 		return nil, err
 	}
 
 	// Handle OIDC.
-	idToken, err := a.oidcIDToken(r, code, expiry, oidcHash(accessToken))
+	idToken, err := a.oidcIDToken(r, code, a.options.AccessTokenDuration, oidcHash(tokens.AccessToken))
 	if err != nil {
 		return nil, err
 	}
 
 	result := &generated.Token{
-		TokenType:   "Bearer",
-		AccessToken: accessToken,
-		IdToken:     idToken,
-		ExpiresIn:   int(time.Until(expiry).Seconds()),
+		TokenType:    "Bearer",
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		IdToken:      idToken,
+		ExpiresIn:    int(a.options.AccessTokenDuration.Seconds()),
 	}
 
 	return result, nil
@@ -956,14 +1058,20 @@ func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (generate
 
 	parts := strings.Split(header, " ")
 
-	claims, err := a.Verify(r.Context(), r, parts[1])
+	info := &VerifyInfo{
+		Issuer:   "https://" + r.Host,
+		Audience: r.Host,
+		Token:    parts[1],
+	}
+
+	claims, err := a.Verify(r.Context(), info)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to verify token").WithError(err)
 	}
 
 	driver := providers.New(provider.Spec.Type)
 
-	groups, err := driver.Groups(r.Context(), organization, claims.Unikorn.AccessToken)
+	groups, err := driver.Groups(r.Context(), organization, claims.Custom.AccessToken)
 	if err != nil {
 		if goerrors.Is(err, providererrors.ErrUnauthorized) {
 			return nil, errors.OAuth2AccessDenied("unable to get groups from provider").WithError(err)

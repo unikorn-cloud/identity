@@ -24,6 +24,10 @@ import (
 )
 
 type Provider interface {
+	// AuthorizationRequestParameters allows the autorization request parameters
+	// to be tweaked on a per-provider basis.
+	AuthorizationRequestParameters() map[string]string
+
 	// Scopes returns a set of scopes that are required by the access token
 	// to operate correctly.
 	Scopes() []string
