@@ -647,6 +647,10 @@ components:
           description: Resource owner password. Required with the "password" grant type.
           type: string
           nullable: true
+        refresh_token:
+          description: A refresh token for the refresh_token grant type.
+          type: string
+          nullable: true
       oneOf:
       - required:
         - code
@@ -658,18 +662,18 @@ components:
             enum:
             - authorization_code
       - required:
-        - username
-        - password
+        - refresh_token
         properties:
           grant_type:
             enum:
-            - password
+            - refresh_token
     token:
       description: Oauth2 token result.
       type: object
       required:
       - token_type
       - access_token
+      - refresh_token
       - expires_in
       properties:
         token_type:
@@ -677,6 +681,9 @@ components:
           type: string
         access_token:
           description: The opaque access token.
+          type: string
+        refresh_token:
+          description: The opaque refresh token.
           type: string
         id_token:
           description: An OIDC ID token.

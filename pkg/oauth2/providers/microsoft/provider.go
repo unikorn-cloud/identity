@@ -30,8 +30,12 @@ func New() *Provider {
 	return &Provider{}
 }
 
+func (*Provider) AuthorizationRequestParameters() map[string]string {
+	return nil
+}
+
 func (*Provider) Scopes() []string {
-	return []string{}
+	return nil
 }
 
 func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {

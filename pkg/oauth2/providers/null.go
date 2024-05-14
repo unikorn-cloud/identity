@@ -30,6 +30,10 @@ func newNullProvider() Provider {
 	return &nullProvider{}
 }
 
+func (*nullProvider) AuthorizationRequestParameters() map[string]string {
+	return nil
+}
+
 func (*nullProvider) Scopes() []string {
 	return nil
 }

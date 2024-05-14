@@ -455,6 +455,10 @@ const (
 	// TokenTypeLoginState is deinfed by us to prevent reuse in other contexts.
 	//nolint:gosec
 	TokenTypeLoginState TokenType = "unikorn-cloud.org/loginstate+jwt"
+
+	// TokenTypeRefreshToken is defined to prevent reuse in other contexts.
+	//nolint:gosec
+	TokenTypeRefreshToken TokenType = "unikorn-cloud.org/rt+jwt"
 )
 
 // EncodeJWEToken encodes, signs and encrypts as set of claims.
