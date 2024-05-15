@@ -42,6 +42,8 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
+	klog "k8s.io/klog/v2"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -78,7 +80,10 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 }
 
 func (s *Server) SetupLogging() {
-	log.SetLogger(zap.New(zap.UseFlagOptions(&s.ZapOptions)))
+	logr := zap.New(zap.UseFlagOptions(&s.ZapOptions))
+
+	klog.SetLogger(logr)
+	log.SetLogger(logr)
 }
 
 // SetupOpenTelemetry adds a span processor that will print root spans to the
