@@ -63,12 +63,18 @@ type Options struct {
 	// TokenVerificationLeeway tells us how permissive we should or shouldn't
 	// be of timing.
 	TokenVerificationLeeway time.Duration
+
+	// TokenLeewayDuration allows us to remove a period from the IdP access token
+	// lifetime so we can "guarantee" ours will expire before theirs and force
+	// a refresh before any errors can come from the IdP.
+	TokenLeewayDuration time.Duration
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.AccessTokenDuration, "access-token-duration", time.Hour, "Maximum time an access token can be active for.")
 	f.DurationVar(&o.RefreshTokenDuration, "refresh-token-duration", 0, "Maximum time a refresh token can be active for.")
 	f.DurationVar(&o.TokenVerificationLeeway, "token-verification-leeway", 0, "How mush leeway to permit for verification of token validity.")
+	f.DurationVar(&o.TokenLeewayDuration, "token-leeway", time.Minute, "How long to remove from the provider token expiry to account for network and processing latency.")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -965,13 +971,12 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 		}
 
 		info := &IssueInfo{
-			Issuer:               "https://" + r.Host,
-			Audience:             r.Host,
-			Subject:              claims.Claims.Subject,
-			AccessTokenDuration:  a.options.AccessTokenDuration,
-			RefreshTokenDuration: a.options.RefreshTokenDuration,
-			Provider:             claims.Custom.Provider,
+			Issuer:   "https://" + r.Host,
+			Audience: r.Host,
+			Subject:  claims.Claims.Subject,
+			Provider: claims.Custom.Provider,
 			Tokens: Tokens{
+				Expiry:       providerTokens.Expiry,
 				AccessToken:  providerTokens.AccessToken,
 				RefreshToken: providerTokens.RefreshToken,
 			},
@@ -986,7 +991,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 			TokenType:    "Bearer",
 			AccessToken:  tokens.AccessToken,
 			RefreshToken: tokens.RefreshToken,
-			ExpiresIn:    int(a.options.AccessTokenDuration.Seconds()),
+			ExpiresIn:    int(time.Until(tokens.Expiry).Seconds()),
 		}
 
 		return result, nil
@@ -1007,13 +1012,12 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	}
 
 	info := &IssueInfo{
-		Issuer:               "https://" + r.Host,
-		Audience:             r.Host,
-		Subject:              code.IDToken.OIDCClaimsEmail.Email,
-		AccessTokenDuration:  a.options.AccessTokenDuration,
-		RefreshTokenDuration: a.options.RefreshTokenDuration,
-		Provider:             code.OAuth2Provider,
+		Issuer:   "https://" + r.Host,
+		Audience: r.Host,
+		Subject:  code.IDToken.OIDCClaimsEmail.Email,
+		Provider: code.OAuth2Provider,
 		Tokens: Tokens{
+			Expiry:       code.AccessTokenExpiry,
 			AccessToken:  code.AccessToken,
 			RefreshToken: code.RefreshToken,
 		},
@@ -1035,7 +1039,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
 		IdToken:      idToken,
-		ExpiresIn:    int(a.options.AccessTokenDuration.Seconds()),
+		ExpiresIn:    int(time.Until(tokens.Expiry).Seconds()),
 	}
 
 	return result, nil
