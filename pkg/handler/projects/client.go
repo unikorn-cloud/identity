@@ -175,6 +175,20 @@ func (c *Client) get(ctx context.Context, namespace, name string) (*unikornv1.Pr
 	return result, nil
 }
 
+func (c *Client) Get(ctx context.Context, organizationName, name string) (*generated.Project, error) {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := c.get(ctx, organization.Namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return convert(result), nil
+}
+
 func generate(organization *organizations.Meta, request *generated.ProjectSpec) *unikornv1.Project {
 	resource := &unikornv1.Project{
 		ObjectMeta: metav1.ObjectMeta{
@@ -219,7 +233,30 @@ func (c *Client) Create(ctx context.Context, organizationName string, request *g
 	return nil
 }
 
-// Delete deletes the implicit project indentified by the JTW claims.
+func (c *Client) Update(ctx context.Context, organizationName, name string, request *generated.ProjectSpec) error {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+	if err != nil {
+		return err
+	}
+
+	project, err := c.get(ctx, organization.Namespace, name)
+	if err != nil {
+		return errors.OAuth2ServerError("failed to get project").WithError(err)
+	}
+
+	newProject := generate(organization, request)
+
+	temp := project.DeepCopy()
+	temp.Spec = newProject.Spec
+
+	if err := c.client.Patch(ctx, temp, client.MergeFrom(project)); err != nil {
+		return errors.OAuth2ServerError("failed to patch project").WithError(err)
+	}
+
+	return nil
+}
+
+// Delete deletes the project.
 func (c *Client) Delete(ctx context.Context, organizationName, name string) error {
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
 	if err != nil {

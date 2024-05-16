@@ -393,6 +393,44 @@ paths:
     parameters:
     - $ref: '#/components/parameters/organizationParameter'
     - $ref: '#/components/parameters/projectParameter'
+    get:
+      description: |-
+        Gets a project.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/projectResponse'
+        '400':
+          $ref: '#/components/responses/badRequestResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '404':
+          $ref: '#/components/responses/notFoundResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
+    put:
+      description: |-
+        Updates a project.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/updateProjectRequest'
+      responses:
+        '200':
+          description: Project successfully updated.
+        '400':
+          $ref: '#/components/responses/badRequestResponse'
+        '401':
+          $ref: '#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/forbiddenResponse'
+        '404':
+          $ref: '#/components/responses/notFoundResponse'
+        '500':
+          $ref: '#/components/responses/internalServerErrorResponse'
     delete:
       description: |-
         Deletes the project associated with the authenticated user's scoped
@@ -974,6 +1012,15 @@ components:
             $ref: '#/components/schemas/projectSpec'
           example:
             name: my-project
+    updateProjectRequest:
+      description: Project request parameters.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/projectSpec'
+          example:
+            name: my-project
   responses:
     acceptedResponse:
       description: |-
@@ -1189,6 +1236,18 @@ components:
             $ref: '#/components/schemas/projects'
           example:
           - metadata:
+              creationTime: 2023-07-31T10:45:42Z
+              status: Provisioned
+            spec:
+              name: my-project
+    projectResponse:
+      description: A project.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/project'
+          example:
+            metadata:
               creationTime: 2023-07-31T10:45:42Z
               status: Provisioned
             spec:

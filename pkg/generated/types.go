@@ -434,6 +434,9 @@ type OpenidConfigurationResponse = OpenidConfiguration
 // OrganizationsResponse A list of organizations.
 type OrganizationsResponse = Organizations
 
+// ProjectResponse A project.
+type ProjectResponse = Project
+
 // ProjectsResponse A list of projects.
 type ProjectsResponse = Projects
 
@@ -464,6 +467,9 @@ type UpdateGroupRequest = Group
 // UpdateOrganizationRequest An organization.
 type UpdateOrganizationRequest = Organization
 
+// UpdateProjectRequest A project.
+type UpdateProjectRequest = ProjectSpec
+
 // PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
 type PostApiV1OrganizationsJSONRequestBody = Organization
 
@@ -478,6 +484,9 @@ type PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody = Group
 
 // PostApiV1OrganizationsOrganizationProjectsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationProjects for application/json ContentType.
 type PostApiV1OrganizationsOrganizationProjectsJSONRequestBody = ProjectSpec
+
+// PutApiV1OrganizationsOrganizationProjectsProjectJSONRequestBody defines body for PutApiV1OrganizationsOrganizationProjectsProject for application/json ContentType.
+type PutApiV1OrganizationsOrganizationProjectsProjectJSONRequestBody = ProjectSpec
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions
