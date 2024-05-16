@@ -396,6 +396,44 @@ func (h *Handler) PostApiV1OrganizationsOrganizationProjects(w http.ResponseWrit
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (h *Handler) GetApiV1OrganizationsOrganizationProjectsProject(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, project generated.ProjectParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "projects", constants.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := projects.New(h.client, h.namespace).Get(r.Context(), organization, project)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PutApiV1OrganizationsOrganizationProjectsProject(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, project generated.ProjectParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "projects", constants.Update); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &generated.ProjectSpec{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := projects.New(h.client, h.namespace).Update(r.Context(), organization, project, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *Handler) DeleteApiV1OrganizationsOrganizationProjectsProject(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, project generated.ProjectParameter) {
 	if err := h.checkRBAC(r.Context(), organization, "projects", constants.Delete); err != nil {
 		errors.HandleError(w, r, err)

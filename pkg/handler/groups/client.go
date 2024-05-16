@@ -160,7 +160,7 @@ func (c *Client) Update(ctx context.Context, organizationName, groupID string, g
 	}
 
 	if err := c.client.Patch(ctx, temp, client.MergeFrom(&organization)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+		return errors.OAuth2ServerError("failed to patch organization").WithError(err)
 	}
 
 	return nil
