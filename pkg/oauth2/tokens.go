@@ -76,27 +76,36 @@ type RefreshTokenClaims struct {
 }
 
 type Tokens struct {
+	Expiry       time.Time
 	AccessToken  string
 	RefreshToken string
 }
 
 type IssueInfo struct {
-	Issuer               string
-	Audience             string
-	Subject              string
-	AccessTokenDuration  time.Duration
-	RefreshTokenDuration time.Duration
-	Tokens               Tokens
-	Provider             string
+	Issuer   string
+	Audience string
+	Subject  string
+	Tokens   Tokens
+	Provider string
 }
 
 // Issue issues a new JWT access token.
 func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, error) {
 	now := time.Now()
 
+	// We don't control the expiry of the provider's access token, but we can cap it,
+	// so we use the smallest of these two figures.  To make the experience more
+	// resilient, we remove a "fudge factor" from the provider's token so we don't
+	// accidentally try to use it when it's already expired, e.g. time has expired
+	// since provider issue and when we wrap it up here.
+	expiry := info.Tokens.Expiry.Add(-a.options.TokenLeewayDuration)
+	if limit := now.Add(a.options.AccessTokenDuration); limit.Before(expiry) {
+		expiry = limit
+	}
+
 	nowRFC7519 := jwt.NewNumericDate(now)
-	atExpiresAtRFC7519 := jwt.NewNumericDate(now.Add(info.AccessTokenDuration))
-	rtExpiresAtRFC7519 := jwt.NewNumericDate(now.Add(info.RefreshTokenDuration))
+	atExpiresAtRFC7519 := jwt.NewNumericDate(expiry)
+	rtExpiresAtRFC7519 := jwt.NewNumericDate(now.Add(a.options.RefreshTokenDuration))
 
 	atClaims := &AccessTokenClaims{
 		Claims: jwt.Claims{
@@ -147,6 +156,7 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 	tokens := &Tokens{
 		AccessToken:  at,
 		RefreshToken: rt,
+		Expiry:       expiry,
 	}
 
 	return tokens, nil

@@ -60,6 +60,7 @@ func TestTokens(t *testing.T) {
 	options := &oauth2.Options{
 		AccessTokenDuration:  accessTokenDuration,
 		RefreshTokenDuration: refreshTokenDuration,
+		TokenLeewayDuration:  accessTokenDuration,
 	}
 
 	authenticator := oauth2.New(options, josetesting.Namespace, client, issuer, nil)
@@ -67,14 +68,13 @@ func TestTokens(t *testing.T) {
 	time.Sleep(2 * josetesting.RefreshPeriod)
 
 	issueInfo := &oauth2.IssueInfo{
-		Issuer:               "https://foo.com",
-		Audience:             "foo.com",
-		Subject:              "barry@foo.com",
-		AccessTokenDuration:  accessTokenDuration,
-		RefreshTokenDuration: refreshTokenDuration,
+		Issuer:   "https://foo.com",
+		Audience: "foo.com",
+		Subject:  "barry@foo.com",
 		Tokens: oauth2.Tokens{
 			AccessToken:  "foo",
 			RefreshToken: "bar",
+			Expiry:       time.Now().Add(2 * accessTokenDuration),
 		},
 	}
 
