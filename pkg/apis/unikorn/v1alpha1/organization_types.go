@@ -49,22 +49,36 @@ type Organization struct {
 	Status            OrganizationStatus `json:"status,omitempty"`
 }
 
+// ProviderScope defines how to lookup the provider details.
+type ProviderScope string
+
+const (
+	// ProviderScopeGlobal looks up the provider in the identity nanespace.
+	ProviderScopeGlobal ProviderScope = "global"
+	// ProviderScopeOrganization looks up the provider in the organization namespace.
+	ProviderScopeOrganization ProviderScope = "organization"
+)
+
 // OrganizationSpec defines the required configuration for the server.
 type OrganizationSpec struct {
 	// Pause, if true, will inhibit reconciliation.
 	Pause bool `json:"pause,omitempty"`
 	// Domain is used by unikorn-identity to map an end-user provided
-	// email address to an identity provider.
+	// email address to an identity provider.  When this is set, then
+	// the providerScope and providerName must be set.
 	Domain *string `json:"domain,omitempty"`
+	// ProviderScope tells the controller when to find the provider
+	// details.
+	ProviderScope *ProviderScope `json:"providerScope,omitempty"`
 	// ProviderName is the name of an explicit oauth2/oidc provider.
 	// When using a domain mapping.
 	ProviderName *string `json:"providerName,omitempty"`
 	// ProviderOptions is the configuration for a specific provider type.
-	// When using domain mapping.
 	ProviderOptions *OrganizationProviderOptions `json:"providerOptions,omitempty"`
 	// Groups defines the set of groups that are allowed to be mapped
 	// from the identity provider into unikorn.  If no groups are specified
 	// then it is assumed all users have access to everything.
+	// TODO: move this to the organization namespace.
 	Groups []OrganizationGroup `json:"groups,omitempty"`
 }
 
@@ -78,7 +92,7 @@ type OrganizationProviderGoogleSpec struct {
 	// CustomerID is retrieved from the "Account Settings > Profile" page on
 	// https://admin.google.com for your organisation and is required to
 	// lookup user groups for fine-grained RBAC.
-	CustomerID string `json:"customerId"`
+	CustomerID *string `json:"customerId,omitempty"`
 }
 
 type OrganizationGroup struct {

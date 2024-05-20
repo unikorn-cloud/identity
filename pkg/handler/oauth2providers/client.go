@@ -23,15 +23,19 @@ import (
 
 	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
-	"github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
+	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	organizationProviderName = "default"
 )
 
 type Client struct {
@@ -46,29 +50,24 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func showDetails(permissions *rbac.Permissions, item *unikornv1.OAuth2Provider) bool {
-	// Super admin can see everything.
-	if permissions.IsSuperAdmin {
-		return true
-	}
-
-	// If it's a private one, show the details.
-	if _, ok := item.Labels[constants.OrganizationLabel]; ok {
-		return false
-	}
-
-	return false
+func showDetails(permissions *rbac.Permissions, global bool) bool {
+	// Super admin can see everything, and you can see you own organization.
+	return permissions.IsSuperAdmin && !global
 }
 
-func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider) *generated.Oauth2Provider {
+func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider, global bool) *generated.Oauth2Provider {
 	out := &generated.Oauth2Provider{
 		Name:        in.Name,
 		DisplayName: in.Spec.DisplayName,
 		Issuer:      in.Spec.Issuer,
 	}
 
+	if in.Spec.Type != nil {
+		out.Type = util.ToPointer(generated.Oauth2ProviderType(*in.Spec.Type))
+	}
+
 	// Only show sensitive details for organizations you are an admin of.
-	if showDetails(permissions, in) {
+	if showDetails(permissions, global) {
 		out.ClientID = &in.Spec.ClientID
 		out.ClientSecret = in.Spec.ClientSecret
 	}
@@ -76,7 +75,7 @@ func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider) *gener
 	return out
 }
 
-func convertList(permissions *rbac.Permissions, in *unikornv1.OAuth2ProviderList) []generated.Oauth2Provider {
+func convertList(permissions *rbac.Permissions, in *unikornv1.OAuth2ProviderList, global bool) []generated.Oauth2Provider {
 	slices.SortStableFunc(in.Items, func(a, b unikornv1.OAuth2Provider) int {
 		return strings.Compare(a.Name, b.Name)
 	})
@@ -84,54 +83,72 @@ func convertList(permissions *rbac.Permissions, in *unikornv1.OAuth2ProviderList
 	out := make([]generated.Oauth2Provider, len(in.Items))
 
 	for i := range in.Items {
-		out[i] = *convert(permissions, &in.Items[i])
+		out[i] = *convert(permissions, &in.Items[i], global)
 	}
 
 	return out
 }
 
-func (c *Client) List(ctx context.Context, organizationName string) ([]generated.Oauth2Provider, error) {
-	// Get any generic public providers.
-	publicRequirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.DoesNotExist, nil)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create selection requirement").WithError(err)
+func (c *Client) ListGlobal(ctx context.Context) ([]generated.Oauth2Provider, error) {
+	options := &client.ListOptions{
+		Namespace: c.namespace,
 	}
 
-	publicSelector := labels.NewSelector()
-	publicSelector = publicSelector.Add(*publicRequirement)
+	var result unikornv1.OAuth2ProviderList
 
-	publicOptions := &client.ListOptions{
-		Namespace:     c.namespace,
-		LabelSelector: publicSelector,
-	}
-
-	var public unikornv1.OAuth2ProviderList
-
-	if err := c.client.List(ctx, &public, publicOptions); err != nil {
-		return nil, err
-	}
-
-	// Get any private providers.
-	organizationRequirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.Equals, []string{organizationName})
-	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create selection requirement").WithError(err)
-	}
-
-	privateSelector := labels.NewSelector()
-	privateSelector = privateSelector.Add(*organizationRequirement)
-
-	privateOptions := &client.ListOptions{
-		Namespace:     c.namespace,
-		LabelSelector: privateSelector,
-	}
-
-	var private unikornv1.OAuth2ProviderList
-
-	if err := c.client.List(ctx, &private, privateOptions); err != nil {
+	if err := c.client.List(ctx, &result, options); err != nil {
 		return nil, err
 	}
 
 	userinfo := userinfo.FromContext(ctx)
 
-	return slices.Concat(convertList(userinfo.RBAC, &public), convertList(userinfo.RBAC, &private)), nil
+	return convertList(userinfo.RBAC, &result, true), nil
+}
+
+func (c *Client) Get(ctx context.Context, organizationName string) (*generated.Oauth2Provider, error) {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &unikornv1.OAuth2Provider{}
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: organizationProviderName}, result); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, errors.HTTPNotFound()
+		}
+
+		return nil, errors.OAuth2ServerError("failed to get organization oauth2 provider").WithError(err)
+	}
+
+	userinfo := userinfo.FromContext(ctx)
+
+	return convert(userinfo.RBAC, result, false), nil
+}
+
+func (c *Client) Create(ctx context.Context, organizationName string, request *generated.Oauth2Provider) error {
+	_, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) Update(ctx context.Context, organizationName string, request *generated.Oauth2Provider) error {
+	_, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *Client) Delete(ctx context.Context, organizationName string) error {
+	_, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

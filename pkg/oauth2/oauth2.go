@@ -517,7 +517,7 @@ func (a *Authenticator) lookupProviderByType(ctx context.Context, t unikornv1.Id
 	}
 
 	for i := range resources.Items {
-		if resources.Items[i].Spec.Type == t {
+		if resources.Items[i].Spec.Type != nil && *resources.Items[i].Spec.Type == t {
 			return &resources.Items[i], nil
 		}
 	}
@@ -539,7 +539,7 @@ func (a *Authenticator) lookupProviderByName(ctx context.Context, name string) (
 
 // newOIDCProvider abstracts away any hacks for specific providers.
 func newOIDCProvider(ctx context.Context, p *unikornv1.OAuth2Provider) (*oidc.Provider, error) {
-	if p.Spec.Type == unikornv1.MicrosoftEntra {
+	if p.Spec.Type != nil && *p.Spec.Type == unikornv1.MicrosoftEntra {
 		ctx = oidc.InsecureIssuerURLContext(ctx, "https://login.microsoftonline.com/{tenantid}/v2.0")
 	}
 

@@ -25,7 +25,7 @@ import (
 
 // IdentityProviderType defines the type of identity provider, and in turn
 // that defines the required configuration and API interfaces.
-// +kubebuilder:validation:Enum=google;microsoft
+// +kubebuilder:validation:Enum=custom;google;microsoft
 type IdentityProviderType string
 
 const (
@@ -100,7 +100,7 @@ type OAuth2ProviderSpec struct {
 	// global provider types e.g. Google or Microsoft, only a single instance
 	// of that type should be specified, doing otherwise will result in
 	// undefined behaviour.
-	Type IdentityProviderType `json:"type"`
+	Type *IdentityProviderType `json:"type,omitempty"`
 	// DisplayName is a user readable issuer name.
 	DisplayName string `json:"displayName"`
 	// The issuer is typically provided by the identity provider as an

@@ -87,8 +87,7 @@ roles:
       roles: [read]
       organizations: [read,update]
       groups: [create,read,update,delete]
-      oauth2providers-public: [read]
-      oauth2providers-private: [create,read,update,delete]
+      oauth2providers: [create,read,update,delete]
       projects: [create,read,update,delete]
       infrastructure: [create,read,update,delete]
 

@@ -68,6 +68,24 @@ const (
 	UnsupportedResponseType Oauth2ErrorError = "unsupported_response_type"
 )
 
+// Defines values for Oauth2ProviderType.
+const (
+	Google    Oauth2ProviderType = "google"
+	Microsoft Oauth2ProviderType = "microsoft"
+)
+
+// Defines values for OrganizationType.
+const (
+	Adhoc  OrganizationType = "adhoc"
+	Domain OrganizationType = "domain"
+)
+
+// Defines values for ProviderScope.
+const (
+	ProviderScopeGlobal       ProviderScope = "global"
+	ProviderScopeOrganization ProviderScope = "organization"
+)
+
 // Defines values for ResponseType.
 const (
 	ResponseTypeCode             ResponseType = "code"
@@ -215,7 +233,13 @@ type Oauth2Provider struct {
 
 	// Name A description of the provider.
 	Name string `json:"name"`
+
+	// Type The type of identity provider.
+	Type *Oauth2ProviderType `json:"type,omitempty"`
 }
+
+// Oauth2ProviderType The type of identity provider.
+type Oauth2ProviderType string
 
 // Oauth2Providers A list of oauth2 providers.
 type Oauth2Providers = []Oauth2Provider
@@ -261,15 +285,42 @@ type OpenidConfiguration struct {
 
 // Organization An organization.
 type Organization struct {
-	// Domain An email domain that identifies all users.
+	// Domain The email domain of the organization.
 	Domain *string `json:"domain,omitempty"`
+
+	// GoogleCustomerID When set this identifies the customer ID for the google managed organization.
+	// This enables the access to, and use of, Google groups as a source of truth
+	// for RBAC.
+	GoogleCustomerID *string `json:"googleCustomerID,omitempty"`
 
 	// Name A unique organization name.
 	Name string `json:"name"`
 
-	// ProviderName An identity provider for the organization. This must be an oauth2 provider name.
+	// OrganizationType Describes the authntication menthod of the organization.  Adhoc authentication
+	// means that users are exclusively added via explicit group membership  And must
+	// use a 'sign-in via' option.  Domain authentication means that users may login
+	// via their email address, must in the case of custom identity providers, that
+	// maps from domain to an identity provider.  This enables authentication options
+	// such as implicit group mappings for RBAC.
+	OrganizationType OrganizationType `json:"organizationType"`
+
+	// ProviderName The name of the provider to use, the scope is determined by useCustomProvider.
+	// If false, this refers to a built in provider, if true, then to an organization
+	// specific one.
 	ProviderName *string `json:"providerName,omitempty"`
+
+	// ProviderScope Describes how to lookup the provider, when global, use a built in generic provider
+	// e.g. Google/Microsoft, when organization, us an organization scoped provider.
+	ProviderScope *ProviderScope `json:"providerScope,omitempty"`
 }
+
+// OrganizationType Describes the authntication menthod of the organization.  Adhoc authentication
+// means that users are exclusively added via explicit group membership  And must
+// use a 'sign-in via' option.  Domain authentication means that users may login
+// via their email address, must in the case of custom identity providers, that
+// maps from domain to an identity provider.  This enables authentication options
+// such as implicit group mappings for RBAC.
+type OrganizationType string
 
 // Organizations A list of organizations.
 type Organizations = []Organization
@@ -313,6 +364,10 @@ type Projects = []Project
 
 // ProviderGroupList A list of provider groups.
 type ProviderGroupList = []string
+
+// ProviderScope Describes how to lookup the provider, when global, use a built in generic provider
+// e.g. Google/Microsoft, when organization, us an organization scoped provider.
+type ProviderScope string
 
 // ResponseType Supported response types.
 type ResponseType string
@@ -425,11 +480,17 @@ type JwksResponse = JsonWebKeySet
 // NotFoundResponse Generic error message.
 type NotFoundResponse = Oauth2Error
 
+// Oauth2ProviderResponse An oauth2 provider.
+type Oauth2ProviderResponse = Oauth2Provider
+
 // Oauth2ProvidersResponse A list of oauth2 providers.
 type Oauth2ProvidersResponse = Oauth2Providers
 
 // OpenidConfigurationResponse OpenID configuration.
 type OpenidConfigurationResponse = OpenidConfiguration
+
+// OrganizationResponse An organization.
+type OrganizationResponse = Organization
 
 // OrganizationsResponse A list of organizations.
 type OrganizationsResponse = Organizations
@@ -461,6 +522,9 @@ type CreateOrganizationRequest = Organization
 // CreateProjectRequest A project.
 type CreateProjectRequest = ProjectSpec
 
+// Oauth2ProviderRequest An oauth2 provider.
+type Oauth2ProviderRequest = Oauth2Provider
+
 // UpdateGroupRequest A group.
 type UpdateGroupRequest = Group
 
@@ -481,6 +545,12 @@ type PostApiV1OrganizationsOrganizationGroupsJSONRequestBody = Group
 
 // PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody defines body for PutApiV1OrganizationsOrganizationGroupsGroupid for application/json ContentType.
 type PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody = Group
+
+// PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody defines body for PostApiV1OrganizationsOrganizationOauth2provider for application/json ContentType.
+type PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody = Oauth2Provider
+
+// PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody defines body for PutApiV1OrganizationsOrganizationOauth2provider for application/json ContentType.
+type PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody = Oauth2Provider
 
 // PostApiV1OrganizationsOrganizationProjectsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationProjects for application/json ContentType.
 type PostApiV1OrganizationsOrganizationProjectsJSONRequestBody = ProjectSpec
