@@ -24,10 +24,12 @@ import (
 	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/generated"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -77,13 +79,32 @@ func (c *Client) GetMetadata(ctx context.Context, name string) (*Meta, error) {
 	return metadata, nil
 }
 
+func convertOrganizationType(in *unikornv1.Organization) generated.OrganizationType {
+	if in.Spec.Domain != nil {
+		return generated.Domain
+	}
+
+	return generated.Adhoc
+}
+
 func convert(in *unikornv1.Organization) *generated.Organization {
-	// Note: do not expose more to a regular user than is required here
-	// e.g. group membership etc.
 	out := &generated.Organization{
-		Name:         in.Name,
-		Domain:       in.Spec.Domain,
-		ProviderName: in.Spec.ProviderName,
+		Name:             in.Name,
+		OrganizationType: convertOrganizationType(in),
+	}
+
+	if in.Spec.Domain != nil {
+		out.Domain = in.Spec.Domain
+		out.ProviderScope = util.ToPointer(generated.ProviderScope(*in.Spec.ProviderScope))
+		out.ProviderName = in.Spec.ProviderName
+	}
+
+	// TODO: We should cross reference with the provider type and
+	// only emit what's allowed.
+	if in.Spec.ProviderOptions != nil {
+		if in.Spec.ProviderOptions.Google != nil {
+			out.GoogleCustomerID = in.Spec.ProviderOptions.Google.CustomerID
+		}
 	}
 
 	return out
@@ -147,4 +168,66 @@ func (c *Client) List(ctx context.Context) ([]generated.Organization, error) {
 	})
 
 	return convertList(&result), nil
+}
+
+func (c *Client) Get(ctx context.Context, name string) (*generated.Organization, error) {
+	result, err := c.get(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return convert(result), nil
+}
+
+func (c *Client) generate(in *generated.Organization) *unikornv1.Organization {
+	out := &unikornv1.Organization{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: c.namespace,
+			Name:      in.Name,
+		},
+	}
+
+	if in.OrganizationType == generated.Domain {
+		out.Spec.Domain = in.Domain
+		out.Spec.ProviderScope = util.ToPointer(unikornv1.ProviderScope(*in.ProviderScope))
+		out.Spec.ProviderName = in.ProviderName
+
+		// TODO: we should cross reference with the provider type and do only
+		// what must be done.
+		if in.GoogleCustomerID != nil {
+			out.Spec.ProviderOptions = &unikornv1.OrganizationProviderOptions{
+				Google: &unikornv1.OrganizationProviderGoogleSpec{
+					CustomerID: in.GoogleCustomerID,
+				},
+			}
+		}
+	}
+
+	return out
+}
+
+func (c *Client) Update(ctx context.Context, name string, request *generated.Organization) error {
+	var organization unikornv1.Organization
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: name}, &organization); err != nil {
+		return errors.OAuth2ServerError("failed to read organization").WithError(err)
+	}
+
+	newOrganization := c.generate(request)
+
+	// Copy over the whole specification, but, retain the groups, as those are managed
+	// by a different API.
+	// TODO: it's possible that changing the authentication provider options will invalidate
+	// the groups, but that's pretty complex!
+	// TODO: it actually makes sense for the groups to live in the organization namespace
+	// doesn't it??
+	temp := organization.DeepCopy()
+	temp.Spec = newOrganization.Spec
+	temp.Spec.Groups = organization.Spec.Groups
+
+	if err := c.client.Patch(ctx, temp, client.MergeFrom(&organization)); err != nil {
+		return errors.OAuth2ServerError("failed to patch organization").WithError(err)
+	}
+
+	return nil
 }

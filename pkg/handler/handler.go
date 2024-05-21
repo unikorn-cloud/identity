@@ -172,6 +172,22 @@ func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 	h.authenticator.OAuth2.OIDCCallback(w, r)
 }
 
+func (h *Handler) GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request) {
+	if err := h.checkRBAC(r.Context(), "", "oauth2providers", constants.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := oauth2providers.New(h.client, h.namespace).ListGlobal(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) GetApiV1OrganizationsOrganizationAcl(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
 	result, err := newACLGetter(h.client, h.namespace, organization).Get(r.Context())
 	if err != nil {
@@ -199,19 +215,13 @@ func (h *Handler) GetApiV1OrganizationsOrganizationRoles(w http.ResponseWriter, 
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
-func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
-	// TODO: separate into different scopes as per unikornv1
-	if err := h.checkRBAC(r.Context(), organization, "oauth2providers-public", constants.Read); err != nil {
+func (h *Handler) GetApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Read); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err := h.checkRBAC(r.Context(), organization, "oauth2providers-private", constants.Read); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	result, err := oauth2providers.New(h.client, h.namespace).List(r.Context(), organization)
+	result, err := oauth2providers.New(h.client, h.namespace).Get(r.Context(), organization)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
@@ -219,6 +229,65 @@ func (h *Handler) GetApiV1OrganizationsOrganizationOauth2Providers(w http.Respon
 
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Create); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &generated.Oauth2Provider{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := oauth2providers.New(h.client, h.namespace).Create(r.Context(), organization, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *Handler) PutApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Update); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &generated.Oauth2Provider{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := oauth2providers.New(h.client, h.namespace).Update(r.Context(), organization, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *Handler) DeleteApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Delete); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := oauth2providers.New(h.client, h.namespace).Delete(r.Context(), organization); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
@@ -244,11 +313,42 @@ func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request)
 	}
 }
 
+func (h *Handler) GetApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+	if err := h.checkRBAC(r.Context(), "", "organizations", constants.Update); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := organizations.New(h.client, h.namespace).Get(r.Context(), organization)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) PutApiV1OrganizationsOrganization(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
 	if err := h.checkRBAC(r.Context(), "", "organizations", constants.Update); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
+
+	request := &generated.Organization{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := organizations.New(h.client, h.namespace).Update(r.Context(), organization, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationAvailableGroups(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {

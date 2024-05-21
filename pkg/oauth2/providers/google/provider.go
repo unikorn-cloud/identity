@@ -64,13 +64,13 @@ type Groups struct {
 
 //nolint:cyclop
 func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
-	if organization == nil || organization.Spec.ProviderOptions == nil || organization.Spec.ProviderOptions.Google == nil {
+	if organization == nil || organization.Spec.ProviderOptions == nil || organization.Spec.ProviderOptions.Google == nil || organization.Spec.ProviderOptions.Google.CustomerID == nil {
 		return nil, nil
 	}
 
 	query := url.Values{
 		"parent": []string{
-			"customers/" + organization.Spec.ProviderOptions.Google.CustomerID,
+			"customers/" + *organization.Spec.ProviderOptions.Google.CustomerID,
 		},
 	}
 

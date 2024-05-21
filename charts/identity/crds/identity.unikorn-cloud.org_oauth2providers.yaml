@@ -79,6 +79,7 @@ spec:
                   of that type should be specified, doing otherwise will result in
                   undefined behaviour.
                 enum:
+                - custom
                 - google
                 - microsoft
                 type: string

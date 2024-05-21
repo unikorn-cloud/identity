@@ -60,13 +60,15 @@ spec:
               domain:
                 description: |-
                   Domain is used by unikorn-identity to map an end-user provided
-                  email address to an identity provider.
+                  email address to an identity provider.  When this is set, then
+                  the providerScope and providerName must be set.
                 type: string
               groups:
                 description: |-
                   Groups defines the set of groups that are allowed to be mapped
                   from the identity provider into unikorn.  If no groups are specified
                   then it is assumed all users have access to everything.
+                  TODO: move this to the organization namespace.
                 items:
                   properties:
                     id:
@@ -114,9 +116,8 @@ spec:
                   When using a domain mapping.
                 type: string
               providerOptions:
-                description: |-
-                  ProviderOptions is the configuration for a specific provider type.
-                  When using domain mapping.
+                description: ProviderOptions is the configuration for a specific provider
+                  type.
                 properties:
                   google:
                     description: |-
@@ -129,10 +130,13 @@ spec:
                           https://admin.google.com for your organisation and is required to
                           lookup user groups for fine-grained RBAC.
                         type: string
-                    required:
-                    - customerId
                     type: object
                 type: object
+              providerScope:
+                description: |-
+                  ProviderScope tells the controller when to find the provider
+                  details.
+                type: string
             type: object
           status:
             description: OrganizationStatus defines the status of the server.

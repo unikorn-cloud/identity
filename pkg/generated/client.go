@@ -92,6 +92,9 @@ type ClientInterface interface {
 	// GetWellKnownOpenidConfiguration request
 	GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1Oauth2providers request
+	GetApiV1Oauth2providers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiV1Organizations request
 	GetApiV1Organizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -99,6 +102,9 @@ type ClientInterface interface {
 	PostApiV1OrganizationsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostApiV1Organizations(ctx context.Context, body PostApiV1OrganizationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1OrganizationsOrganization request
+	GetApiV1OrganizationsOrganization(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutApiV1OrganizationsOrganization request with any body
 	PutApiV1OrganizationsOrganizationWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -130,8 +136,21 @@ type ClientInterface interface {
 
 	PutApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetApiV1OrganizationsOrganizationOauth2Providers request
-	GetApiV1OrganizationsOrganizationOauth2Providers(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteApiV1OrganizationsOrganizationOauth2provider request
+	DeleteApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiV1OrganizationsOrganizationOauth2provider request
+	GetApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostApiV1OrganizationsOrganizationOauth2provider request with any body
+	PostApiV1OrganizationsOrganizationOauth2providerWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutApiV1OrganizationsOrganizationOauth2provider request with any body
+	PutApiV1OrganizationsOrganizationOauth2providerWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PutApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1OrganizationsOrganizationProjects request
 	GetApiV1OrganizationsOrganizationProjects(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -190,6 +209,18 @@ func (c *Client) GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetApiV1Oauth2providers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1Oauth2providersRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) GetApiV1Organizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1OrganizationsRequest(c.Server)
 	if err != nil {
@@ -216,6 +247,18 @@ func (c *Client) PostApiV1OrganizationsWithBody(ctx context.Context, contentType
 
 func (c *Client) PostApiV1Organizations(ctx context.Context, body PostApiV1OrganizationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1OrganizationsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1OrganizationsOrganization(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsOrganizationRequest(c.Server, organization)
 	if err != nil {
 		return nil, err
 	}
@@ -358,8 +401,68 @@ func (c *Client) PutApiV1OrganizationsOrganizationGroupsGroupid(ctx context.Cont
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApiV1OrganizationsOrganizationOauth2Providers(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest(c.Server, organization)
+func (c *Client) DeleteApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1OrganizationsOrganizationOauth2providerRequest(c.Server, organization)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsOrganizationOauth2providerRequest(c.Server, organization)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1OrganizationsOrganizationOauth2providerWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationOauth2providerRequestWithBody(c.Server, organization, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationOauth2providerRequest(c.Server, organization, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutApiV1OrganizationsOrganizationOauth2providerWithBody(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationOauth2providerRequestWithBody(c.Server, organization, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PutApiV1OrganizationsOrganizationOauth2provider(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationOauth2providerRequest(c.Server, organization, body)
 	if err != nil {
 		return nil, err
 	}
@@ -589,6 +692,33 @@ func NewGetWellKnownOpenidConfigurationRequest(server string) (*http.Request, er
 	return req, nil
 }
 
+// NewGetApiV1Oauth2providersRequest generates requests for GetApiV1Oauth2providers
+func NewGetApiV1Oauth2providersRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/oauth2providers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetApiV1OrganizationsRequest generates requests for GetApiV1Organizations
 func NewGetApiV1OrganizationsRequest(server string) (*http.Request, error) {
 	var err error
@@ -652,6 +782,40 @@ func NewPostApiV1OrganizationsRequestWithBody(server string, contentType string,
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetApiV1OrganizationsOrganizationRequest generates requests for GetApiV1OrganizationsOrganization
+func NewGetApiV1OrganizationsOrganizationRequest(server string, organization OrganizationParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -988,8 +1152,8 @@ func NewPutApiV1OrganizationsOrganizationGroupsGroupidRequestWithBody(server str
 	return req, nil
 }
 
-// NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest generates requests for GetApiV1OrganizationsOrganizationOauth2Providers
-func NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest(server string, organization OrganizationParameter) (*http.Request, error) {
+// NewDeleteApiV1OrganizationsOrganizationOauth2providerRequest generates requests for DeleteApiV1OrganizationsOrganizationOauth2provider
+func NewDeleteApiV1OrganizationsOrganizationOauth2providerRequest(server string, organization OrganizationParameter) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1004,7 +1168,41 @@ func NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest(server string, o
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/oauth2/providers", pathParam0)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/oauth2provider", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApiV1OrganizationsOrganizationOauth2providerRequest generates requests for GetApiV1OrganizationsOrganizationOauth2provider
+func NewGetApiV1OrganizationsOrganizationOauth2providerRequest(server string, organization OrganizationParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/oauth2provider", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1018,6 +1216,100 @@ func NewGetApiV1OrganizationsOrganizationOauth2ProvidersRequest(server string, o
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPostApiV1OrganizationsOrganizationOauth2providerRequest calls the generic PostApiV1OrganizationsOrganizationOauth2provider builder with application/json body
+func NewPostApiV1OrganizationsOrganizationOauth2providerRequest(server string, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV1OrganizationsOrganizationOauth2providerRequestWithBody(server, organization, "application/json", bodyReader)
+}
+
+// NewPostApiV1OrganizationsOrganizationOauth2providerRequestWithBody generates requests for PostApiV1OrganizationsOrganizationOauth2provider with any type of body
+func NewPostApiV1OrganizationsOrganizationOauth2providerRequestWithBody(server string, organization OrganizationParameter, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/oauth2provider", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPutApiV1OrganizationsOrganizationOauth2providerRequest calls the generic PutApiV1OrganizationsOrganizationOauth2provider builder with application/json body
+func NewPutApiV1OrganizationsOrganizationOauth2providerRequest(server string, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutApiV1OrganizationsOrganizationOauth2providerRequestWithBody(server, organization, "application/json", bodyReader)
+}
+
+// NewPutApiV1OrganizationsOrganizationOauth2providerRequestWithBody generates requests for PutApiV1OrganizationsOrganizationOauth2provider with any type of body
+func NewPutApiV1OrganizationsOrganizationOauth2providerRequestWithBody(server string, organization OrganizationParameter, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organization", runtime.ParamLocationPath, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/oauth2provider", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1507,6 +1799,9 @@ type ClientWithResponsesInterface interface {
 	// GetWellKnownOpenidConfiguration request
 	GetWellKnownOpenidConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWellKnownOpenidConfigurationResponse, error)
 
+	// GetApiV1Oauth2providers request
+	GetApiV1Oauth2providersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1Oauth2providersResponse, error)
+
 	// GetApiV1Organizations request
 	GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error)
 
@@ -1514,6 +1809,9 @@ type ClientWithResponsesInterface interface {
 	PostApiV1OrganizationsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsResponse, error)
 
 	PostApiV1OrganizationsWithResponse(ctx context.Context, body PostApiV1OrganizationsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsResponse, error)
+
+	// GetApiV1OrganizationsOrganization request
+	GetApiV1OrganizationsOrganizationWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationResponse, error)
 
 	// PutApiV1OrganizationsOrganization request with any body
 	PutApiV1OrganizationsOrganizationWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationResponse, error)
@@ -1545,8 +1843,21 @@ type ClientWithResponsesInterface interface {
 
 	PutApiV1OrganizationsOrganizationGroupsGroupidWithResponse(ctx context.Context, organization OrganizationParameter, groupid GroupidParameter, body PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationGroupsGroupidResponse, error)
 
-	// GetApiV1OrganizationsOrganizationOauth2Providers request
-	GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationOauth2ProvidersResponse, error)
+	// DeleteApiV1OrganizationsOrganizationOauth2provider request
+	DeleteApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationOauth2providerResponse, error)
+
+	// GetApiV1OrganizationsOrganizationOauth2provider request
+	GetApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationOauth2providerResponse, error)
+
+	// PostApiV1OrganizationsOrganizationOauth2provider request with any body
+	PostApiV1OrganizationsOrganizationOauth2providerWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationOauth2providerResponse, error)
+
+	PostApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationOauth2providerResponse, error)
+
+	// PutApiV1OrganizationsOrganizationOauth2provider request with any body
+	PutApiV1OrganizationsOrganizationOauth2providerWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationOauth2providerResponse, error)
+
+	PutApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationOauth2providerResponse, error)
 
 	// GetApiV1OrganizationsOrganizationProjects request
 	GetApiV1OrganizationsOrganizationProjectsWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationProjectsResponse, error)
@@ -1615,6 +1926,31 @@ func (r GetWellKnownOpenidConfigurationResponse) StatusCode() int {
 	return 0
 }
 
+type GetApiV1Oauth2providersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Oauth2Providers
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1Oauth2providersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1Oauth2providersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetApiV1OrganizationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1664,11 +2000,37 @@ func (r PostApiV1OrganizationsResponse) StatusCode() int {
 	return 0
 }
 
+type GetApiV1OrganizationsOrganizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Organization
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsOrganizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsOrganizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PutApiV1OrganizationsOrganizationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *Oauth2Error
 	JSON403      *Oauth2Error
+	JSON500      *Oauth2Error
 }
 
 // Status returns HTTPResponse.Status
@@ -1861,16 +2223,17 @@ func (r PutApiV1OrganizationsOrganizationGroupsGroupidResponse) StatusCode() int
 	return 0
 }
 
-type GetApiV1OrganizationsOrganizationOauth2ProvidersResponse struct {
+type DeleteApiV1OrganizationsOrganizationOauth2providerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *Oauth2Providers
 	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON404      *Oauth2Error
 	JSON500      *Oauth2Error
 }
 
 // Status returns HTTPResponse.Status
-func (r GetApiV1OrganizationsOrganizationOauth2ProvidersResponse) Status() string {
+func (r DeleteApiV1OrganizationsOrganizationOauth2providerResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1878,7 +2241,83 @@ func (r GetApiV1OrganizationsOrganizationOauth2ProvidersResponse) Status() strin
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetApiV1OrganizationsOrganizationOauth2ProvidersResponse) StatusCode() int {
+func (r DeleteApiV1OrganizationsOrganizationOauth2providerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApiV1OrganizationsOrganizationOauth2providerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Oauth2Provider
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON404      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsOrganizationOauth2providerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsOrganizationOauth2providerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostApiV1OrganizationsOrganizationOauth2providerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON409      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV1OrganizationsOrganizationOauth2providerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV1OrganizationsOrganizationOauth2providerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PutApiV1OrganizationsOrganizationOauth2providerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Oauth2Error
+	JSON403      *Oauth2Error
+	JSON404      *Oauth2Error
+	JSON500      *Oauth2Error
+}
+
+// Status returns HTTPResponse.Status
+func (r PutApiV1OrganizationsOrganizationOauth2providerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutApiV1OrganizationsOrganizationOauth2providerResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -2183,6 +2622,15 @@ func (c *ClientWithResponses) GetWellKnownOpenidConfigurationWithResponse(ctx co
 	return ParseGetWellKnownOpenidConfigurationResponse(rsp)
 }
 
+// GetApiV1Oauth2providersWithResponse request returning *GetApiV1Oauth2providersResponse
+func (c *ClientWithResponses) GetApiV1Oauth2providersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1Oauth2providersResponse, error) {
+	rsp, err := c.GetApiV1Oauth2providers(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1Oauth2providersResponse(rsp)
+}
+
 // GetApiV1OrganizationsWithResponse request returning *GetApiV1OrganizationsResponse
 func (c *ClientWithResponses) GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error) {
 	rsp, err := c.GetApiV1Organizations(ctx, reqEditors...)
@@ -2207,6 +2655,15 @@ func (c *ClientWithResponses) PostApiV1OrganizationsWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParsePostApiV1OrganizationsResponse(rsp)
+}
+
+// GetApiV1OrganizationsOrganizationWithResponse request returning *GetApiV1OrganizationsOrganizationResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationResponse, error) {
+	rsp, err := c.GetApiV1OrganizationsOrganization(ctx, organization, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsOrganizationResponse(rsp)
 }
 
 // PutApiV1OrganizationsOrganizationWithBodyWithResponse request with arbitrary body returning *PutApiV1OrganizationsOrganizationResponse
@@ -2305,13 +2762,56 @@ func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationGroupsGroupidWith
 	return ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp)
 }
 
-// GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse request returning *GetApiV1OrganizationsOrganizationOauth2ProvidersResponse
-func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationOauth2ProvidersResponse, error) {
-	rsp, err := c.GetApiV1OrganizationsOrganizationOauth2Providers(ctx, organization, reqEditors...)
+// DeleteApiV1OrganizationsOrganizationOauth2providerWithResponse request returning *DeleteApiV1OrganizationsOrganizationOauth2providerResponse
+func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	rsp, err := c.DeleteApiV1OrganizationsOrganizationOauth2provider(ctx, organization, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetApiV1OrganizationsOrganizationOauth2ProvidersResponse(rsp)
+	return ParseDeleteApiV1OrganizationsOrganizationOauth2providerResponse(rsp)
+}
+
+// GetApiV1OrganizationsOrganizationOauth2providerWithResponse request returning *GetApiV1OrganizationsOrganizationOauth2providerResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	rsp, err := c.GetApiV1OrganizationsOrganizationOauth2provider(ctx, organization, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsOrganizationOauth2providerResponse(rsp)
+}
+
+// PostApiV1OrganizationsOrganizationOauth2providerWithBodyWithResponse request with arbitrary body returning *PostApiV1OrganizationsOrganizationOauth2providerResponse
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationOauth2providerWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationOauth2providerWithBody(ctx, organization, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1OrganizationsOrganizationOauth2providerResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, body PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationOauth2provider(ctx, organization, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV1OrganizationsOrganizationOauth2providerResponse(rsp)
+}
+
+// PutApiV1OrganizationsOrganizationOauth2providerWithBodyWithResponse request with arbitrary body returning *PutApiV1OrganizationsOrganizationOauth2providerResponse
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationOauth2providerWithBodyWithResponse(ctx context.Context, organization OrganizationParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganizationOauth2providerWithBody(ctx, organization, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutApiV1OrganizationsOrganizationOauth2providerResponse(rsp)
+}
+
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationOauth2providerWithResponse(ctx context.Context, organization OrganizationParameter, body PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganizationOauth2provider(ctx, organization, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutApiV1OrganizationsOrganizationOauth2providerResponse(rsp)
 }
 
 // GetApiV1OrganizationsOrganizationProjectsWithResponse request returning *GetApiV1OrganizationsOrganizationProjectsResponse
@@ -2480,6 +2980,53 @@ func ParseGetWellKnownOpenidConfigurationResponse(rsp *http.Response) (*GetWellK
 	return response, nil
 }
 
+// ParseGetApiV1Oauth2providersResponse parses an HTTP response from a GetApiV1Oauth2providersWithResponse call
+func ParseGetApiV1Oauth2providersResponse(rsp *http.Response) (*GetApiV1Oauth2providersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1Oauth2providersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Oauth2Providers
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetApiV1OrganizationsResponse parses an HTTP response from a GetApiV1OrganizationsWithResponse call
 func ParseGetApiV1OrganizationsResponse(rsp *http.Response) (*GetApiV1OrganizationsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2567,6 +3114,53 @@ func ParsePostApiV1OrganizationsResponse(rsp *http.Response) (*PostApiV1Organiza
 	return response, nil
 }
 
+// ParseGetApiV1OrganizationsOrganizationResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationWithResponse call
+func ParseGetApiV1OrganizationsOrganizationResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsOrganizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Organization
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePutApiV1OrganizationsOrganizationResponse parses an HTTP response from a PutApiV1OrganizationsOrganizationWithResponse call
 func ParsePutApiV1OrganizationsOrganizationResponse(rsp *http.Response) (*PutApiV1OrganizationsOrganizationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -2594,6 +3188,13 @@ func ParsePutApiV1OrganizationsOrganizationResponse(rsp *http.Response) (*PutApi
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	}
 
@@ -2922,22 +3523,69 @@ func ParsePutApiV1OrganizationsOrganizationGroupsGroupidResponse(rsp *http.Respo
 	return response, nil
 }
 
-// ParseGetApiV1OrganizationsOrganizationOauth2ProvidersResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationOauth2ProvidersWithResponse call
-func ParseGetApiV1OrganizationsOrganizationOauth2ProvidersResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationOauth2ProvidersResponse, error) {
+// ParseDeleteApiV1OrganizationsOrganizationOauth2providerResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationOauth2providerWithResponse call
+func ParseDeleteApiV1OrganizationsOrganizationOauth2providerResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationOauth2providerResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetApiV1OrganizationsOrganizationOauth2ProvidersResponse{
+	response := &DeleteApiV1OrganizationsOrganizationOauth2providerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV1OrganizationsOrganizationOauth2providerResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationOauth2providerWithResponse call
+func ParseGetApiV1OrganizationsOrganizationOauth2providerResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsOrganizationOauth2providerResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Oauth2Providers
+		var dest Oauth2Provider
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2949,6 +3597,114 @@ func ParseGetApiV1OrganizationsOrganizationOauth2ProvidersResponse(rsp *http.Res
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV1OrganizationsOrganizationOauth2providerResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationOauth2providerWithResponse call
+func ParsePostApiV1OrganizationsOrganizationOauth2providerResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV1OrganizationsOrganizationOauth2providerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePutApiV1OrganizationsOrganizationOauth2providerResponse parses an HTTP response from a PutApiV1OrganizationsOrganizationOauth2providerWithResponse call
+func ParsePutApiV1OrganizationsOrganizationOauth2providerResponse(rsp *http.Response) (*PutApiV1OrganizationsOrganizationOauth2providerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutApiV1OrganizationsOrganizationOauth2providerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest Oauth2Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest Oauth2Error
