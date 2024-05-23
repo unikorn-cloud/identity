@@ -215,13 +215,13 @@ func (h *Handler) GetApiV1OrganizationsOrganizationRoles(w http.ResponseWriter, 
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
-func (h *Handler) GetApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+func (h *Handler) GetApiV1OrganizationsOrganizationOauth2providers(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
 	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Read); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	result, err := oauth2providers.New(h.client, h.namespace).Get(r.Context(), organization)
+	result, err := oauth2providers.New(h.client, h.namespace).List(r.Context(), organization)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
@@ -231,13 +231,13 @@ func (h *Handler) GetApiV1OrganizationsOrganizationOauth2provider(w http.Respons
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
-func (h *Handler) PostApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+func (h *Handler) PostApiV1OrganizationsOrganizationOauth2providers(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
 	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Create); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	request := &generated.Oauth2Provider{}
+	request := &generated.Oauth2ProviderCreate{}
 
 	if err := util.ReadJSONBody(r, request); err != nil {
 		errors.HandleError(w, r, err)
@@ -253,20 +253,20 @@ func (h *Handler) PostApiV1OrganizationsOrganizationOauth2provider(w http.Respon
 	w.WriteHeader(http.StatusCreated)
 }
 
-func (h *Handler) PutApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+func (h *Handler) PutApiV1OrganizationsOrganizationOauth2providersProvider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, provider generated.Oauth2provderParameter) {
 	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Update); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	request := &generated.Oauth2Provider{}
+	request := &generated.Oauth2ProviderCreate{}
 
 	if err := util.ReadJSONBody(r, request); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err := oauth2providers.New(h.client, h.namespace).Update(r.Context(), organization, request); err != nil {
+	if err := oauth2providers.New(h.client, h.namespace).Update(r.Context(), organization, provider, request); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -275,13 +275,13 @@ func (h *Handler) PutApiV1OrganizationsOrganizationOauth2provider(w http.Respons
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *Handler) DeleteApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter) {
+func (h *Handler) DeleteApiV1OrganizationsOrganizationOauth2providersProvider(w http.ResponseWriter, r *http.Request, organization generated.OrganizationParameter, provider generated.Oauth2provderParameter) {
 	if err := h.checkRBAC(r.Context(), organization, "oauth2providers", constants.Delete); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err := oauth2providers.New(h.client, h.namespace).Delete(r.Context(), organization); err != nil {
+	if err := oauth2providers.New(h.client, h.namespace).Delete(r.Context(), organization, provider); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}

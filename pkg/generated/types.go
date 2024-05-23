@@ -238,6 +238,29 @@ type Oauth2Provider struct {
 	Type *Oauth2ProviderType `json:"type,omitempty"`
 }
 
+// Oauth2ProviderCreate An oauth2 provider.
+type Oauth2ProviderCreate struct {
+	// ClientID The client identification, only shown for super admin or organization owned providers
+	// that you are an admin for.
+	ClientID string `json:"clientID"`
+
+	// ClientSecret The client secret, only shown for super admin or organization owned providers
+	// that you are an admin for.
+	ClientSecret *string `json:"clientSecret,omitempty"`
+
+	// DisplayName The name to display for the provider.
+	DisplayName string `json:"displayName"`
+
+	// Issuer The OIDC issuer, typically where to perform auto discovery relative to.
+	Issuer string `json:"issuer"`
+
+	// Name A description of the provider.
+	Name string `json:"name"`
+
+	// Type The type of identity provider.
+	Type *Oauth2ProviderType `json:"type,omitempty"`
+}
+
 // Oauth2ProviderType The type of identity provider.
 type Oauth2ProviderType string
 
@@ -443,6 +466,9 @@ type UserList = []string
 // GroupidParameter defines model for groupidParameter.
 type GroupidParameter = string
 
+// Oauth2provderParameter defines model for oauth2provderParameter.
+type Oauth2provderParameter = string
+
 // OrganizationParameter defines model for organizationParameter.
 type OrganizationParameter = string
 
@@ -479,9 +505,6 @@ type JwksResponse = JsonWebKeySet
 
 // NotFoundResponse Generic error message.
 type NotFoundResponse = Oauth2Error
-
-// Oauth2ProviderResponse An oauth2 provider.
-type Oauth2ProviderResponse = Oauth2Provider
 
 // Oauth2ProvidersResponse A list of oauth2 providers.
 type Oauth2ProvidersResponse = Oauth2Providers
@@ -523,7 +546,7 @@ type CreateOrganizationRequest = Organization
 type CreateProjectRequest = ProjectSpec
 
 // Oauth2ProviderRequest An oauth2 provider.
-type Oauth2ProviderRequest = Oauth2Provider
+type Oauth2ProviderRequest = Oauth2ProviderCreate
 
 // UpdateGroupRequest A group.
 type UpdateGroupRequest = Group
@@ -546,11 +569,11 @@ type PostApiV1OrganizationsOrganizationGroupsJSONRequestBody = Group
 // PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody defines body for PutApiV1OrganizationsOrganizationGroupsGroupid for application/json ContentType.
 type PutApiV1OrganizationsOrganizationGroupsGroupidJSONRequestBody = Group
 
-// PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody defines body for PostApiV1OrganizationsOrganizationOauth2provider for application/json ContentType.
-type PostApiV1OrganizationsOrganizationOauth2providerJSONRequestBody = Oauth2Provider
+// PostApiV1OrganizationsOrganizationOauth2providersJSONRequestBody defines body for PostApiV1OrganizationsOrganizationOauth2providers for application/json ContentType.
+type PostApiV1OrganizationsOrganizationOauth2providersJSONRequestBody = Oauth2ProviderCreate
 
-// PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody defines body for PutApiV1OrganizationsOrganizationOauth2provider for application/json ContentType.
-type PutApiV1OrganizationsOrganizationOauth2providerJSONRequestBody = Oauth2Provider
+// PutApiV1OrganizationsOrganizationOauth2providersProviderJSONRequestBody defines body for PutApiV1OrganizationsOrganizationOauth2providersProvider for application/json ContentType.
+type PutApiV1OrganizationsOrganizationOauth2providersProviderJSONRequestBody = Oauth2ProviderCreate
 
 // PostApiV1OrganizationsOrganizationProjectsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationProjects for application/json ContentType.
 type PostApiV1OrganizationsOrganizationProjectsJSONRequestBody = ProjectSpec

@@ -87,7 +87,6 @@ spec:
             - clientID
             - displayName
             - issuer
-            - type
             type: object
           status:
             description: OAuth2ProviderStatus defines the status of the server.

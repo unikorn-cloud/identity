@@ -54,17 +54,17 @@ type ServerInterface interface {
 	// (PUT /api/v1/organizations/{organization}/groups/{groupid})
 	PutApiV1OrganizationsOrganizationGroupsGroupid(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, groupid GroupidParameter)
 
-	// (DELETE /api/v1/organizations/{organization}/oauth2provider)
-	DeleteApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+	// (GET /api/v1/organizations/{organization}/oauth2providers)
+	GetApiV1OrganizationsOrganizationOauth2providers(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
-	// (GET /api/v1/organizations/{organization}/oauth2provider)
-	GetApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+	// (POST /api/v1/organizations/{organization}/oauth2providers)
+	PostApiV1OrganizationsOrganizationOauth2providers(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
 
-	// (POST /api/v1/organizations/{organization}/oauth2provider)
-	PostApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+	// (DELETE /api/v1/organizations/{organization}/oauth2providers/{provider})
+	DeleteApiV1OrganizationsOrganizationOauth2providersProvider(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, provider Oauth2provderParameter)
 
-	// (PUT /api/v1/organizations/{organization}/oauth2provider)
-	PutApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
+	// (PUT /api/v1/organizations/{organization}/oauth2providers/{provider})
+	PutApiV1OrganizationsOrganizationOauth2providersProvider(w http.ResponseWriter, r *http.Request, organization OrganizationParameter, provider Oauth2provderParameter)
 
 	// (GET /api/v1/organizations/{organization}/projects)
 	GetApiV1OrganizationsOrganizationProjects(w http.ResponseWriter, r *http.Request, organization OrganizationParameter)
@@ -457,8 +457,8 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationGroupsGroupi
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// DeleteApiV1OrganizationsOrganizationOauth2provider operation middleware
-func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request) {
+// GetApiV1OrganizationsOrganizationOauth2providers operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationOauth2providers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -475,7 +475,7 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationOauth2pro
 	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteApiV1OrganizationsOrganizationOauth2provider(w, r, organization)
+		siw.Handler.GetApiV1OrganizationsOrganizationOauth2providers(w, r, organization)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -485,8 +485,8 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationOauth2pro
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// GetApiV1OrganizationsOrganizationOauth2provider operation middleware
-func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request) {
+// PostApiV1OrganizationsOrganizationOauth2providers operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationOauth2providers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -503,7 +503,7 @@ func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationOauth2provid
 	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV1OrganizationsOrganizationOauth2provider(w, r, organization)
+		siw.Handler.PostApiV1OrganizationsOrganizationOauth2providers(w, r, organization)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -513,8 +513,8 @@ func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationOauth2provid
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// PostApiV1OrganizationsOrganizationOauth2provider operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request) {
+// DeleteApiV1OrganizationsOrganizationOauth2providersProvider operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationOauth2providersProvider(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -528,10 +528,19 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationOauth2provi
 		return
 	}
 
+	// ------------- Path parameter "provider" -------------
+	var provider Oauth2provderParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "provider", runtime.ParamLocationPath, chi.URLParam(r, "provider"), &provider)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
 	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1OrganizationsOrganizationOauth2provider(w, r, organization)
+		siw.Handler.DeleteApiV1OrganizationsOrganizationOauth2providersProvider(w, r, organization, provider)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -541,8 +550,8 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationOauth2provi
 	handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// PutApiV1OrganizationsOrganizationOauth2provider operation middleware
-func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationOauth2provider(w http.ResponseWriter, r *http.Request) {
+// PutApiV1OrganizationsOrganizationOauth2providersProvider operation middleware
+func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationOauth2providersProvider(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	var err error
@@ -556,10 +565,19 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationOauth2provid
 		return
 	}
 
+	// ------------- Path parameter "provider" -------------
+	var provider Oauth2provderParameter
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "provider", runtime.ParamLocationPath, chi.URLParam(r, "provider"), &provider)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
 	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{""})
 
 	var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PutApiV1OrganizationsOrganizationOauth2provider(w, r, organization)
+		siw.Handler.PutApiV1OrganizationsOrganizationOauth2providersProvider(w, r, organization, provider)
 	})
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1009,16 +1027,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/api/v1/organizations/{organization}/groups/{groupid}", wrapper.PutApiV1OrganizationsOrganizationGroupsGroupid)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/organizations/{organization}/oauth2provider", wrapper.DeleteApiV1OrganizationsOrganizationOauth2provider)
+		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/oauth2providers", wrapper.GetApiV1OrganizationsOrganizationOauth2providers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/oauth2provider", wrapper.GetApiV1OrganizationsOrganizationOauth2provider)
+		r.Post(options.BaseURL+"/api/v1/organizations/{organization}/oauth2providers", wrapper.PostApiV1OrganizationsOrganizationOauth2providers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/organizations/{organization}/oauth2provider", wrapper.PostApiV1OrganizationsOrganizationOauth2provider)
+		r.Delete(options.BaseURL+"/api/v1/organizations/{organization}/oauth2providers/{provider}", wrapper.DeleteApiV1OrganizationsOrganizationOauth2providersProvider)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/api/v1/organizations/{organization}/oauth2provider", wrapper.PutApiV1OrganizationsOrganizationOauth2provider)
+		r.Put(options.BaseURL+"/api/v1/organizations/{organization}/oauth2providers/{provider}", wrapper.PutApiV1OrganizationsOrganizationOauth2providersProvider)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organization}/projects", wrapper.GetApiV1OrganizationsOrganizationProjects)
