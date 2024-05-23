@@ -247,7 +247,7 @@ paths:
           $ref: '#/components/responses/forbiddenResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/oauth2provider:
+  /api/v1/organizations/{organization}/oauth2providers:
     description: |-
       Allows management of organization scoped oauth2 provider.  The identity service
       is typically registered with an identity provider who provides us a client
@@ -259,12 +259,12 @@ paths:
     - $ref: '#/components/parameters/organizationParameter'
     get:
       description: |-
-        Gets an organization's identity provider.
+        Lists an organization's identity providers.
       security:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: '#/components/responses/oauth2ProviderResponse'
+          $ref: '#/components/responses/oauth2ProvidersResponse'
         '401':
           $ref: '#/components/responses/unauthorizedResponse'
         '403':
@@ -291,6 +291,17 @@ paths:
           $ref: '#/components/responses/conflictResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organization}/oauth2providers/{provider}:
+    description: |-
+      Allows management of organization scoped oauth2 provider.  The identity service
+      is typically registered with an identity provider who provides us a client
+      identitifier and possibly a secret that we need to authenticate the user.
+      Organizational identity providers allow you to bring your own OIDC service e.g.
+      Okta. The V1 API only supports a single provider that will handle the entire
+      domain registered at the organization scope.
+    parameters:
+    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/oauth2provderParameter'
     put:
       description: |-
         Update an organization's identity provider.
@@ -565,6 +576,13 @@ components:
       name: groupid
       in: path
       description: A unique group ID.
+      required: true
+      schema:
+        type: string
+    oauth2provderParameter:
+      name: provider
+      in: path
+      description: An oauth2 provider.
       required: true
       schema:
         type: string
@@ -845,6 +863,36 @@ components:
       enum:
       - google
       - microsoft
+    oauth2ProviderCreate:
+      description: An oauth2 provider.
+      type: object
+      required:
+      - name
+      - displayName
+      - issuer
+      - clientID
+      properties:
+        name:
+          description: A description of the provider.
+          type: string
+        type:
+          $ref: '#/components/schemas/oauth2ProviderType'
+        displayName:
+          description: The name to display for the provider.
+          type: string
+        issuer:
+          description: The OIDC issuer, typically where to perform auto discovery relative to.
+          type: string
+        clientID:
+          description: |
+            The client identification, only shown for super admin or organization owned providers
+            that you are an admin for.
+          type: string
+        clientSecret:
+          description: |
+            The client secret, only shown for super admin or organization owned providers
+            that you are an admin for.
+          type: string
     oauth2Provider:
       description: An oauth2 provider.
       type: object
@@ -1118,7 +1166,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/oauth2Provider'
+            $ref: '#/components/schemas/oauth2ProviderCreate'
     createOrganizationRequest:
       description: Body required to create an organization.
       required: true
@@ -1287,18 +1335,6 @@ components:
               crv: P-521
               x: AGWAbuKBnn0qXsj8iddWhZj5-ZTM4F4d5rJeKbblOGVc-5nJNURsPb7k-MhEqr9QAi5jKnd7lkmkHU2mnalwsQPK
               y: AAepClWS8MoLLCzqMQ2bl3KwzF7eSYLhcSrsk8kYuRaNN45mnVuQsH43QOILEB5XXaHhySSRgVCamMwZWUwArv1k
-    oauth2ProviderResponse:
-      description: |-
-        An oauth2 providers.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/oauth2Provider'
-          example:
-            name: google-identity
-            displayName: Google Identity
-            issuer: https://accounts.google.com
-            clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
     oauth2ProvidersResponse:
       description: |-
         A list of oauth2 providers.
