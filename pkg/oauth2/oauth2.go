@@ -945,7 +945,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 		claims := &RefreshTokenClaims{}
 
 		if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("refresh_token"), claims, jose.TokenTypeRefreshToken); err != nil {
-			return nil, err
+			return nil, errors.OAuth2InvalidGrant("refresh token is invalid or has expired").WithError(err)
 		}
 
 		// Lookup the provider details, then do a token refresh against that to update
@@ -967,6 +967,12 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 
 		providerTokens, err := a.oidcConfig(r, providerResource, provider.Endpoint(), nil).TokenSource(r.Context(), refreshToken).Token()
 		if err != nil {
+			var rerr *oauth2.RetrieveError
+
+			if goerrors.As(err, &rerr) && rerr.ErrorCode == string(generated.InvalidGrant) {
+				return nil, errors.OAuth2InvalidGrant("provider refresh token has expired").WithError(err)
+			}
+
 			return nil, err
 		}
 
