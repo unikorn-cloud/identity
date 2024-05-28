@@ -57,23 +57,38 @@ func (r *RBAC) getOrganizatons(ctx context.Context) (*unikornv1.OrganizationList
 	return &organizations, nil
 }
 
-func (r *RBAC) organizationGroups(organization *unikornv1.Organization, email string) ([]rbac.GroupPermissions, bool) {
+func (r *RBAC) getGroups(ctx context.Context, organization *unikornv1.Organization) (*unikornv1.GroupList, error) {
+	result := &unikornv1.GroupList{}
+
+	if err := r.client.List(ctx, result, &client.ListOptions{Namespace: organization.Status.Namespace}); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *RBAC) organizationGroups(ctx context.Context, organization *unikornv1.Organization, email string) ([]rbac.GroupPermissions, bool) {
+	groupList, err := r.getGroups(ctx, organization)
+	if err != nil {
+		return nil, false
+	}
+
 	//nolint:prealloc
 	var groups []rbac.GroupPermissions
 
-	for _, group := range organization.Spec.Groups {
+	for _, group := range groupList.Items {
 		// TODO: implicit groups.
-		if !slices.Contains(group.Users, email) {
+		if !slices.Contains(group.Spec.Users, email) {
 			continue
 		}
 
 		// Hoist super admin powers.
-		if slices.Contains(group.Roles, constants.SuperAdmin) {
+		if slices.Contains(group.Spec.Roles, constants.SuperAdmin) {
 			return nil, true
 		}
 
 		// Remove any special roles.
-		minifiedRoles := slices.DeleteFunc(group.Roles, func(role string) bool {
+		minifiedRoles := slices.DeleteFunc(group.Spec.Roles, func(role string) bool {
 			return role == constants.SuperAdmin
 		})
 
@@ -82,7 +97,7 @@ func (r *RBAC) organizationGroups(organization *unikornv1.Organization, email st
 		}
 
 		groups = append(groups, rbac.GroupPermissions{
-			ID:    group.ID,
+			ID:    group.Name,
 			Roles: minifiedRoles,
 		})
 	}
@@ -153,7 +168,7 @@ func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permiss
 	for i := range organizations.Items {
 		organization := &organizations.Items[i]
 
-		groups, isSuperAdmin := r.organizationGroups(organization, email)
+		groups, isSuperAdmin := r.organizationGroups(ctx, organization, email)
 		if isSuperAdmin {
 			permissions.IsSuperAdmin = true
 		}
@@ -190,13 +205,20 @@ func (r *RBAC) UserExists(ctx context.Context, email string) (bool, error) {
 		return false, err
 	}
 
-	for _, organization := range organizations.Items {
+	for i := range organizations.Items {
+		organization := &organizations.Items[i]
+
 		if organization.Spec.Domain != nil && *organization.Spec.Domain == domain {
 			return true, nil
 		}
 
-		for _, group := range organization.Spec.Groups {
-			if slices.Contains(group.Users, email) {
+		groups, err := r.getGroups(ctx, organization)
+		if err != nil {
+			return false, err
+		}
+
+		for _, group := range groups.Items {
+			if slices.Contains(group.Spec.Users, email) {
 				return true, nil
 			}
 		}

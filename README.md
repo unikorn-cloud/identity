@@ -217,34 +217,55 @@ helm update --install --namespace unikorn-identity unikorn-identity/unikorn-iden
 
 Organizations allow users to actually log in.
 A user must be mapped to an organization to be permitted access.
+Organizations are typically manged via a back channel after email verification, billing and other tests.
 
-While Helm does provide the means to create an organization, these are typically manged via a back channel after email verification, billing and other tests.
-Therefore to avoid multiple things battling over the same resources (split brain), it's recommended to bootstrap manually.
-
-Create an `organization.yaml`:
+Create an organization resource:
 
 ```yaml
 apiVersion: identity.unikorn-cloud.org/v1alpha1
 kind: Organization
 metadata:
-  name: my-organization
+  # Use "uuidgen -r" to select a random ID, this MUST start with a character a-f.
+  name: bec71681-8749-4816-a708-7f529d20db2e
   namespace: unikorn-identity
-spec:
-  groups:
-  - id: c659f619-9e10-489f-8020-f71f207e1dfd # use uuidgen to generate a unique ID
-    name: Platform Administrators
-    roles:
-    - superAdmin
-    users:
-    - superadmin@acme.com
+  labels:
+    # This is the human readable, and mutable, name that will get displayed in clients.
+    # It is expected to exist on all CRD backed resources.
+    resource.unikorn-cloud.org/name: acme.com
 ```
 
-Apply the changes:
+This will provision fairly quickly, you can extract the organization's namespace via:
 
-```shell
-kubectl apply -f organization.yaml
+```
+$ kubectl get organizations.identity.unikorn-cloud.org -A
+NAMESPACE          NAME                                   DISPLAY NAME   NAMESPACE            STATUS        AGE
+unikorn-identity   bec71681-8749-4816-a708-7f529d20db2e   acme.com       organization-kmvxk   Provisioned   17s
+```
+
+Next create a group in that organization associated with a user:
+
+```yaml
+apiVersion: identity.unikorn-cloud.org/v1alpha1
+kind: Group
+metadata:
+  # Use "uuidgen -r" to select a random ID, this MUST start with a character a-f.
+  name: c7e8492f-c320-4278-8201-48cd38fed38b
+  namespace: organization-kmvxk
+  labels:
+    # This is the human readable, and mutable, name that will get displayed in clients.
+    # It is expected to exist on all CRD backed resources.
+    resource.unikorn-cloud.org/name: super-admins
+  annotations:
+    # This is a verbose description that can be added to resources.
+    resource.unikorn-cloud.org/description: Platform administrators.
+spec:
+  roles:
+  - superAdmin
+  users:
+  - user@gmail.com
 ```
 
 ### What Next?
 
-Todo!
+As you've noted, objects are named based on UUIDs, therefore administration is somewhat counterintuitive, but it does allow names to be mutable.
+For ease of management we recommend installing the [UI](https://github.com/unikorn-cloud/ui)

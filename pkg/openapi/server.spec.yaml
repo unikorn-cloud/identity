@@ -123,7 +123,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: '#/components/responses/oauth2ProvidersResponse'
+          $ref: '#/components/responses/systemOauth2ProvidersResponse'
         '401':
           $ref: '#/components/responses/unauthorizedResponse'
         '403':
@@ -169,7 +169,7 @@ paths:
           $ref: '#/components/responses/conflictResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}:
+  /api/v1/organizations/{organizationID}:
     description: |-
       Allows management of organizations.  Organizations are identified by an
       email domain.  The email domain is used to route login requests to a
@@ -177,7 +177,7 @@ paths:
       configuration that in turn allows configuration of fine-grained access
       control based on group information from the identiy provider.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     get:
       description: |-
         Get an organization.
@@ -208,13 +208,13 @@ paths:
           $ref: '#/components/responses/forbiddenResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/acl:
+  /api/v1/organizations/{organizationID}/acl:
     description: |-
       Gets an ACL associated with the user, scoped to the organization.
       This is used to perform basic RBAC on remote services and to control
       UX.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     get:
       description: |-
         Returns access control properties for the user.
@@ -227,12 +227,12 @@ paths:
           $ref: '#/components/responses/unauthorizedResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/roles:
+  /api/v1/organizations/{organizationID}/roles:
     description: |-
       Allows management of roles that define access control permissions for
       users that are linked to them via a group.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     get:
       description: |-
         Returns roles that can be used by the organization.
@@ -247,7 +247,7 @@ paths:
           $ref: '#/components/responses/forbiddenResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/oauth2providers:
+  /api/v1/organizations/{organizationID}/oauth2providers:
     description: |-
       Allows management of organization scoped oauth2 provider.  The identity service
       is typically registered with an identity provider who provides us a client
@@ -256,7 +256,7 @@ paths:
       Okta. The V1 API only supports a single provider that will handle the entire
       domain registered at the organization scope.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     get:
       description: |-
         Lists an organization's identity providers.
@@ -291,7 +291,7 @@ paths:
           $ref: '#/components/responses/conflictResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/oauth2providers/{provider}:
+  /api/v1/organizations/{organizationID}/oauth2providers/{providerID}:
     description: |-
       Allows management of organization scoped oauth2 provider.  The identity service
       is typically registered with an identity provider who provides us a client
@@ -300,8 +300,8 @@ paths:
       Okta. The V1 API only supports a single provider that will handle the entire
       domain registered at the organization scope.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
-    - $ref: '#/components/parameters/oauth2provderParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/oauth2ProvderIDParameter'
     put:
       description: |-
         Update an organization's identity provider.
@@ -336,11 +336,11 @@ paths:
           $ref: '#/components/responses/notFoundResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/available-groups:
+  /api/v1/organizations/{organizationID}/available-groups:
     description: |-
       Polls the identity provider for group information.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     get:
       description: |-
         Returns a list of groups that are defined for the organization in the domain provider.
@@ -355,14 +355,14 @@ paths:
           $ref: '#/components/responses/forbiddenResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/groups:
+  /api/v1/organizations/{organizationID}/groups:
     description: |-
       Allows management of organization groups. Groups provide an identity
       mapping from a group defined by the identity provider to ones that will
       be added to authorization tokens issued by this service.  A resource
       server may use group information to implment scoping of resources.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     get:
       description: |-
         Returns a list of groups that are defined for the organization.
@@ -395,14 +395,14 @@ paths:
           $ref: '#/components/responses/conflictResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/groups/{groupid}:
+  /api/v1/organizations/{organizationID}/groups/{groupid}:
     description: |-
       Allows management of organization groups. Groups provide an identity
       mapping from a group defined by the identity provider to ones that will
       be added to authorization tokens issued by this service.  A resource
       server may use group information to implment scoping of resources.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/groupidParameter'
     get:
       description: |-
@@ -452,14 +452,14 @@ paths:
           $ref: '#/components/responses/notFoundResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/projects:
+  /api/v1/organizations/{organizationID}/projects:
     x-documentation-group: main
     description: |-
       Implements project management services. Projects, as currently defined
       by the Kubernetes service, are implicitly scoped to the access token's
       organization.
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
     get:
       description: |-
         List all projects for the organization.
@@ -494,10 +494,10 @@ paths:
           $ref: '#/components/responses/conflictResponse'
         '500':
           $ref: '#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organization}/projects/{project}:
+  /api/v1/organizations/{organizationID}/projects/{projectID}:
     parameters:
-    - $ref: '#/components/parameters/organizationParameter'
-    - $ref: '#/components/parameters/projectParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/projectIDParameter'
     get:
       description: |-
         Gets a project.
@@ -558,17 +558,17 @@ paths:
           $ref: '#/components/responses/internalServerErrorResponse'
 components:
   parameters:
-    organizationParameter:
-      name: organization
+    organizationIDParameter:
+      name: organizationID
       in: path
-      description: An organization name.
+      description: An organization ID.
       required: true
       schema:
         type: string
-    projectParameter:
-      name: project
+    projectIDParameter:
+      name: projectID
       in: path
-      description: A project name.
+      description: A project ID.
       required: true
       schema:
         type: string
@@ -579,10 +579,10 @@ components:
       required: true
       schema:
         type: string
-    oauth2provderParameter:
-      name: provider
+    oauth2ProvderIDParameter:
+      name: providerID
       in: path
-      description: An oauth2 provider.
+      description: An oauth2 provider ID.
       required: true
       schema:
         type: string
@@ -863,23 +863,15 @@ components:
       enum:
       - google
       - microsoft
-    oauth2ProviderCreate:
+    oauth2ProviderSpec:
       description: An oauth2 provider.
       type: object
       required:
-      - name
-      - displayName
       - issuer
       - clientID
       properties:
-        name:
-          description: A description of the provider.
-          type: string
         type:
           $ref: '#/components/schemas/oauth2ProviderType'
-        displayName:
-          description: The name to display for the provider.
-          type: string
         issuer:
           description: The OIDC issuer, typically where to perform auto discovery relative to.
           type: string
@@ -893,40 +885,49 @@ components:
             The client secret, only shown for super admin or organization owned providers
             that you are an admin for.
           type: string
-    oauth2Provider:
-      description: An oauth2 provider.
+    systemOauth2ProviderRead:
+      description: An OAuth2 provider when read.
       type: object
       required:
-      - name
-      - displayName
-      - issuer
+      - metadata
+      - spec
       properties:
-        name:
-          description: A description of the provider.
-          type: string
-        type:
-          $ref: '#/components/schemas/oauth2ProviderType'
-        displayName:
-          description: The name to display for the provider.
-          type: string
-        issuer:
-          description: The OIDC issuer, typically where to perform auto discovery relative to.
-          type: string
-        clientID:
-          description: |
-            The client identification, only shown for super admin or organization owned providers
-            that you are an admin for.
-          type: string
-        clientSecret:
-          description: |
-            The client secret, only shown for super admin or organization owned providers
-            that you are an admin for.
-          type: string
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/oauth2ProviderSpec'
+    oauth2ProviderRead:
+      description: An OAuth2 provider when read.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/organizationScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/oauth2ProviderSpec'
+    oauth2ProviderWrite:
+      description: An OAuth2 provider when created or updated.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/oauth2ProviderSpec'
+    systemOauth2Providers:
+      description: A list of system provided oauth2 providers.
+      type: array
+      items:
+        $ref: '#/components/schemas/systemOauth2ProviderRead'
     oauth2Providers:
       description: A list of oauth2 providers.
       type: array
       items:
-        $ref: '#/components/schemas/oauth2Provider'
+        $ref: '#/components/schemas/oauth2ProviderRead'
     organizationType:
       description: |-
         Describes the authntication menthod of the organization.  Adhoc authentication
@@ -947,16 +948,12 @@ components:
       enum:
       - global
       - organization
-    organization:
+    organizationSpec:
       description: An organization.
       type: object
       required:
-      - name
       - organizationType
       properties:
-        name:
-          description: A unique organization name.
-          type: string
         organizationType:
           $ref: '#/components/schemas/organizationType'
         domain:
@@ -965,9 +962,9 @@ components:
           format: hostname
         providerScope:
           $ref: '#/components/schemas/providerScope'
-        providerName:
+        providerID:
           description: |-
-            The name of the provider to use, the scope is determined by useCustomProvider.
+            The ID of the provider to use, the scope is determined by useCustomProvider.
             If false, this refers to a built in provider, if true, then to an organization
             specific one.
           type: string
@@ -977,11 +974,33 @@ components:
             This enables the access to, and use of, Google groups as a source of truth
             for RBAC.
           type: string
+    organizationRead:
+      description: An organization when read.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/organizationSpec'
+    organizationWrite:
+      description: An organization when created or updated.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/organizationSpec'
     organizations:
       description: A list of organizations.
       type: array
       items:
-        $ref: '#/components/schemas/organization'
+        $ref: '#/components/schemas/organizationRead'
     aclPermissions:
       description: A list of access control permissions.
       type: array
@@ -1054,56 +1073,45 @@ components:
       items:
         description: A provider group.
         type: string
-    group:
+    groupSpec:
       description: A group.
       type: object
       required:
-      - id
-      - name
       - roles
       properties:
-        id:
-          description: An immutable group ID.
-          type: string
-        name:
-          description: The group name.
-          type: string
         users:
           $ref: '#/components/schemas/userList'
         roles:
           $ref: '#/components/schemas/roleList'
         providerGroups:
           $ref: '#/components/schemas/providerGroupList'
+    groupRead:
+      description: A group when read.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/organizationScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/groupSpec'
+    groupWrite:
+      description: A group when created or updated.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/groupSpec'
     groups:
       description: A list of groups.
       type: array
       items:
-        $ref: '#/components/schemas/group'
-    projectMetadata:
-      description: Required metadata for projects.
-      type: object
-      required:
-      - creationTime
-      - status
-      properties:
-        creationTime:
-          description: The time the resource was created.
-          type: string
-          format: date-time
-        deletionTime:
-          description: The time the resource was deleted.
-          type: string
-          format: date-time
-        status:
-          description: |-
-            The current status of the resource. Intially the status will be "Unknown" until
-            the resource is reconciled by the relevant controller. It then will transition to
-            "Provisioning" and will be ready for use when it changes to "Provisioned". The status
-            will also transition to the "Provisioning" status during an update. The
-            status will change to "Deprovisioning" when a delete request is being processed.
-            It may also change to "Error" if an unexpected error occurred during any operation.
-            Errors may be transient.
-          type: string
+        $ref: '#/components/schemas/groupRead'
     groupIDs:
       description: A list of group IDs.
       type: array
@@ -1113,29 +1121,36 @@ components:
     projectSpec:
       description: A project.
       type: object
-      required:
-      - name
       properties:
-        name:
-          type: string
         groupIDs:
           $ref: '#/components/schemas/groupIDs'
-    project:
-      description: A project.
+    projectRead:
+      description: A project when read.
       type: object
       required:
       - metadata
       - spec
       properties:
         metadata:
-          $ref: '#/components/schemas/projectMetadata'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/organizationScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/projectSpec'
+    projectWrite:
+      description: A project when created or updated.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
         spec:
           $ref: '#/components/schemas/projectSpec'
     projects:
       description: A list of projects.
       type: array
       items:
-        $ref: '#/components/schemas/project'
+        $ref: '#/components/schemas/projectRead'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -1145,7 +1160,7 @@ components:
           schema:
             $ref: '#/components/schemas/loginRequestOptions'
           example:
-            query: response_type=code&client_id=861847a4-a524-40cc-b073-f895111f40a8&redirect_uri=https%3A%2F%2Funikorn.spjmurray.co.uk%2Foauth2%2Fcallback&code_challenge_method=S256&code_challenge=jcCPNhhtZw4R5HAXVyZhH-7oRscnVnRYzJjfNEOchIM&scope=openid+email+profile
+            state: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
             email: joe.bloggs@acme.com
     tokenRequest:
       description: OAuth2 token request, consult the relevant OAuth2 and OIDC specifications for further details.
@@ -1166,53 +1181,61 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/oauth2ProviderCreate'
+            $ref: '#/components/schemas/oauth2ProviderWrite'
     createOrganizationRequest:
       description: Body required to create an organization.
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/organization'
+            $ref: '#/components/schemas/organizationWrite'
     updateOrganizationRequest:
       description: Body required to update an organization.
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/organization'
+            $ref: '#/components/schemas/organizationWrite'
     createGroupRequest:
       description: Body required to create a group.
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/group'
+            $ref: '#/components/schemas/groupWrite'
     updateGroupRequest:
       description: Body required to update a group.
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/group'
+            $ref: '#/components/schemas/groupWrite'
     createProjectRequest:
       description: Project request parameters.
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/projectSpec'
+            $ref: '#/components/schemas/projectWrite'
           example:
-            name: my-project
+            metadata:
+              name: my-project
+            spec:
+              groups:
+              - ddde69ef-bb52-4815-9e9e-aed856c6057f
     updateProjectRequest:
       description: Project request parameters.
       required: true
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/projectSpec'
+            $ref: '#/components/schemas/projectWrite'
           example:
-            name: my-project
+            metadata:
+              name: my-project
+            spec:
+              groups:
+              - ddde69ef-bb52-4815-9e9e-aed856c6057f
   responses:
     acceptedResponse:
       description: |-
@@ -1309,8 +1332,9 @@ components:
           schema:
             $ref: '#/components/schemas/token'
           example:
-            access_token: eyJhbGciOiJFQ0RILUVTIiwiY3R5IjoiSldUIiwiZW5jIjoiQTI1NkdDTSIsImVwayI6eyJrdHkiOiJFQyIsImNydiI6IlAtNTIxIiwieCI6IkFic05hU1ByY3Y5RVJsWmFrOHVDc2V0T2F2aTJ4bS1taXFPWjVvQmFNR2ptc05Cbi04aE84QU9DbGR2OVM3dDlydTBEbDhabzFEcThxOEM5WUp0WGJfa0YiLCJ5IjoiQWU3VS1DcktsY3RJOXYzM0RsTWFsS0ZBZk9YcC1QeV9zZ0Y5Tjdaa05NQkRDRkVKb0FrRy1FTnhTczI2ME5memg4SnJnSnBRbUFFWHhvZ0poWHp2YWZMQSJ9LCJraWQiOiIxZHh3c29KUlZEQmxTYmxvSm93dDlJTkJwdGJTb21XUlBZck5LeWNFQV9RIiwidHlwIjoiSldUIn0..urRmbxH2_bn8LMla.Yw0a3qstHMAKnxawkIYntHcvOCjaxjzvV1JlmYM-2CTbC1i2VtAsNIKoOlFJ56H2N08pMY9OpZ2cukCHP1BQxsKMsc41VwlIZYvjFrzWIEeDoF92FmpCRGWztuwchBWd7PEQYpfeJFJ2BegacGheQqfRXX35RNDy-ZOc4dWkuvFrV8ISuA8-7_ce7Ha25SrRuSRarTfM_BLA1uDA_P9AWjhsyGKOK2FkuaDU0XmXlLWDz6dKdKy9RJtR_nUUcsljtaImJXjNNPAmJq10nJ501EK_I6M9B3TRUrqalOBm4ks7-vmF_gcE1saOv2AciE9P2BMkc635kaD3C5HlyWT95Skd6C_FwppjQUvYUY0y7Eq2NpnVfkX4uSPm8fUD4brSjGWnHMNE8z4M2_PlM4KSZAieLRmMAjY5xW8XY_uCXr5nb-8SmA_P-ljCVOPPAXDXExa2xSxbAJvrYqWeuG2IvAkC0ab6pojlqUmkRWvOX5tnXQav5vO2qOAgCYUhSIWXz0-Y8hczRUSgDTyQm59yU7xqVqCiywChgXlO32KwhhnrfLxNlrMB45XOlzhJP1c3DCg7ZW7bO_Q7A08GjvrXxTm7gUDr-jsdW9hTSiNJQu__zSMFPVVNTqnz1MDFIeusi6GJi9VC0A_ouXsdhcNKn6jeIDV9dnMxCcjbQT5qsCEqo-UcCGvH0_w4aChpldMg8HGPeUSZhaBSL1yns_I0C9AADFe9dmXN6wCHBu8JCy-T4FoeXRlVSKVuG2GJi8sfzAFFh6iKhQXxHm5KNA_iorBJVEOSX3dL6KOUXfdsBfTzg3aMoEyp2bJ9NaactGmFyJZM9e6MxS8UxgN6KHe7Gduc0NGFyBru3ClMq2BzchOxbzDQ_oi5YoSuxLpgGl3xiJfNnClqFTqXMJ75uSk0_OkKgvmHea9QGRaasx5XALSpap_ckCZvNYjG_oZh404-KTjpa2iJgENczeUT2F4jq59rCCAUFZVfyu3qtBAeJme4VghnbTvaITJbpFeBUySgYKcuGQ.uvQMjilUi8JcdyGe3Lbatg
             token_type: Bearer
+            access_token: eyJhbGciOiJFQ0RILUVTIiwiY3R5IjoiSldUIiwiZW5jIjoiQTI1NkdDTSIsImVwayI6eyJrdHkiOiJFQyIsImNydiI6IlAtNTIxIiwieCI6IkFic05hU1ByY3Y5RVJsWmFrOHVDc2V0T2F2aTJ4bS1taXFPWjVvQmFNR2ptc05Cbi04aE84QU9DbGR2OVM3dDlydTBEbDhabzFEcThxOEM5WUp0WGJfa0YiLCJ5IjoiQWU3VS1DcktsY3RJOXYzM0RsTWFsS0ZBZk9YcC1QeV9zZ0Y5Tjdaa05NQkRDRkVKb0FrRy1FTnhTczI2ME5memg4SnJnSnBRbUFFWHhvZ0poWHp2YWZMQSJ9LCJraWQiOiIxZHh3c29KUlZEQmxTYmxvSm93dDlJTkJwdGJTb21XUlBZck5LeWNFQV9RIiwidHlwIjoiSldUIn0..urRmbxH2_bn8LMla.Yw0a3qstHMAKnxawkIYntHcvOCjaxjzvV1JlmYM-2CTbC1i2VtAsNIKoOlFJ56H2N08pMY9OpZ2cukCHP1BQxsKMsc41VwlIZYvjFrzWIEeDoF92FmpCRGWztuwchBWd7PEQYpfeJFJ2BegacGheQqfRXX35RNDy-ZOc4dWkuvFrV8ISuA8-7_ce7Ha25SrRuSRarTfM_BLA1uDA_P9AWjhsyGKOK2FkuaDU0XmXlLWDz6dKdKy9RJtR_nUUcsljtaImJXjNNPAmJq10nJ501EK_I6M9B3TRUrqalOBm4ks7-vmF_gcE1saOv2AciE9P2BMkc635kaD3C5HlyWT95Skd6C_FwppjQUvYUY0y7Eq2NpnVfkX4uSPm8fUD4brSjGWnHMNE8z4M2_PlM4KSZAieLRmMAjY5xW8XY_uCXr5nb-8SmA_P-ljCVOPPAXDXExa2xSxbAJvrYqWeuG2IvAkC0ab6pojlqUmkRWvOX5tnXQav5vO2qOAgCYUhSIWXz0-Y8hczRUSgDTyQm59yU7xqVqCiywChgXlO32KwhhnrfLxNlrMB45XOlzhJP1c3DCg7ZW7bO_Q7A08GjvrXxTm7gUDr-jsdW9hTSiNJQu__zSMFPVVNTqnz1MDFIeusi6GJi9VC0A_ouXsdhcNKn6jeIDV9dnMxCcjbQT5qsCEqo-UcCGvH0_w4aChpldMg8HGPeUSZhaBSL1yns_I0C9AADFe9dmXN6wCHBu8JCy-T4FoeXRlVSKVuG2GJi8sfzAFFh6iKhQXxHm5KNA_iorBJVEOSX3dL6KOUXfdsBfTzg3aMoEyp2bJ9NaactGmFyJZM9e6MxS8UxgN6KHe7Gduc0NGFyBru3ClMq2BzchOxbzDQ_oi5YoSuxLpgGl3xiJfNnClqFTqXMJ75uSk0_OkKgvmHea9QGRaasx5XALSpap_ckCZvNYjG_oZh404-KTjpa2iJgENczeUT2F4jq59rCCAUFZVfyu3qtBAeJme4VghnbTvaITJbpFeBUySgYKcuGQ.uvQMjilUi8JcdyGe3Lbatg
+            refresh_token: eyJhbGciOiJFQ0RILUVTIiwiY3R5IjoiSldUIiwiZW5jIjoiQTI1NkdDTSIsImVwayI6eyJrdHkiOiJFQyIsImNydiI6IlAtNTIxIiwieCI6IkFTcHB0RE03Z2RVcEJVN2o2R3RnTk5yRE1kMm9pZHo1NWNzMi1rcEpRa0xTRUJBSTZTdlQ5SlR6eDdXM0kyUU9Edk5DbHFMdGhONHd3SEhaUDVEV1FEam0iLCJ5IjoiQU9rQ05kckVWR1JiVzF5OFdKRjhwU3BMamNqYjJ4NWEzYUhQOEl4XzZBX3NzU210OEVzYlRMbDFTcjRYS0EzYU4yV2pnaVY2RGpVSGdJY01oWnJ5Uy1uNCJ9LCJraWQiOiJzR1Y4a0IyYkRfVzA4ZVJIcjJXR2RPMGhxVm5XUUtFaERTVW91dXY3RE5rIiwidHlwIjoidW5pa29ybi1jbG91ZC5vcmcvcnQrand0In0..OI78X8c0hyScr_D7.6GgtL4ScJr8l4oxo7Uvak-KXoNttUDQxmZnIkcJD8Qpa_eJOw6SjWH3CS9jlkZRCg3d7U17t-b0sv-11WumWlUv7RFs74bEakr9Ue2-SVdguDaALHEd9gCvLPqV6BmQL3SroFWgVu7Mei0U0iore6E-eK-_bt7mGU00NXGTvgPMkYGZkwrX8ecJ8yajL-1t--N1ygTRG3eDU4nkNEJEF41tqB9hCYss_AUmCnIs0RFapVu-7hKgj6TzdOn6AwPjruaywvlIxzjFpMIWabgoUAPzqa_SOrlG-a7S91Mu3hzR7b5lFP2T8GR4oRohsUNrRZt9IgZuAJGcVM74m0t43ZvJSKDR50em7-zJr554qdlaX8qu2htxtYUBlD-Pzxw4swumw-335MJzasXPGCErTDf4ezSXBCbIs5IH4cbR_PztBqbkVTZ2YPuy7cORIKQiz8llMZCwirs2ad7HHvulLFgMl5SU6lv6zhi-QYTb0dTvc8DcKHhGljyDQtCYyxEF-GuU3VXiDH8nGHJlm2V5RjaRmTpQkjAn_2B9Ul8B8wwS1ROOCdTVpccdSa1F04izI5eYTO1I4sxtabw9r-E028y6dVOtmSPpcfaj88EB9_YdP3e8WrgdUz0_JPEodyWURmn5InoCG6oOYvuofViSXJ4XOtjME7vhgn4yQfOlebTnbVlV6zY6Vlb2BPn7VXVTCAvzItmfvlYF3cg4-uk11k-LTSSQ0mdll66gnwSHqjNQImknkwpVCTmmupeljG0bQWUt1J2s4ONvnLnPF8rlnnrOWBCvwnM33dO2hy9wt0edpK-IM3lGSPi3iX14ET4opFniZbLZbTipCwPZzvSeGhlMeXXTzg5quNQNupwtIdFgYmJacn301eRoR.OSpqA7IdukA7-HLtM4CRUQ
             id_token: eyJhbGciOiJFUzUxMiJ9.eyJhdF9oYXNoIjoidGJHNlFHek5WZE5fcjZ6Y0EzRlFyQzllNmVPbUpPN3lrSjFsTFBxNUJ0RSIsImF1ZCI6WyI5YTcxOWUxZS1hYTg1LTRhMjEtYTIyMS0zMjRlNzg3ZWZkNzgiXSwiZW1haWwiOiJqb2huLmRvZUBlbWFpbC5jb20iLCJleHAiOjE2OTE1NzM4NzEsImlhdCI6MTY5MTQ4NzQ3MSwiaXNzIjoiaHR0cHM6Ly9rdWJlcm5ldGVzLmVzY2hlcmNsb3VkLmNvbSIsInBpY3R1cmUiOiJodHRwczovL3d3dy5ncmF2YXRhci5jb20vYXZhdGFyLzhmNmU5NjI3NGMyYWJmNjE3YTM5ODdlNzRlOWU3NTdlIiwic3ViIjoiam9obi5kb2VAZW1haWwuY29tIn0.AYxSoAwkuKfBpp5o1spmAyqzhkSR76hbjF1OCKe4iLS6BCP9ySZYeV-kBCd0t3cd6VxbO5FVQJPRt8k0q88rc21JATyV8kScNnr-1jFmAJuXO6ga021KTRQnG68D8zZN9LwmMSRh3HPFtOq4LCcmQES2adeJysoG998mmtuTwp4fArwa
             expires_in: 3600
     userinfoResponse:
@@ -1335,6 +1359,23 @@ components:
               crv: P-521
               x: AGWAbuKBnn0qXsj8iddWhZj5-ZTM4F4d5rJeKbblOGVc-5nJNURsPb7k-MhEqr9QAi5jKnd7lkmkHU2mnalwsQPK
               y: AAepClWS8MoLLCzqMQ2bl3KwzF7eSYLhcSrsk8kYuRaNN45mnVuQsH43QOILEB5XXaHhySSRgVCamMwZWUwArv1k
+    systemOauth2ProvidersResponse:
+      description: |-
+        A list of system provided oauth2 providers.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/oauth2Providers'
+          example:
+          - metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: google-identity
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              issuer: https://accounts.google.com
+              clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
     oauth2ProvidersResponse:
       description: |-
         A list of oauth2 providers.
@@ -1343,21 +1384,32 @@ components:
           schema:
             $ref: '#/components/schemas/oauth2Providers'
           example:
-          - name: google-identity
-            displayName: Google Identity
-            issuer: https://accounts.google.com
-            clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
+          - metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: google-identity
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              issuer: https://accounts.google.com
+              clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
     organizationResponse:
       description: |-
         An organization.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/organization'
+            $ref: '#/components/schemas/organizationRead'
           example:
-            name: acme-corp
-            domain: acme.corp
-            providerName: google-identity
+            metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: acme-corp
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              organizationType: domain
+              domain: acme.corp
+              providerID: b6ec241d-e3b4-4afc-a7aa-500fcb650d8e
     organizationsResponse:
       description: |-
         A list of organizations.  Most users should only see one, super admins can
@@ -1367,9 +1419,15 @@ components:
           schema:
             $ref: '#/components/schemas/organizations'
           example:
-          - name: acme-corp
-            domain: acme.corp
-            providerName: google-identity
+          - metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: acme-corp
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              organizationType: domain
+              domain: acme.corp
+              providerID: b6ec241d-e3b4-4afc-a7aa-500fcb650d8e
     aclResponse:
       description: |-
         A list of access controls.
@@ -1380,7 +1438,8 @@ components:
           example:
             isSuperAdmin: false
             scopes:
-              organizations:
+            - name: organizations
+              permissions:
               - read
     rolesResponse:
       description: |-
@@ -1409,14 +1468,19 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/group'
+            $ref: '#/components/schemas/groupRead'
           example:
-            id: 401cfc2c-2135-4619-a6ff-1ac247a3b2ad
-            name: The A-Team
-            users:
-            - face@a-team.com
-            roles:
-            - admin
+            metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: a-team
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              users:
+              - face@a-team.com
+              roles:
+              - admin
     groupsResponse:
       description: |-
         A list of groups for the organization.
@@ -1425,12 +1489,17 @@ components:
           schema:
             $ref: '#/components/schemas/groups'
           example:
-          - id: 401cfc2c-2135-4619-a6ff-1ac247a3b2ad
-            name: The A-Team
-            users:
-            - face@a-team.com
-            roles:
-            - admin
+          - metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: a-team
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              users:
+              - face@a-team.com
+              roles:
+              - admin
     projectsResponse:
       description: A list of projects.
       content:
@@ -1439,22 +1508,30 @@ components:
             $ref: '#/components/schemas/projects'
           example:
           - metadata:
-              creationTime: 2023-07-31T10:45:42Z
-              status: Provisioned
-            spec:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
               name: my-project
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              groups:
+              - ef509cd1-c7e6-42f8-aae7-a01164dc60dc
     projectResponse:
       description: A project.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/project'
+            $ref: '#/components/schemas/projectRead'
           example:
             metadata:
-              creationTime: 2023-07-31T10:45:42Z
-              status: Provisioned
-            spec:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
               name: my-project
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              groups:
+              - ef509cd1-c7e6-42f8-aae7-a01164dc60dc
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.

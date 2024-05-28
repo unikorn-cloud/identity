@@ -1,5 +1,4 @@
 /*
-Copyright 2022-2024 EscherCloud.
 Copyright 2024 the Unikorn Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,49 +17,41 @@ limitations under the License.
 package v1alpha1
 
 import (
-	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ProjectList is a typed list of projects.
+// GroupList is a typed list of user/role bindings.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ProjectList struct {
+type GroupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Project `json:"items"`
+	Items           []Group `json:"items"`
 }
 
-// Project is an abstraction around projects and their security requirements.
+// Group describes a binding between users and roles.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Namespaced,categories=unikorn
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/name']"
-// +kubebuilder:printcolumn:name="namespace",type="string",JSONPath=".status.namespace"
-// +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].reason"
 // +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
-type Project struct {
+type Group struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              ProjectSpec   `json:"spec"`
-	Status            ProjectStatus `json:"status,omitempty"`
+	Spec              GroupSpec   `json:"spec"`
+	Status            GroupStatus `json:"status,omitempty"`
 }
 
-// ProjectSpec defines project specific metadata.
-type ProjectSpec struct {
-	// Pause, if true, will inhibit reconciliation.
-	Pause bool `json:"pause,omitempty"`
-
-	// GroupIDs is a list of groups that are allowed access to the project.
-	GroupIDs []string `json:"groupIDs,omitempty"`
+type GroupSpec struct {
+	// ProviderID is the name of the group as returned by the provider.
+	// For example a query of https://cloudidentity.googleapis.com/v1/groups/
+	// will return something like groups/01664s551ax43ok.
+	ProviderGroupNames []string `json:"providerGroupNames,omitempty"`
+	// Users are a list of user names that are members of the group.
+	Users []string `json:"users,omitempty"`
+	// Roles are a list of roles users of the group inherit.
+	Roles []string `json:"roles,omitempty"`
 }
 
-// ProjectStatus defines the status of the project.
-type ProjectStatus struct {
-	// Namespace defines the namespace a project resides in.
-	Namespace string `json:"namespace,omitempty"`
-
-	// Current service state of a project.
-	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
-}
+// GroupStatus defines the status of the group.
+type GroupStatus struct{}

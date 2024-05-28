@@ -81,7 +81,7 @@ type OAuth2ProviderList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Namespaced,categories=unikorn
-// +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".spec.displayName"
+// +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/name']"
 // +kubebuilder:printcolumn:name="issuer",type="string",JSONPath=".spec.issuer"
 // +kubebuilder:printcolumn:name="client ID",type="string",JSONPath=".spec.clientID"
 // +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -101,8 +101,6 @@ type OAuth2ProviderSpec struct {
 	// of that type should be specified, doing otherwise will result in
 	// undefined behaviour.
 	Type *IdentityProviderType `json:"type,omitempty"`
-	// DisplayName is a user readable issuer name.
-	DisplayName string `json:"displayName"`
 	// The issuer is typically provided by the identity provider as an
 	// OIDC discovery endpoint e.g. https://accounts.google.com.
 	// This will be used to verify issued JWTs have the same "iss" claim.

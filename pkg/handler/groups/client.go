@@ -21,11 +21,15 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/google/uuid"
-
+	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
+	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/generated"
+	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
+
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -42,143 +46,164 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func convert(in *unikornv1.OrganizationGroup) *generated.Group {
-	out := &generated.Group{
-		Id:    in.ID,
-		Name:  in.Name,
-		Roles: in.Roles,
+func convert(in *unikornv1.Group) *openapi.GroupRead {
+	out := &openapi.GroupRead{
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.Provisioned),
+		Spec: openapi.GroupSpec{
+			Roles: in.Spec.Roles,
+		},
 	}
 
-	if len(in.Users) > 0 {
-		out.Users = &in.Users
+	if len(in.Spec.Users) > 0 {
+		out.Spec.Users = &in.Spec.Users
 	}
 
-	if len(in.ProviderGroupNames) > 0 {
-		out.ProviderGroups = &in.ProviderGroupNames
+	if len(in.Spec.ProviderGroupNames) > 0 {
+		out.Spec.ProviderGroups = &in.Spec.ProviderGroupNames
 	}
 
 	return out
 }
 
-func convertList(in []unikornv1.OrganizationGroup) generated.Groups {
-	slices.SortStableFunc(in, func(a, b unikornv1.OrganizationGroup) int {
+func convertList(in *unikornv1.GroupList) openapi.Groups {
+	slices.SortStableFunc(in.Items, func(a, b unikornv1.Group) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	out := make(generated.Groups, len(in))
+	out := make(openapi.Groups, len(in.Items))
 
-	for i := range in {
-		out[i] = *convert(&in[i])
+	for i := range in.Items {
+		out[i] = *convert(&in.Items[i])
 	}
 
 	return out
 }
 
-func (c *Client) List(ctx context.Context, organizationName string) (generated.Groups, error) {
-	var organization unikornv1.Organization
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
+func (c *Client) List(ctx context.Context, organizationID string) (openapi.Groups, error) {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
+	if err != nil {
 		return nil, err
 	}
 
-	return convertList(organization.Spec.Groups), nil
+	result := &unikornv1.GroupList{}
+
+	if err := c.client.List(ctx, result, &client.ListOptions{Namespace: organization.Namespace}); err != nil {
+		return nil, errors.OAuth2ServerError("failed to list groups").WithError(err)
+	}
+
+	return convertList(result), nil
 }
 
-func (c *Client) Get(ctx context.Context, organizationName, groupID string) (*generated.Group, error) {
-	var organization unikornv1.Organization
+func (c *Client) get(ctx context.Context, organization *organizations.Meta, groupID string) (*unikornv1.Group, error) {
+	result := &unikornv1.Group{}
 
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
-		return nil, errors.OAuth2ServerError("failed to read organization").WithError(err)
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: groupID}, result); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, errors.HTTPNotFound().WithError(err)
+		}
+
+		return nil, errors.OAuth2ServerError("failed to get group").WithError(err)
 	}
 
-	index := slices.IndexFunc(organization.Spec.Groups, func(group unikornv1.OrganizationGroup) bool {
-		return group.ID == groupID
-	})
-
-	if index < 0 {
-		return nil, errors.HTTPNotFound()
-	}
-
-	return convert(&organization.Spec.Groups[index]), nil
+	return result, nil
 }
 
-func generate(in *generated.Group) unikornv1.OrganizationGroup {
-	out := unikornv1.OrganizationGroup{
-		ID:    uuid.New().String(),
-		Name:  in.Name,
-		Roles: in.Roles,
+func (c *Client) Get(ctx context.Context, organizationID, groupID string) (*openapi.GroupRead, error) {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
+	if err != nil {
+		return nil, err
 	}
 
-	if in.Users != nil {
-		out.Users = *in.Users
+	result, err := c.get(ctx, organization, groupID)
+	if err != nil {
+		return nil, err
 	}
 
-	if in.ProviderGroups != nil {
-		out.ProviderGroupNames = *in.ProviderGroups
+	return convert(result), nil
+}
+
+func generate(organization *organizations.Meta, in *openapi.GroupWrite) *unikornv1.Group {
+	out := &unikornv1.Group{
+		ObjectMeta: conversion.OrganizationScopedObjectMetadata(&in.Metadata, organization.Namespace, organization.ID),
+		Spec: unikornv1.GroupSpec{
+			Roles: in.Spec.Roles,
+		},
+	}
+
+	if in.Spec.Users != nil {
+		out.Spec.Users = *in.Spec.Users
+	}
+
+	if in.Spec.ProviderGroups != nil {
+		out.Spec.ProviderGroupNames = *in.Spec.ProviderGroups
 	}
 
 	return out
 }
 
-func (c *Client) Create(ctx context.Context, organizationName string, group *generated.Group) error {
-	var organization unikornv1.Organization
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
-		return errors.OAuth2ServerError("failed to read organization").WithError(err)
+func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.GroupWrite) error {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
+	if err != nil {
+		return err
 	}
 
-	organization.Spec.Groups = append(organization.Spec.Groups, generate(group))
+	resource := generate(organization, request)
 
-	if err := c.client.Update(ctx, &organization); err != nil {
-		return errors.OAuth2ServerError("failed to update organization").WithError(err)
-	}
-
-	return nil
-}
-
-func (c *Client) Update(ctx context.Context, organizationName, groupID string, group *generated.Group) error {
-	var organization unikornv1.Organization
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
-		return errors.OAuth2ServerError("failed to read organization").WithError(err)
-	}
-
-	// Preserve the group ID, generate() will create a new one.
-	newGroup := generate(group)
-	newGroup.ID = groupID
-
-	temp := organization.DeepCopy()
-
-	for i, existing := range temp.Spec.Groups {
-		if newGroup.ID != existing.ID {
-			continue
+	if err := c.client.Create(ctx, resource); err != nil {
+		if kerrors.IsAlreadyExists(err) {
+			return errors.HTTPConflict()
 		}
 
-		temp.Spec.Groups[i] = newGroup
-
-		break
-	}
-
-	if err := c.client.Patch(ctx, temp, client.MergeFrom(&organization)); err != nil {
-		return errors.OAuth2ServerError("failed to patch organization").WithError(err)
+		return errors.OAuth2ServerError("failed to create group").WithError(err)
 	}
 
 	return nil
 }
 
-func (c *Client) Delete(ctx context.Context, organizationName, groupID string) error {
-	var organization unikornv1.Organization
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationName}, &organization); err != nil {
-		return errors.OAuth2ServerError("failed to read organization").WithError(err)
+func (c *Client) Update(ctx context.Context, organizationID, groupID string, request *openapi.GroupWrite) error {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
+	if err != nil {
+		return err
 	}
 
-	organization.Spec.Groups = slices.DeleteFunc(organization.Spec.Groups, func(group unikornv1.OrganizationGroup) bool {
-		return group.ID == groupID
-	})
+	current, err := c.get(ctx, organization, groupID)
+	if err != nil {
+		return err
+	}
 
-	if err := c.client.Update(ctx, &organization); err != nil {
-		return errors.OAuth2ServerError("failed to update organization").WithError(err)
+	required := generate(organization, request)
+
+	updated := current.DeepCopy()
+	updated.Spec = required.Spec
+
+	conversion.UpdateObjectMetadata(updated, required)
+
+	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
+		return errors.OAuth2ServerError("failed to patch group").WithError(err)
+	}
+
+	return nil
+}
+
+func (c *Client) Delete(ctx context.Context, organizationID, groupID string) error {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
+	if err != nil {
+		return err
+	}
+
+	resource := &unikornv1.Group{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      groupID,
+			Namespace: organization.Namespace,
+		},
+	}
+
+	if err := c.client.Delete(ctx, resource); err != nil {
+		if kerrors.IsNotFound(err) {
+			return errors.HTTPNotFound().WithError(err)
+		}
+
+		return errors.OAuth2ServerError("failed to delete group").WithError(err)
 	}
 
 	return nil

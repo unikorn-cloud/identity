@@ -21,15 +21,17 @@ import (
 	"slices"
 	"strings"
 
+	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
+	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
+	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/generated"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -48,74 +50,77 @@ func New(client client.Client, namespace string) *Client {
 
 // Meta describes the organization.
 type Meta struct {
-	// Name is the organization's Kubernetes name, so a higher level resource
+	// ID is the organization's Kubernetes name, so a higher level resource
 	// can reference it.
-	Name string
+	ID string
 
 	// Namespace is the namespace that is provisioned by the organization.
 	// Should be usable set when the organization is active.
 	Namespace string
-
-	// Deleting tells us if we should allow new child objects to be created
-	// in this resource's namespace.
-	Deleting bool
 }
 
 // GetMetadata retrieves the organization metadata.
 // Clients should consult at least the Active status before doing anything
 // with the organization.
-func (c *Client) GetMetadata(ctx context.Context, name string) (*Meta, error) {
-	result, err := c.get(ctx, name)
+func (c *Client) GetMetadata(ctx context.Context, organizationID string) (*Meta, error) {
+	result, err := c.get(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
 
 	metadata := &Meta{
-		Name:      name,
+		ID:        organizationID,
 		Namespace: result.Status.Namespace,
-		Deleting:  result.DeletionTimestamp != nil,
 	}
 
 	return metadata, nil
 }
 
-func convertOrganizationType(in *unikornv1.Organization) generated.OrganizationType {
+func convertOrganizationType(in *unikornv1.Organization) openapi.OrganizationType {
 	if in.Spec.Domain != nil {
-		return generated.Domain
+		return openapi.Domain
 	}
 
-	return generated.Adhoc
+	return openapi.Adhoc
 }
 
-func convert(in *unikornv1.Organization) *generated.Organization {
-	out := &generated.Organization{
-		Name:             in.Name,
-		OrganizationType: convertOrganizationType(in),
+func convert(in *unikornv1.Organization) *openapi.OrganizationRead {
+	provisioningStatus := coreopenapi.Unknown
+
+	if condition, err := in.StatusConditionRead(unikornv1core.ConditionAvailable); err == nil {
+		provisioningStatus = conversion.ConvertStatusCondition(condition)
+	}
+
+	out := &openapi.OrganizationRead{
+		Metadata: conversion.ResourceReadMetadata(in, provisioningStatus),
+		Spec: openapi.OrganizationSpec{
+			OrganizationType: convertOrganizationType(in),
+		},
 	}
 
 	if in.Spec.Domain != nil {
-		out.Domain = in.Spec.Domain
-		out.ProviderScope = util.ToPointer(generated.ProviderScope(*in.Spec.ProviderScope))
-		out.ProviderName = in.Spec.ProviderName
+		out.Spec.Domain = in.Spec.Domain
+		out.Spec.ProviderScope = util.ToPointer(openapi.ProviderScope(*in.Spec.ProviderScope))
+		out.Spec.ProviderID = in.Spec.ProviderID
 	}
 
 	// TODO: We should cross reference with the provider type and
 	// only emit what's allowed.
 	if in.Spec.ProviderOptions != nil {
 		if in.Spec.ProviderOptions.Google != nil {
-			out.GoogleCustomerID = in.Spec.ProviderOptions.Google.CustomerID
+			out.Spec.GoogleCustomerID = in.Spec.ProviderOptions.Google.CustomerID
 		}
 	}
 
 	return out
 }
 
-func convertList(in *unikornv1.OrganizationList) []generated.Organization {
+func convertList(in *unikornv1.OrganizationList) openapi.Organizations {
 	slices.SortStableFunc(in.Items, func(a, b unikornv1.Organization) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	out := make([]generated.Organization, len(in.Items))
+	out := make(openapi.Organizations, len(in.Items))
 
 	for i := range in.Items {
 		out[i] = *convert(&in.Items[i])
@@ -124,13 +129,13 @@ func convertList(in *unikornv1.OrganizationList) []generated.Organization {
 	return out
 }
 
-func hasAccess(permissions *rbac.Permissions, name string) bool {
+func hasAccess(permissions *rbac.Permissions, organizationID string) bool {
 	if permissions.IsSuperAdmin {
 		return true
 	}
 
 	for _, organization := range permissions.Organizations {
-		if organization.Name == name {
+		if organization.Name == organizationID {
 			return true
 		}
 	}
@@ -139,11 +144,11 @@ func hasAccess(permissions *rbac.Permissions, name string) bool {
 }
 
 // get returns the implicit organization identified by the JWT claims.
-func (c *Client) get(ctx context.Context, name string) (*unikornv1.Organization, error) {
+func (c *Client) get(ctx context.Context, organizationID string) (*unikornv1.Organization, error) {
 	// TODO: hasAccess()
 	result := &unikornv1.Organization{}
 
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: name}, result); err != nil {
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationID}, result); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, errors.HTTPNotFound().WithError(err)
 		}
@@ -154,7 +159,7 @@ func (c *Client) get(ctx context.Context, name string) (*unikornv1.Organization,
 	return result, nil
 }
 
-func (c *Client) List(ctx context.Context) ([]generated.Organization, error) {
+func (c *Client) List(ctx context.Context) (openapi.Organizations, error) {
 	var result unikornv1.OrganizationList
 
 	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
@@ -170,8 +175,8 @@ func (c *Client) List(ctx context.Context) ([]generated.Organization, error) {
 	return convertList(&result), nil
 }
 
-func (c *Client) Get(ctx context.Context, name string) (*generated.Organization, error) {
-	result, err := c.get(ctx, name)
+func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.OrganizationRead, error) {
+	result, err := c.get(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -179,25 +184,22 @@ func (c *Client) Get(ctx context.Context, name string) (*generated.Organization,
 	return convert(result), nil
 }
 
-func (c *Client) generate(in *generated.Organization) *unikornv1.Organization {
+func (c *Client) generate(in *openapi.OrganizationWrite) *unikornv1.Organization {
 	out := &unikornv1.Organization{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: c.namespace,
-			Name:      in.Name,
-		},
+		ObjectMeta: conversion.ObjectMetadata(&in.Metadata, c.namespace),
 	}
 
-	if in.OrganizationType == generated.Domain {
-		out.Spec.Domain = in.Domain
-		out.Spec.ProviderScope = util.ToPointer(unikornv1.ProviderScope(*in.ProviderScope))
-		out.Spec.ProviderName = in.ProviderName
+	if in.Spec.OrganizationType == openapi.Domain {
+		out.Spec.Domain = in.Spec.Domain
+		out.Spec.ProviderScope = util.ToPointer(unikornv1.ProviderScope(*in.Spec.ProviderScope))
+		out.Spec.ProviderID = in.Spec.ProviderID
 
 		// TODO: we should cross reference with the provider type and do only
 		// what must be done.
-		if in.GoogleCustomerID != nil {
+		if in.Spec.GoogleCustomerID != nil {
 			out.Spec.ProviderOptions = &unikornv1.OrganizationProviderOptions{
 				Google: &unikornv1.OrganizationProviderGoogleSpec{
-					CustomerID: in.GoogleCustomerID,
+					CustomerID: in.Spec.GoogleCustomerID,
 				},
 			}
 		}
@@ -206,26 +208,20 @@ func (c *Client) generate(in *generated.Organization) *unikornv1.Organization {
 	return out
 }
 
-func (c *Client) Update(ctx context.Context, name string, request *generated.Organization) error {
-	var organization unikornv1.Organization
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: name}, &organization); err != nil {
-		return errors.OAuth2ServerError("failed to read organization").WithError(err)
+func (c *Client) Update(ctx context.Context, organizationID string, request *openapi.OrganizationWrite) error {
+	current, err := c.get(ctx, organizationID)
+	if err != nil {
+		return err
 	}
 
-	newOrganization := c.generate(request)
+	required := c.generate(request)
 
-	// Copy over the whole specification, but, retain the groups, as those are managed
-	// by a different API.
-	// TODO: it's possible that changing the authentication provider options will invalidate
-	// the groups, but that's pretty complex!
-	// TODO: it actually makes sense for the groups to live in the organization namespace
-	// doesn't it??
-	temp := organization.DeepCopy()
-	temp.Spec = newOrganization.Spec
-	temp.Spec.Groups = organization.Spec.Groups
+	updated := current.DeepCopy()
+	updated.Spec = required.Spec
 
-	if err := c.client.Patch(ctx, temp, client.MergeFrom(&organization)); err != nil {
+	conversion.UpdateObjectMetadata(updated, required)
+
+	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return errors.OAuth2ServerError("failed to patch organization").WithError(err)
 	}
 

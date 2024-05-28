@@ -21,7 +21,7 @@ import (
 	"slices"
 
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/generated"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -38,8 +38,8 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func convertList(in unikornv1.RoleList) generated.RoleList {
-	var out generated.RoleList
+func convertList(in unikornv1.RoleList) openapi.RoleList {
+	var out openapi.RoleList
 
 	for _, role := range in.Items {
 		if role.Spec.IsDefault {
@@ -54,7 +54,7 @@ func convertList(in unikornv1.RoleList) generated.RoleList {
 	return out
 }
 
-func (c *Client) List(ctx context.Context) (generated.RoleList, error) {
+func (c *Client) List(ctx context.Context) (openapi.RoleList, error) {
 	var result unikornv1.RoleList
 
 	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {

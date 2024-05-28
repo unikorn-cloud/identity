@@ -42,10 +42,10 @@ import (
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
 	providererrors "github.com/unikorn-cloud/identity/pkg/oauth2/providers/errors"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -382,7 +382,7 @@ func (a *Authenticator) organizationProviderGetter(r *http.Request, email string
 		return nil, err
 	}
 
-	return a.lookupProviderByName(r.Context(), *organization.Spec.ProviderName)
+	return a.lookupProviderByName(r.Context(), *organization.Spec.ProviderID)
 }
 
 func (a *Authenticator) providerGetters() []providerGetter {
@@ -687,7 +687,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderName)
+	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderID)
 	if err != nil {
 		authorizationError(w, r, query.Get("redirect_uri"), ErrorServerError, err.Error())
 		return
@@ -934,7 +934,7 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 // Token issues an OAuth2 access token from the provided authorization code.
 //
 //nolint:cyclop
-func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generated.Token, error) {
+func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
 	if err := r.ParseForm(); err != nil {
 		return nil, errors.OAuth2InvalidRequest("failed to parse form data: " + err.Error())
 	}
@@ -969,7 +969,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 		if err != nil {
 			var rerr *oauth2.RetrieveError
 
-			if goerrors.As(err, &rerr) && rerr.ErrorCode == string(generated.InvalidGrant) {
+			if goerrors.As(err, &rerr) && rerr.ErrorCode == string(openapi.InvalidGrant) {
 				return nil, errors.OAuth2InvalidGrant("provider refresh token has expired").WithError(err)
 			}
 
@@ -993,7 +993,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 			return nil, err
 		}
 
-		result := &generated.Token{
+		result := &openapi.Token{
 			TokenType:    "Bearer",
 			AccessToken:  tokens.AccessToken,
 			RefreshToken: tokens.RefreshToken,
@@ -1040,7 +1040,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 		return nil, err
 	}
 
-	result := &generated.Token{
+	result := &openapi.Token{
 		TokenType:    "Bearer",
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -1051,7 +1051,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*generate
 	return result, nil
 }
 
-func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (generated.AvailableGroups, error) {
+func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (openapi.AvailableGroups, error) {
 	userinfo := userinfo.FromContext(r.Context())
 
 	organization, err := a.lookupOrganization(r.Context(), userinfo.Subject)
@@ -1059,7 +1059,7 @@ func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (generate
 		return nil, errors.OAuth2InvalidRequest("user not a member of this domain").WithError(err)
 	}
 
-	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderName)
+	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderID)
 	if err != nil {
 		return nil, errors.OAuth2InvalidRequest("unable to lookup provider for domain").WithError(err)
 	}
@@ -1090,10 +1090,10 @@ func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (generate
 		return nil, errors.OAuth2ServerError("unable to get groups").WithError(err)
 	}
 
-	result := make([]generated.AvailableGroup, 0, len(groups))
+	result := make([]openapi.AvailableGroup, 0, len(groups))
 
 	for _, group := range groups {
-		result = append(result, generated.AvailableGroup{
+		result = append(result, openapi.AvailableGroup{
 			Name:        group.Name,
 			DisplayName: group.DisplayName,
 		})
