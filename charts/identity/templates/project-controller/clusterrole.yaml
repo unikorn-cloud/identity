@@ -1,0 +1,46 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: unikorn-project-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+rules:
+# Manage projects (my job).
+- apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - projects
+  verbs:
+  - list
+  - get
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - projects/status
+  verbs:
+  - update
+# TODO: when a project is deleted, it needs to know about subordinate
+# resources it can delete gracefully before killing the namespace.  These
+# api groups should be configurable once we can propagate this to the the
+# controller proper too.
+- apiGroups:
+  - unikorn-cloud.org
+  resources:
+  - "*"
+  verbs:
+  - list
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - delete
+  - update
