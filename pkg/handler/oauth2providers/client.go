@@ -70,7 +70,7 @@ func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider) *opena
 	t := openapi.Oauth2ProviderType(*in.Spec.Type)
 
 	out := &openapi.Oauth2ProviderRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.Provisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.Oauth2ProviderSpec{
 			Type:     &t,
 			ClientID: in.Spec.ClientID,

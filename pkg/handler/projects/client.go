@@ -52,7 +52,7 @@ func New(client client.Client, namespace string) *Client {
 }
 
 func convert(in *unikornv1.Project) *openapi.ProjectRead {
-	provisioningStatus := coreopenapi.Unknown
+	provisioningStatus := coreopenapi.ResourceProvisioningStatusUnknown
 
 	if condition, err := in.StatusConditionRead(unikornv1core.ConditionAvailable); err == nil {
 		provisioningStatus = conversion.ConvertStatusCondition(condition)

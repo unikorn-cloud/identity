@@ -85,7 +85,7 @@ func convertOrganizationType(in *unikornv1.Organization) openapi.OrganizationTyp
 }
 
 func convert(in *unikornv1.Organization) *openapi.OrganizationRead {
-	provisioningStatus := coreopenapi.Unknown
+	provisioningStatus := coreopenapi.ResourceProvisioningStatusUnknown
 
 	if condition, err := in.StatusConditionRead(unikornv1core.ConditionAvailable); err == nil {
 		provisioningStatus = conversion.ConvertStatusCondition(condition)

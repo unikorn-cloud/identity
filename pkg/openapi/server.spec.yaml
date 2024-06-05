@@ -55,11 +55,11 @@ paths:
         '200':
           $ref: '#/components/responses/tokenResponse'
         '400':
-          $ref: '#/components/responses/badRequestResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /oauth2/v2/login:
     description: |-
       After the user hits the authorisation endpoint, a dialog is presented to
@@ -85,7 +85,7 @@ paths:
         '200':
           $ref: '#/components/responses/userinfoResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
   /oidc/callback:
     description: |-
       Implements the OIDC response code callback.
@@ -99,7 +99,7 @@ paths:
         '302':
           description: A redirect back to the browser with an authorisation code.
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /oauth2/v2/jwks:
     description: JSON web key set endpoint.
     get:
@@ -110,7 +110,7 @@ paths:
         '200':
           $ref: '#/components/responses/jwksResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/oauth2providers:
     description: |-
       Allows management of system scoped oauth2 providers.  The identity service
@@ -125,11 +125,11 @@ paths:
         '200':
           $ref: '#/components/responses/systemOauth2ProvidersResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -148,9 +148,9 @@ paths:
         '200':
           $ref: '#/components/responses/organizationsResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
       description: |-
         Allows creation of an organization.
@@ -162,13 +162,13 @@ paths:
         '201':
           description: The organization was successfully created.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '409':
-          $ref: '#/components/responses/conflictResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -187,11 +187,11 @@ paths:
         '200':
           $ref: '#/components/responses/organizationResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
       description: |-
         Allows an organization to be updated.
@@ -203,11 +203,11 @@ paths:
         '200':
           description: Organization successfully updated and returned.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/acl:
     description: |-
       Gets an ACL associated with the user, scoped to the organization.
@@ -224,9 +224,9 @@ paths:
         '200':
           $ref: '#/components/responses/aclResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/roles:
     description: |-
       Allows management of roles that define access control permissions for
@@ -242,11 +242,11 @@ paths:
         '200':
           $ref: '#/components/responses/rolesResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/oauth2providers:
     description: |-
       Allows management of organization scoped oauth2 provider.  The identity service
@@ -266,13 +266,13 @@ paths:
         '200':
           $ref: '#/components/responses/oauth2ProvidersResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
       description: |-
         Create an organization's identity provider.
@@ -284,13 +284,13 @@ paths:
         '201':
           description: Organizational identity provider created.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '409':
-          $ref: '#/components/responses/conflictResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/oauth2providers/{providerID}:
     description: |-
       Allows management of organization scoped oauth2 provider.  The identity service
@@ -313,13 +313,13 @@ paths:
         '200':
           description: Organizational identity provider updated.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     delete:
       description: |-
         Delete an organization's identity provider.
@@ -329,13 +329,13 @@ paths:
         '200':
           description: Identity provider successfully deleted.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/available-groups:
     description: |-
       Polls the identity provider for group information.
@@ -350,11 +350,11 @@ paths:
         '200':
           $ref: '#/components/responses/availableGroupsResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/groups:
     description: |-
       Allows management of organization groups. Groups provide an identity
@@ -372,11 +372,11 @@ paths:
         '200':
           $ref: '#/components/responses/groupsResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
       description: |-
         Allows creation of a new group.
@@ -388,13 +388,13 @@ paths:
         '201':
           description: Group successfully created and returned.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '409':
-          $ref: '#/components/responses/conflictResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/groups/{groupid}:
     description: |-
       Allows management of organization groups. Groups provide an identity
@@ -413,11 +413,11 @@ paths:
         '200':
           $ref: '#/components/responses/groupResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
       description: |-
         Allows a group to be updated.
@@ -429,13 +429,13 @@ paths:
         '200':
           description: Group successfully updated and returned.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     delete:
       description: |-
         Allows the deletion of an existing group.
@@ -445,13 +445,13 @@ paths:
         '200':
           description: Group successfully deleted.
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/projects:
     x-documentation-group: main
     description: |-
@@ -469,11 +469,11 @@ paths:
         '200':
           $ref: '#/components/responses/projectsResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
       description: |-
         Creates a new project resource for the user's organization.
@@ -483,17 +483,17 @@ paths:
         $ref: '#/components/requestBodies/createProjectRequest'
       responses:
         '202':
-          $ref: '#/components/responses/acceptedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/acceptedResponse'
         '400':
-          $ref: '#/components/responses/badRequestResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '409':
-          $ref: '#/components/responses/conflictResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/projects/{projectID}:
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
@@ -507,15 +507,15 @@ paths:
         '200':
           $ref: '#/components/responses/projectResponse'
         '400':
-          $ref: '#/components/responses/badRequestResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
       description: |-
         Updates a project.
@@ -527,15 +527,15 @@ paths:
         '200':
           description: Project successfully updated.
         '400':
-          $ref: '#/components/responses/badRequestResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     delete:
       description: |-
         Deletes the project associated with the authenticated user's scoped
@@ -545,17 +545,17 @@ paths:
       - oauth2Authentication: []
       responses:
         '202':
-          $ref: '#/components/responses/acceptedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/acceptedResponse'
         '400':
-          $ref: '#/components/responses/badRequestResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
-          $ref: '#/components/responses/unauthorizedResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
-          $ref: '#/components/responses/forbiddenResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '404':
-          $ref: '#/components/responses/notFoundResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
-          $ref: '#/components/responses/internalServerErrorResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
 components:
   parameters:
     organizationIDParameter:
@@ -587,37 +587,6 @@ components:
       schema:
         type: string
   schemas:
-    oauth2Error:
-      description: Generic error message.
-      type: object
-      required:
-      - error
-      - error_description
-      properties:
-        error:
-          description: A terse error string expanding on the HTTP error code. Errors are based on the OAuth2 specification, but are expanded with proprietary status codes for APIs other than those specified by OAuth2.
-          type: string
-          enum:
-          # Defined by OAuth2
-          - invalid_request
-          - unauthorized_client
-          - access_denied
-          - unsupported_response_type
-          - invalid_scope
-          - server_error
-          - temporarily_unavailable
-          - invalid_client
-          - invalid_grant
-          - unsupported_grant_type
-          # Proprietary
-          - not_found
-          - conflict
-          - method_not_allowed
-          - unsupported_media_type
-          - forbidden
-        error_description:
-          description: Verbose message describing the error.
-          type: string
     openidConfiguration:
       description: OpenID configuration.
       type: object
@@ -1237,79 +1206,11 @@ components:
               groups:
               - ddde69ef-bb52-4815-9e9e-aed856c6057f
   responses:
-    acceptedResponse:
-      description: |-
-        The request has been accepted and will be fulfilled asynchronously.
-        You may poll the resource and monitor its status for completion.
-    badRequestResponse:
-      description: |-
-        Request body failed schema validation, or the request does not contain
-        all the required fields.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/oauth2Error'
-          example:
-            error: invalid_request
-            error_description: request body invalid
-    unauthorizedResponse:
-      description: |-
-        Authentication failed or the access token has expired.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/oauth2Error'
-          example:
-            error: access_denied
-            error_description: authentication failed
-    forbiddenResponse:
-      description: |-
-        Request was denied by authorisation, this may be caused by the authorisation
-        token not having the required scope for an API, or the user doesn't have the
-        necessary privileges on the provider platform.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/oauth2Error'
-          example:
-            error: forbidden
-            error_description: user credentials do not have the required privileges
-    notFoundResponse:
-      description: |-
-        Unable to find a resource.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/oauth2Error'
-          example:
-            error: not_found
-            error_description: the requested resource does not exist
-    conflictResponse:
-      description: |-
-        Resource conflicts with another, usually this means they have the same name.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/oauth2Error'
-          example:
-            error: conflict
-            error_description: a resource with the same name already exists
     htmlErrorResponse:
       description: |-
         A generic HTML error page.
       content:
         text/html: {}
-    internalServerErrorResponse:
-      description: |-
-        An unexpected error occurred, this may be an unexpected transient error and
-        may succeed on a retry. If this isn't the case, please report it as an issue.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/oauth2Error'
-          example:
-            error: server_error
-            error_description: failed to token claim
     openidConfigurationResponse:
       description: |-
         OpenID configuration used for auto-discovery of endpoints and supported
