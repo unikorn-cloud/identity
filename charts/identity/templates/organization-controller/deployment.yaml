@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unikorn-organization-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unikorn-organization-controller
+  template:
+    metadata:
+      labels:
+        app: unikorn-organization-controller
+    spec:
+      containers:
+      - name: unikorn-organization-controller
+        image: {{ include "unikorn.organizationControllerImage" . }}
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+      serviceAccountName: unikorn-organization-controller
+      securityContext:
+        runAsNonRoot: true

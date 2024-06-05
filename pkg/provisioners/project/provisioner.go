@@ -20,8 +20,11 @@ package project
 import (
 	"context"
 	"errors"
+	"slices"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	coreclient "github.com/unikorn-cloud/core/pkg/client"
+	"github.com/unikorn-cloud/core/pkg/manager"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
 	"github.com/unikorn-cloud/core/pkg/provisioners/resource"
 	"github.com/unikorn-cloud/core/pkg/provisioners/util"
@@ -29,6 +32,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -90,6 +99,94 @@ func (p *Provisioner) Provision(ctx context.Context) error {
 	return nil
 }
 
+// deprovisionDescendants selectively deletes project namespace resources
+// so they have a chance to clean up correctly.
+//
+//nolint:cyclop
+func (p *Provisioner) deprovisionDescendants(ctx context.Context, namespace *corev1.Namespace) error {
+	log := log.FromContext(ctx)
+
+	// TODO: this needs to be configurable, which we have no precedent for
+	// and also it needs to be mirrored in the clusterrole in Helm.
+	gvs := []schema.GroupVersion{
+		{
+			Group:   "unikorn-cloud.org",
+			Version: "v1alpha1",
+		},
+	}
+
+	manager := manager.FromContext(ctx)
+
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(manager.GetConfig())
+	if err != nil {
+		return err
+	}
+
+	cli := coreclient.StaticClientFromContext(ctx)
+
+	// If we found any resources, we need to await deletion.
+	yield := false
+
+	for _, gv := range gvs {
+		apiResources, err := discoveryClient.ServerResourcesForGroupVersion(gv.String())
+		if err != nil {
+			return err
+		}
+
+		// Remove any global resource types, we only care about ones in the namespace.
+		// and remove any resources that cannot be deleted (this gets rid of any
+		// resource/subresource type entries.
+		apiResources.APIResources = slices.DeleteFunc(apiResources.APIResources, func(resource metav1.APIResource) bool {
+			return !resource.Namespaced || !slices.Contains(resource.Verbs, "delete")
+		})
+
+		for _, apiResource := range apiResources.APIResources {
+			// NOTE: GV not populated by the discovery call.
+			gvk := schema.GroupVersionKind{
+				Group:   gv.Group,
+				Version: gv.Version,
+				Kind:    apiResource.Kind + "List",
+			}
+
+			log.V(1).Info("discovered resource for deletion", "gvk", gvk)
+
+			resources := &unstructured.UnstructuredList{}
+			resources.SetGroupVersionKind(gvk)
+
+			if err := cli.List(ctx, resources, &client.ListOptions{Namespace: namespace.Name}); err != nil {
+				return err
+			}
+
+			if len(resources.Items) == 0 {
+				continue
+			}
+
+			yield = true
+
+			for i := range resources.Items {
+				resource := &resources.Items[i]
+
+				if resource.GetDeletionTimestamp() != nil {
+					log.Info("awaiting project resource deletion", "gvk", resource.GroupVersionKind(), "name", resource.GetName())
+					continue
+				}
+
+				log.Info("deleting project resource", "gvk", resource.GroupVersionKind(), "name", resource.GetName())
+
+				if err := cli.Delete(ctx, resource); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	if yield {
+		return provisioners.ErrYield
+	}
+
+	return nil
+}
+
 // Deprovision implements the Provision interface.
 func (p *Provisioner) Deprovision(ctx context.Context) error {
 	labels, err := p.project.ResourceLabels()
@@ -105,6 +202,10 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 			return nil
 		}
 
+		return err
+	}
+
+	if err := p.deprovisionDescendants(ctx, namespace); err != nil {
 		return err
 	}
 
