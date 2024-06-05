@@ -17,7 +17,7 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.displayName
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
       name: display name
       type: string
     - jsonPath: .spec.issuer
@@ -62,9 +62,6 @@ spec:
               clientSecret:
                 description: ClientSecret is created by the IdP for token exchange.
                 type: string
-              displayName:
-                description: DisplayName is a user readable issuer name.
-                type: string
               issuer:
                 description: |-
                   The issuer is typically provided by the identity provider as an
@@ -85,7 +82,6 @@ spec:
                 type: string
             required:
             - clientID
-            - displayName
             - issuer
             type: object
           status:

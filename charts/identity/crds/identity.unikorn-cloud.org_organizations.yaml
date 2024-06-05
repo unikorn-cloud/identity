@@ -17,11 +17,14 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.domain
-      name: domain
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
+      name: display name
       type: string
-    - jsonPath: .spec.providerName
-      name: provider
+    - jsonPath: .status.namespace
+      name: namespace
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Available')].reason
+      name: status
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: age
@@ -63,57 +66,12 @@ spec:
                   email address to an identity provider.  When this is set, then
                   the providerScope and providerName must be set.
                 type: string
-              groups:
-                description: |-
-                  Groups defines the set of groups that are allowed to be mapped
-                  from the identity provider into unikorn.  If no groups are specified
-                  then it is assumed all users have access to everything.
-                  TODO: move this to the organization namespace.
-                items:
-                  properties:
-                    id:
-                      description: |-
-                        ID is the a unique, and immutable identifier for the group, the intent
-                        being that resources will belong to a group irrespective of display name
-                        changes.
-                      type: string
-                    name:
-                      description: |-
-                        Name is the name to display the group as in UIs and other UX
-                        interfaces.  This should again be unique within the organization to
-                        avoid ambiguity, but may be changed.
-                      type: string
-                    providerGroupNames:
-                      description: |-
-                        ProviderName is the name of the group as returned by the provider.
-                        For example a query of https://cloudidentity.googleapis.com/v1/groups/
-                        will return something like groups/01664s551ax43ok.
-                      items:
-                        type: string
-                      type: array
-                    roles:
-                      description: Roles are a list of roles users of the group inherit.
-                      items:
-                        type: string
-                      type: array
-                    users:
-                      description: Users are a list of user names that are members
-                        of the group.
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - id
-                  - name
-                  type: object
-                type: array
               pause:
                 description: Pause, if true, will inhibit reconciliation.
                 type: boolean
-              providerName:
-                description: |-
-                  ProviderName is the name of an explicit oauth2/oidc provider.
-                  When using a domain mapping.
+              providerId:
+                description: ProviderID is the ID of an oauth2/oidc provider when
+                  using a domain mapping.
                 type: string
               providerOptions:
                 description: ProviderOptions is the configuration for a specific provider

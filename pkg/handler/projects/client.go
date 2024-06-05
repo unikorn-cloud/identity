@@ -19,17 +19,16 @@ package projects
 
 import (
 	"context"
-	goerrors "errors"
 	"slices"
 	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
+	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
+	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/constants"
-	"github.com/unikorn-cloud/identity/pkg/generated"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,80 +51,15 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-// Meta describes the project.
-type Meta struct {
-	// Organization is the owning organization;s metadata.
-	Organization *organizations.Meta
-
-	// Name is the project's Kubernetes name, so a higher level resource
-	// can reference it.
-	Name string
-
-	// Namespace is the namespace that is provisioned by the project.
-	// Should be usable set when the project is active.
-	Namespace string
-
-	// Deleting tells us if we should allow new child objects to be created
-	// in this resource's namespace.
-	Deleting bool
-}
-
-var (
-	// ErrResourceDeleting is raised when the resource is being deleted.
-	ErrResourceDeleting = goerrors.New("resource is being deleted")
-
-	// ErrNamespaceUnset is raised when the namespace hasn't been created
-	// yet.
-	ErrNamespaceUnset = goerrors.New("resource namespace is unset")
-)
-
-// GetMetadata retrieves the project metadata.
-// Clients should consult at least the Active status before doing anything
-// with the project.
-func (c *Client) GetMetadata(ctx context.Context, organizationName, name string) (*Meta, error) {
-	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := c.get(ctx, organization.Namespace, name)
-	if err != nil {
-		return nil, err
-	}
-
-	metadata := &Meta{
-		Organization: organization,
-		Name:         name,
-		Namespace:    result.Status.Namespace,
-		Deleting:     result.DeletionTimestamp != nil,
-	}
-
-	return metadata, nil
-}
-
-func convertMetadata(in *unikornv1.Project) generated.ProjectMetadata {
-	out := generated.ProjectMetadata{
-		CreationTime: in.CreationTimestamp.Time,
-		Status:       "Unknown",
-	}
-
-	if in.DeletionTimestamp != nil {
-		out.DeletionTime = &in.DeletionTimestamp.Time
-	}
+func convert(in *unikornv1.Project) *openapi.ProjectRead {
+	provisioningStatus := coreopenapi.Unknown
 
 	if condition, err := in.StatusConditionRead(unikornv1core.ConditionAvailable); err == nil {
-		out.Status = string(condition.Reason)
+		provisioningStatus = conversion.ConvertStatusCondition(condition)
 	}
 
-	return out
-}
-
-func convert(in *unikornv1.Project) *generated.Project {
-	out := &generated.Project{
-		Metadata: convertMetadata(in),
-		Spec: generated.ProjectSpec{
-			Name: in.Name,
-		},
+	out := &openapi.ProjectRead{
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, provisioningStatus),
 	}
 
 	if in.Spec.GroupIDs != nil {
@@ -135,8 +69,8 @@ func convert(in *unikornv1.Project) *generated.Project {
 	return out
 }
 
-func convertList(in *unikornv1.ProjectList) generated.Projects {
-	out := make(generated.Projects, len(in.Items))
+func convertList(in *unikornv1.ProjectList) openapi.Projects {
+	out := make(openapi.Projects, len(in.Items))
 
 	for i := range in.Items {
 		out[i] = *convert(&in.Items[i])
@@ -145,8 +79,8 @@ func convertList(in *unikornv1.ProjectList) generated.Projects {
 	return out
 }
 
-func (c *Client) List(ctx context.Context, organizationName string) (generated.Projects, error) {
-	scoper := NewScoper(ctx, c.client, organizationName)
+func (c *Client) List(ctx context.Context, organizationID string) (openapi.Projects, error) {
+	scoper := NewScoper(ctx, c.client, organizationID)
 
 	result, err := scoper.ListProjects(ctx)
 	if err != nil {
@@ -160,11 +94,10 @@ func (c *Client) List(ctx context.Context, organizationName string) (generated.P
 	return convertList(result), nil
 }
 
-// get returns the implicit project identified by the JWT claims.
-func (c *Client) get(ctx context.Context, namespace, name string) (*unikornv1.Project, error) {
+func (c *Client) get(ctx context.Context, organization *organizations.Meta, projectID string) (*unikornv1.Project, error) {
 	result := &unikornv1.Project{}
 
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, result); err != nil {
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: projectID}, result); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, errors.HTTPNotFound().WithError(err)
 		}
@@ -175,13 +108,13 @@ func (c *Client) get(ctx context.Context, namespace, name string) (*unikornv1.Pr
 	return result, nil
 }
 
-func (c *Client) Get(ctx context.Context, organizationName, name string) (*generated.Project, error) {
-	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+func (c *Client) Get(ctx context.Context, organizationID, projectID string) (*openapi.ProjectRead, error) {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := c.get(ctx, organization.Namespace, name)
+	result, err := c.get(ctx, organization, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,34 +122,23 @@ func (c *Client) Get(ctx context.Context, organizationName, name string) (*gener
 	return convert(result), nil
 }
 
-func generate(organization *organizations.Meta, request *generated.ProjectSpec) *unikornv1.Project {
+func generate(organization *organizations.Meta, request *openapi.ProjectWrite) *unikornv1.Project {
 	resource := &unikornv1.Project{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      request.Name,
-			Namespace: organization.Namespace,
-			Labels: map[string]string{
-				coreconstants.VersionLabel:      constants.Version,
-				coreconstants.OrganizationLabel: organization.Name,
-			},
-		},
+		ObjectMeta: conversion.OrganizationScopedObjectMetadata(&request.Metadata, organization.Namespace, organization.ID),
 	}
 
-	if request.GroupIDs != nil {
-		resource.Spec.GroupIDs = *request.GroupIDs
+	if request.Spec.GroupIDs != nil {
+		resource.Spec.GroupIDs = *request.Spec.GroupIDs
 	}
 
 	return resource
 }
 
 // Create creates the implicit project indentified by the JTW claims.
-func (c *Client) Create(ctx context.Context, organizationName string, request *generated.ProjectSpec) error {
-	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.ProjectWrite) error {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
 		return err
-	}
-
-	if organization.Deleting {
-		return errors.OAuth2InvalidRequest("organization is being deleted")
 	}
 
 	resource := generate(organization, request)
@@ -233,23 +155,25 @@ func (c *Client) Create(ctx context.Context, organizationName string, request *g
 	return nil
 }
 
-func (c *Client) Update(ctx context.Context, organizationName, name string, request *generated.ProjectSpec) error {
-	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+func (c *Client) Update(ctx context.Context, organizationID, projectID string, request *openapi.ProjectWrite) error {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
 		return err
 	}
 
-	project, err := c.get(ctx, organization.Namespace, name)
+	current, err := c.get(ctx, organization, projectID)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to get project").WithError(err)
+		return err
 	}
 
-	newProject := generate(organization, request)
+	required := generate(organization, request)
 
-	temp := project.DeepCopy()
-	temp.Spec = newProject.Spec
+	updated := current.DeepCopy()
+	updated.Spec = required.Spec
 
-	if err := c.client.Patch(ctx, temp, client.MergeFrom(project)); err != nil {
+	conversion.UpdateObjectMetadata(updated, required)
+
+	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return errors.OAuth2ServerError("failed to patch project").WithError(err)
 	}
 
@@ -257,19 +181,15 @@ func (c *Client) Update(ctx context.Context, organizationName, name string, requ
 }
 
 // Delete deletes the project.
-func (c *Client) Delete(ctx context.Context, organizationName, name string) error {
-	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationName)
+func (c *Client) Delete(ctx context.Context, organizationID, projectID string) error {
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
 		return err
 	}
 
-	if organization.Deleting {
-		return errors.OAuth2InvalidRequest("organization is being deleted")
-	}
-
 	project := &unikornv1.Project{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      projectID,
 			Namespace: organization.Namespace,
 		},
 	}

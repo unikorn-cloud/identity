@@ -1,0 +1,79 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: groups.identity.unikorn-cloud.org
+spec:
+  group: identity.unikorn-cloud.org
+  names:
+    categories:
+    - unikorn
+    kind: Group
+    listKind: GroupList
+    plural: groups
+    singular: group
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
+      name: display name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Group describes a binding between users and roles.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              providerGroupNames:
+                description: |-
+                  ProviderID is the name of the group as returned by the provider.
+                  For example a query of https://cloudidentity.googleapis.com/v1/groups/
+                  will return something like groups/01664s551ax43ok.
+                items:
+                  type: string
+                type: array
+              roles:
+                description: Roles are a list of roles users of the group inherit.
+                items:
+                  type: string
+                type: array
+              users:
+                description: Users are a list of user names that are members of the
+                  group.
+                items:
+                  type: string
+                type: array
+            type: object
+          status:
+            description: GroupStatus defines the status of the group.
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

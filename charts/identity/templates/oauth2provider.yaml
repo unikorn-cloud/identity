@@ -3,12 +3,14 @@
 apiVersion: identity.unikorn-cloud.org/v1alpha1
 kind: OAuth2Provider
 metadata:
-  name: {{ $provider.name }}
+  name: {{ $provider.id }}
   labels:
     {{- include "unikorn.labels" $ | nindent 4 }}
+    resource.unikorn-cloud.org/name: {{ $provider.name }}
+  annotations:
+    resource.unikorn-cloud.org/description: {{ $provider.description }}
 spec:
   type: {{ $provider.type }}
-  displayName: {{ $provider.displayName }}
   issuer: {{ $provider.issuer }}
   clientID: {{ $provider.clientID }}
   clientSecret: {{ $provider.clientSecret }}

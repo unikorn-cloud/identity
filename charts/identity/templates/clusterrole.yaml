@@ -12,6 +12,7 @@ rules:
   - oauth2providers
   - roles
   - organizations
+  - groups
   - projects
   verbs:
   - list

@@ -23,18 +23,18 @@ import (
 )
 
 const (
-	// GroupName is the Kubernetes API group our resources belong to.
-	GroupName = "identity.unikorn-cloud.org"
-	// GroupVersion is the version of our custom resources.
-	GroupVersion = "v1alpha1"
+	// APIGroupName is the Kubernetes API group our resources belong to.
+	APIGroupName = "identity.unikorn-cloud.org"
+	// APIGroupVersion is the version of our custom resources.
+	APIGroupVersion = "v1alpha1"
 	// Group is group/version of our resources.
-	Group = GroupName + "/" + GroupVersion
+	APIGroup = APIGroupName + "/" + APIGroupVersion
 )
 
 var (
 	// SchemeGroupVersion defines the GV of our resources.
 	//nolint:gochecknoglobals
-	SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: GroupVersion}
+	SchemeGroupVersion = schema.GroupVersion{Group: APIGroupName, Version: APIGroupVersion}
 
 	// SchemeBuilder creates a mapping between GVK and type.
 	//nolint:gochecknoglobals
@@ -51,6 +51,7 @@ func init() {
 	SchemeBuilder.Register(&OAuth2Provider{}, &OAuth2ProviderList{})
 	SchemeBuilder.Register(&Role{}, &RoleList{})
 	SchemeBuilder.Register(&Organization{}, &OrganizationList{})
+	SchemeBuilder.Register(&Group{}, &GroupList{})
 	SchemeBuilder.Register(&Project{}, &ProjectList{})
 }
 

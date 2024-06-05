@@ -53,12 +53,14 @@ issuer:
 
 # A static list of registered oauth2 providers.
 # providers:
-# - # Must be a valid Kubernetes resource name.
+# - # Should be a v4 UUID, that starts with a letter.
+#   id: c05a4c13-5260-427e-b465-8532c41cd11d
+#   # Must be a valid Kubernetes label name.
 #   name: google-identity
-#   # Must be one of "google"
-#   type: google
 #   # A human readable name, most often used for UIs.
-#   displayName: Google Identity
+#   description: Google Identity
+#   # Must be one of {google,microsoft}
+#   type: google
 #   # The issuer is usually provided by the oidc provider and will have
 #   # a discovery endpoint attached to it at /.well-known/openid-configuration.
 #   issuer: https://accounts.google.com
@@ -90,38 +92,6 @@ roles:
       oauth2providers: [create,read,update,delete]
       projects: [create,read,update,delete]
       infrastructure: [create,read,update,delete]
-
-# A static list of oauth2 domain mappings.
-# organizations:
-# - # Must be a member of the the domain.
-#   owner: dave@acme.com
-#   # Must be a valid Kubernetes resource name.
-#   name: gmail
-#   # An email domain e.g. user@domain.
-#   domain: gmail.com
-#   # A provider to use for the email domain.
-#   provider: google-identity
-#   # A specification for the provider type.
-#   providerOptions:
-#     google:
-#       # Defines the customer ID that can be queried to determine group
-#       # membership of a user.
-#       customerId: d83dx45dx
-#   # A set of group mappings from the identity provider to those encoded
-#   # in issued access tokens.
-#   groups:
-#   - # A unique and immutable ID.
-#     id: 5f7033e8-17fc-41a1-a8f6-f3085115b611
-#     # The name to be displayed by UIs.
-#     name: My Group
-#     # The unique name the provider refers to the group.
-#     providerName: groups/38ru24810eck10
-#     # Explicit list of users
-#     users:
-#     - foo@gmail.com
-#     # Roles for the group e.g. superAdmin, admin, user, reader.
-#     roles:
-#     - user
 
 ingress:
   # Sets the ingress class to use.
