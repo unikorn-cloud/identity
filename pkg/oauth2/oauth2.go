@@ -40,6 +40,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
+	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
@@ -969,7 +970,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 		if err != nil {
 			var rerr *oauth2.RetrieveError
 
-			if goerrors.As(err, &rerr) && rerr.ErrorCode == string(openapi.InvalidGrant) {
+			if goerrors.As(err, &rerr) && rerr.ErrorCode == string(coreopenapi.InvalidGrant) {
 				return nil, errors.OAuth2InvalidGrant("provider refresh token has expired").WithError(err)
 			}
 

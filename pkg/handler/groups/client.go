@@ -48,7 +48,7 @@ func New(client client.Client, namespace string) *Client {
 
 func convert(in *unikornv1.Group) *openapi.GroupRead {
 	out := &openapi.GroupRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.Provisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.GroupSpec{
 			Roles: in.Spec.Roles,
 		},

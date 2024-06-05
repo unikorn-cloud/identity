@@ -49,25 +49,6 @@ const (
 	RefreshToken      GrantType = "refresh_token"
 )
 
-// Defines values for Oauth2ErrorError.
-const (
-	AccessDenied            Oauth2ErrorError = "access_denied"
-	Conflict                Oauth2ErrorError = "conflict"
-	Forbidden               Oauth2ErrorError = "forbidden"
-	InvalidClient           Oauth2ErrorError = "invalid_client"
-	InvalidGrant            Oauth2ErrorError = "invalid_grant"
-	InvalidRequest          Oauth2ErrorError = "invalid_request"
-	InvalidScope            Oauth2ErrorError = "invalid_scope"
-	MethodNotAllowed        Oauth2ErrorError = "method_not_allowed"
-	NotFound                Oauth2ErrorError = "not_found"
-	ServerError             Oauth2ErrorError = "server_error"
-	TemporarilyUnavailable  Oauth2ErrorError = "temporarily_unavailable"
-	UnauthorizedClient      Oauth2ErrorError = "unauthorized_client"
-	UnsupportedGrantType    Oauth2ErrorError = "unsupported_grant_type"
-	UnsupportedMediaType    Oauth2ErrorError = "unsupported_media_type"
-	UnsupportedResponseType Oauth2ErrorError = "unsupported_response_type"
-)
-
 // Defines values for Oauth2ProviderType.
 const (
 	Google    Oauth2ProviderType = "google"
@@ -213,18 +194,6 @@ type LoginRequestOptions struct {
 	// State The state string supplied by the authorization endpoint.
 	State string `json:"state"`
 }
-
-// Oauth2Error Generic error message.
-type Oauth2Error struct {
-	// Error A terse error string expanding on the HTTP error code. Errors are based on the OAuth2 specification, but are expanded with proprietary status codes for APIs other than those specified by OAuth2.
-	Error Oauth2ErrorError `json:"error"`
-
-	// ErrorDescription Verbose message describing the error.
-	ErrorDescription string `json:"error_description"`
-}
-
-// Oauth2ErrorError A terse error string expanding on the HTTP error code. Errors are based on the OAuth2 specification, but are expanded with proprietary status codes for APIs other than those specified by OAuth2.
-type Oauth2ErrorError string
 
 // Oauth2ProviderRead An OAuth2 provider when read.
 type Oauth2ProviderRead struct {
@@ -484,30 +453,15 @@ type AclResponse = Acl
 // AvailableGroupsResponse A list of IdP groups.
 type AvailableGroupsResponse = AvailableGroups
 
-// BadRequestResponse Generic error message.
-type BadRequestResponse = Oauth2Error
-
-// ConflictResponse Generic error message.
-type ConflictResponse = Oauth2Error
-
-// ForbiddenResponse Generic error message.
-type ForbiddenResponse = Oauth2Error
-
 // GroupResponse A group when read.
 type GroupResponse = GroupRead
 
 // GroupsResponse A list of groups.
 type GroupsResponse = Groups
 
-// InternalServerErrorResponse Generic error message.
-type InternalServerErrorResponse = Oauth2Error
-
 // JwksResponse JSON web key set. This data type is defined by an external 3rd party standards
 // committee. Consult the relevant documentation for further details.
 type JwksResponse = JsonWebKeySet
-
-// NotFoundResponse Generic error message.
-type NotFoundResponse = Oauth2Error
 
 // Oauth2ProvidersResponse A list of oauth2 providers.
 type Oauth2ProvidersResponse = Oauth2Providers
@@ -535,9 +489,6 @@ type SystemOauth2ProvidersResponse = Oauth2Providers
 
 // TokenResponse Oauth2 token result.
 type TokenResponse = Token
-
-// UnauthorizedResponse Generic error message.
-type UnauthorizedResponse = Oauth2Error
 
 // UserinfoResponse defines model for userinfoResponse.
 type UserinfoResponse interface{}
