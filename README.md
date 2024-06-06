@@ -193,7 +193,9 @@ clients:
   redirectURI: ${UI_OIDC_CALLBACK}
   loginURI: ${UI_LOGIN_CALLBACK} # (optional)
 providers:
-- type: google # (must be either google or microsoft)
+# Use "uuidgen -r" to select a random ID, this MUST start with a character a-f.
+- id: bec71681-8749-4816-a708-7f529d20db2e
+  type: google # (must be either google or microsoft)
   name: google-identity
   displayName: Google Identity
   issuer: https://accounts.google.com

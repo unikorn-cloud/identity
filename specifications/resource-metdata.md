@@ -17,6 +17,7 @@ This proposal aims to provide a formal specification that allows the best user e
 ## Changelog
 
 - v1.0.0 2024-05-29 (@spjmurray): Initial RFC
+- v1.0.1 2024-06-06 (@spjmurray): Update to mirror reality
 
 ## Considerations
 
@@ -93,29 +94,35 @@ components:
       - provisioned
       - deprovisioning
       - error
-    resourceReadMetadata:
+    resourceMetadata:
       type: object
       required:
-      - id
       - name
       - description
-      - creationTime
-      - status
       properties:
-     	id:
-          type: string
         name:
           type: string
         description:
           type: string
-        creationTime:
-          type: string
-          format: date-time
-        deletionTime:
-          type: string
-          format: date-time
-        provisioningStatus:
-          $ref: '#/components/schemas/resourceProvisioningStatus'
+    resourceReadMetadata:
+      allOf:
+      - $ref: '#/components/schemas/resourceMetadata'
+      - type: object
+        required:
+        - id
+        - creationTime
+        - provisioningStatus
+        properties:
+          id:
+            type: string
+          creationTime:
+            type: string
+            format: date-time
+          deletionTime:
+            type: string
+            format: date-time
+          provisioningStatus:
+            $ref: '#/components/schemas/resourceProvisioningStatus'
 ```
 
 Scoped metadata would look like the following.
@@ -129,18 +136,18 @@ components:
       - $ref: '#/components/schemas/resourceReadMetadata'
       - type: object
         required:
-        - organizationID
+        - organizationId
         properties:
-          organizationID:
+          organizationId:
             type: string
     projectScopedResourceReadMetadata:
       allOf:
       - $ref: '#/components/schemas/organizationScopedResourceReadMetadata'
       - type: object
         required:
-        - projectID
+        - projectId
         properties:
-          projectID:
+          projectId:
             type: string
 ```
 
@@ -169,15 +176,7 @@ Generic metadata should look like the following:
 components:
   schemas:
     resourceWriteMetadata:
-      type: object
-      required:
-      - name
-      - description
-      properties:
-        name:
-          type: string
-        description:
-          type: string
+      $ref: '#/components/schemas/resourceMetadata'
 ```
 
 This quite clearly makes a distinction between mutable fields that can be written by a client, and read-only fields that are controlled by the server.
