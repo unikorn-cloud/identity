@@ -233,7 +233,7 @@ metadata:
   labels:
     # This is the human readable, and mutable, name that will get displayed in clients.
     # It is expected to exist on all CRD backed resources.
-    resource.unikorn-cloud.org/name: acme.com
+    unikorn-cloud.org/name: acme.com
 ```
 
 This will provision fairly quickly, you can extract the organization's namespace via:
@@ -256,10 +256,10 @@ metadata:
   labels:
     # This is the human readable, and mutable, name that will get displayed in clients.
     # It is expected to exist on all CRD backed resources.
-    resource.unikorn-cloud.org/name: super-admins
+    unikorn-cloud.org/name: super-admins
   annotations:
     # This is a verbose description that can be added to resources.
-    resource.unikorn-cloud.org/description: Platform administrators.
+    unikorn-cloud.org/description: Platform administrators.
 spec:
   roles:
   - superAdmin
@@ -267,7 +267,7 @@ spec:
   - user@gmail.com
 ```
 
-### What Next?
+## What Next?
 
 As you've noted, objects are named based on UUIDs, therefore administration is somewhat counterintuitive, but it does allow names to be mutable.
 For ease of management we recommend installing the [UI](https://github.com/unikorn-cloud/ui)
