@@ -52,7 +52,7 @@ type Options struct {
 
 // AddFlags adds the options to the CLI flags.
 func (o *Options) AddFlags(f *pflag.FlagSet) {
-	f.StringVar(&o.Host, "identity-Host", "", "Identity endpoint URL.")
+	f.StringVar(&o.Host, "identity-host", "", "Identity endpoint URL.")
 	f.StringVar(&o.CASecretNamespace, "identity-ca-secret-namespace", "", "Identity endpoint CA certificate secret namespace.")
 	f.StringVar(&o.CASecretName, "identity-ca-secret-name", "", "Identity endpoint CA certificate secret.")
 }
