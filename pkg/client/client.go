@@ -42,19 +42,19 @@ var (
 )
 
 type Options struct {
-	// host is the identity host name.
-	host string
-	// caSecretNamespace tells us where to source the CA secret.
-	caSecretNamespace string
-	// caSecretName is the root CA secret of the identity endpoint.
-	caSecretName string
+	// Host is the identity Host name.
+	Host string
+	// CASecretNamespace tells us where to source the CA secret.
+	CASecretNamespace string
+	// CASecretName is the root CA secret of the identity endpoint.
+	CASecretName string
 }
 
 // AddFlags adds the options to the CLI flags.
 func (o *Options) AddFlags(f *pflag.FlagSet) {
-	f.StringVar(&o.host, "identity-host", "", "Identity endpoint URL.")
-	f.StringVar(&o.caSecretNamespace, "identity-ca-secret-namespace", "", "Identity endpoint CA certificate secret namespace.")
-	f.StringVar(&o.caSecretName, "identity-ca-secret-name", "", "Identity endpoint CA certificate secret.")
+	f.StringVar(&o.Host, "identity-Host", "", "Identity endpoint URL.")
+	f.StringVar(&o.CASecretNamespace, "identity-ca-secret-namespace", "", "Identity endpoint CA certificate secret namespace.")
+	f.StringVar(&o.CASecretName, "identity-ca-secret-name", "", "Identity endpoint CA certificate secret.")
 }
 
 // Client wraps up the raw OpenAPI client with things to make it useable e.g.
@@ -79,20 +79,20 @@ func New(client client.Client, namespace string, options *Options) *Client {
 
 // tlsClientConfig abstracts away private TLS CAs or self signed certificates.
 func (c *Client) tlsClientConfig(ctx context.Context) (*tls.Config, error) {
-	if c.options.caSecretName == "" {
+	if c.options.CASecretName == "" {
 		//nolint:nilnil
 		return nil, nil
 	}
 
 	namespace := c.namespace
 
-	if c.options.caSecretNamespace != "" {
-		namespace = c.options.caSecretNamespace
+	if c.options.CASecretNamespace != "" {
+		namespace = c.options.CASecretNamespace
 	}
 
 	secret := &corev1.Secret{}
 
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: c.options.caSecretName}, secret); err != nil {
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: c.options.CASecretName}, secret); err != nil {
 		return nil, err
 	}
 
@@ -155,7 +155,7 @@ func (c *Client) Client(ctx context.Context) (*openapi.ClientWithResponses, erro
 		return nil, err
 	}
 
-	client, err := openapi.NewClientWithResponses(c.options.host, openapi.WithHTTPClient(httpClient), openapi.WithRequestEditorFn(accessTokenInjector))
+	client, err := openapi.NewClientWithResponses(c.options.Host, openapi.WithHTTPClient(httpClient), openapi.WithRequestEditorFn(accessTokenInjector))
 	if err != nil {
 		return nil, err
 	}
