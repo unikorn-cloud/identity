@@ -38,6 +38,10 @@ func (*nullProvider) Scopes() []string {
 	return nil
 }
 
+func (*nullProvider) RequiresAccessToken() bool {
+	return false
+}
+
 func (*nullProvider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
 	return nil, nil
 }
