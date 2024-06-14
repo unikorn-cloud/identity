@@ -824,9 +824,15 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		ClientNonce:         state.ClientNonce,
 		OAuth2Provider:      state.OAuth2Provider,
 		IDToken:             idTokenClaims,
-		AccessToken:         tokens.AccessToken,
-		RefreshToken:        tokens.RefreshToken,
 		AccessTokenExpiry:   tokens.Expiry,
+	}
+
+	driver := providers.New(providerResource.Spec.Type)
+
+	// These can be big, see the provider comment for why.
+	if driver.RequiresAccessToken() {
+		oauth2Code.AccessToken = tokens.AccessToken
+		oauth2Code.RefreshToken = tokens.RefreshToken
 	}
 
 	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)

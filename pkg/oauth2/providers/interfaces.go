@@ -32,6 +32,15 @@ type Provider interface {
 	// to operate correctly.
 	Scopes() []string
 
+	// RequiresAccessToken defines whether the access and refresh tokens are
+	// required for operation.
+	// TODO: this is because Microsoft's tokens are massive and blow nginx's
+	// request size limit (4096).  We really need to cache these securely and
+	// internally so we don't have to pass them around.  For example hand to
+	// the client an ID and private key that can decrpyt from storage, in memory
+	// on demand.
+	RequiresAccessToken() bool
+
 	// Groups returns a list of groups the user belongs to.
 	Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error)
 }

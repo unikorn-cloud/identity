@@ -53,6 +53,10 @@ func (*Provider) Scopes() []string {
 	}
 }
 
+func (*Provider) RequiresAccessToken() bool {
+	return true
+}
+
 type Group struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
