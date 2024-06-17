@@ -19,7 +19,7 @@ spec:
         image: {{ include "unikorn.image" . }}
         args:
         - --namespace={{ .Release.Namespace }}
-        - --host=https://{{ .Values.host }}
+        - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
         {{- with $cors := .Values.cors }}
