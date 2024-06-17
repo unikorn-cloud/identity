@@ -7,7 +7,7 @@ metadata:
   labels:
     {{- include "unikorn.labels" $ | nindent 4 }}
 spec:
-  id: {{ $client.id }}
+  id: {{ include "resource.id" $client.name }}
   redirectUri: {{ $client.redirectURI }}
   {{- if $client.loginURI }}
   loginUri: {{ $client.loginURI }}

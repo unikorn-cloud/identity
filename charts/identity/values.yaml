@@ -44,8 +44,6 @@ issuer:
 # clients:
 # - # Must be a valid Kubernetes resource name.
 #   name: foo
-#   # A unique client identifier.
-#   id: f15d7ab0-7cf2-4389-b662-493c39d78d3a
 #   # A redirect URI to return control back to the client.
 #   redirectURI: http://app.acme.org
 #   # An optional, trusted, login dialog.
@@ -53,9 +51,7 @@ issuer:
 
 # A static list of registered oauth2 providers.
 # providers:
-# - # Should be a v4 UUID, that starts with a letter.
-#   id: c05a4c13-5260-427e-b465-8532c41cd11d
-#   # Must be a valid Kubernetes label name.
+# - # Must be a valid Kubernetes label name.
 #   name: google-identity
 #   # A human readable name, most often used for UIs.
 #   description: Google Identity
