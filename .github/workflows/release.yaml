@@ -39,8 +39,6 @@ jobs:
       run: |
         git config user.name "$GITHUB_ACTOR"
         git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
-    - name: Build Helm Chart
-      run: helm dependency update charts/identity
     - name: Release Helm Chart
       uses: unikorn-cloud/chart-release-action@v1
       env:
