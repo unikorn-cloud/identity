@@ -22,16 +22,11 @@ spec:
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
-        {{- with $cors := .Values.cors }}
-          {{- range $origin := $cors.allowOrigin }}
-            {{ printf "- --cors-allow-origin=%s" $origin | nindent 8 }}
-          {{- end }}
-          {{- if $cors.maxAge }}
-            {{ printf "- --cors-max-age=%s" $cors.maxAge | nindent 8 }}
-          {{- end }}
+        {{- with $cors := ( include "unikorn.cors.flags" . ) -}}
+          {{ $cors | nindent 8 }}
         {{- end }}
-        {{- if .Values.otlpEndpoint }}
-          {{ printf "- --otlp-endpoint=%s" .Values.otlpEndpoint | nindent 8 }}
+        {{- with $otlp := ( include "unikorn.otlp.flags" .) -}}
+          {{ $otlp | nindent 8 }}
         {{- end }}
         ports:
         - name: http
