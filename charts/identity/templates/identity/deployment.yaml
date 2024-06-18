@@ -22,12 +22,8 @@ spec:
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
-        {{- with $cors := ( include "unikorn.cors.flags" . ) -}}
-          {{ $cors | nindent 8 }}
-        {{- end }}
-        {{- with $otlp := ( include "unikorn.otlp.flags" .) -}}
-          {{ $otlp | nindent 8 }}
-        {{- end }}
+        {{- include "unikorn.cors.flags" . | nindent 8 }}
+        {{- include "unikorn.otlp.flags" . | nindent 8 }}
         ports:
         - name: http
           containerPort: 6080
