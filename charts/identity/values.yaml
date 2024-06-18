@@ -29,7 +29,8 @@ projectController:
 
 # Sets the DNS hosts, X.509 certificate subject alternative names and
 # oauth2 issuer etc.
-host: identity.acme.org
+identity:
+  host: identity.acme.org
 
 # Issuer related configuration.
 issuer:
@@ -92,10 +93,6 @@ roles:
 ingress:
   # Sets the ingress class to use.
   class: ~
-
-  # Cert Manager certificate issuer to use.  If not specified it will generate a
-  # self signed one.
-  issuer: ~
 
   # clusterIssuer to use.
   # This defaults to the self-signed CA defined in Unikorn core.
