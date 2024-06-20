@@ -29,10 +29,10 @@ spec:
           containerPort: 6080
         resources:
           requests:
-            cpu: "1"
+            cpu: "50m"
             memory: 50Mi
           limits:
-            cpu: "2"
+            cpu: "100m"
             memory: 100Mi
         securityContext:
           readOnlyRootFilesystem: true
