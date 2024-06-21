@@ -169,6 +169,8 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID string, r
 	required := generate(organization, request)
 
 	updated := current.DeepCopy()
+	updated.Labels = required.Labels
+	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
 	conversion.UpdateObjectMetadata(updated, required)

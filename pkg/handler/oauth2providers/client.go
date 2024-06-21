@@ -174,6 +174,8 @@ func (c *Client) Update(ctx context.Context, organizationID, providerID string, 
 	required := c.generate(organization, request)
 
 	updated := current.DeepCopy()
+	updated.Labels = required.Labels
+	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
 	conversion.UpdateObjectMetadata(updated, required)
