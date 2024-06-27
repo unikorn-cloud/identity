@@ -21,6 +21,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -122,9 +123,11 @@ func (c *Client) Get(ctx context.Context, organizationID, groupID string) (*open
 	return convert(result), nil
 }
 
-func generate(organization *organizations.Meta, in *openapi.GroupWrite) *unikornv1.Group {
+func generate(ctx context.Context, organization *organizations.Meta, in *openapi.GroupWrite) *unikornv1.Group {
+	userinfo := userinfo.FromContext(ctx)
+
 	out := &unikornv1.Group{
-		ObjectMeta: conversion.OrganizationScopedObjectMetadata(&in.Metadata, organization.Namespace, organization.ID),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).WithUser(userinfo.Subject).Get(),
 		Spec: unikornv1.GroupSpec{
 			Roles: in.Spec.Roles,
 		},
@@ -147,7 +150,7 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	resource := generate(organization, request)
+	resource := generate(ctx, organization, request)
 
 	if err := c.client.Create(ctx, resource); err != nil {
 		if kerrors.IsAlreadyExists(err) {
@@ -171,7 +174,7 @@ func (c *Client) Update(ctx context.Context, organizationID, groupID string, req
 		return err
 	}
 
-	required := generate(organization, request)
+	required := generate(ctx, organization, request)
 
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels

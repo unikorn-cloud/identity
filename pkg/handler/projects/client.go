@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -122,16 +123,18 @@ func (c *Client) Get(ctx context.Context, organizationID, projectID string) (*op
 	return convert(result), nil
 }
 
-func generate(organization *organizations.Meta, request *openapi.ProjectWrite) *unikornv1.Project {
-	resource := &unikornv1.Project{
-		ObjectMeta: conversion.OrganizationScopedObjectMetadata(&request.Metadata, organization.Namespace, organization.ID),
+func generate(ctx context.Context, organization *organizations.Meta, in *openapi.ProjectWrite) *unikornv1.Project {
+	userinfo := userinfo.FromContext(ctx)
+
+	out := &unikornv1.Project{
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).WithUser(userinfo.Subject).Get(),
 	}
 
-	if request.Spec.GroupIDs != nil {
-		resource.Spec.GroupIDs = *request.Spec.GroupIDs
+	if in.Spec.GroupIDs != nil {
+		out.Spec.GroupIDs = *in.Spec.GroupIDs
 	}
 
-	return resource
+	return out
 }
 
 // Create creates the implicit project indentified by the JTW claims.
@@ -141,7 +144,7 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	resource := generate(organization, request)
+	resource := generate(ctx, organization, request)
 
 	if err := c.client.Create(ctx, resource); err != nil {
 		// TODO: we can do a cached lookup to save the API traffic.
@@ -166,7 +169,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID string, r
 		return err
 	}
 
-	required := generate(organization, request)
+	required := generate(ctx, organization, request)
 
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
