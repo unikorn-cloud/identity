@@ -184,9 +184,11 @@ func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.Organ
 	return convert(result), nil
 }
 
-func (c *Client) generate(in *openapi.OrganizationWrite) *unikornv1.Organization {
+func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) *unikornv1.Organization {
+	userinfo := userinfo.FromContext(ctx)
+
 	out := &unikornv1.Organization{
-		ObjectMeta: conversion.ObjectMetadata(&in.Metadata, c.namespace),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace).WithUser(userinfo.Subject).Get(),
 	}
 
 	if in.Spec.OrganizationType == openapi.Domain {
@@ -214,7 +216,7 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	required := c.generate(request)
+	required := c.generate(ctx, request)
 
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels

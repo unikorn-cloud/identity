@@ -128,9 +128,11 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Oauth
 	return convertList(nil, result), nil
 }
 
-func (c *Client) generate(organization *organizations.Meta, in *openapi.Oauth2ProviderWrite) *unikornv1.OAuth2Provider {
+func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.Oauth2ProviderWrite) *unikornv1.OAuth2Provider {
+	userinfo := userinfo.FromContext(ctx)
+
 	out := &unikornv1.OAuth2Provider{
-		ObjectMeta: conversion.OrganizationScopedObjectMetadata(&in.Metadata, organization.Namespace, organization.ID),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).WithUser(userinfo.Subject).Get(),
 		Spec: unikornv1.OAuth2ProviderSpec{
 			Issuer:       in.Spec.Issuer,
 			ClientID:     in.Spec.ClientID,
@@ -147,7 +149,7 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	resource := c.generate(organization, request)
+	resource := c.generate(ctx, organization, request)
 
 	if err := c.client.Create(ctx, resource); err != nil {
 		if kerrors.IsAlreadyExists(err) {
@@ -171,7 +173,7 @@ func (c *Client) Update(ctx context.Context, organizationID, providerID string, 
 		return err
 	}
 
-	required := c.generate(organization, request)
+	required := c.generate(ctx, organization, request)
 
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
