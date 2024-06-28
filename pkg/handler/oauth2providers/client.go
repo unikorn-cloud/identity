@@ -67,14 +67,16 @@ func (c *Client) get(ctx context.Context, organization *organizations.Meta, prov
 }
 
 func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider) *openapi.Oauth2ProviderRead {
-	t := openapi.Oauth2ProviderType(*in.Spec.Type)
-
 	out := &openapi.Oauth2ProviderRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.Oauth2ProviderSpec{
-			Type:     &t,
 			ClientID: in.Spec.ClientID,
 		},
+	}
+
+	if in.Spec.Type != nil {
+		t := openapi.Oauth2ProviderType(*in.Spec.Type)
+		out.Spec.Type = &t
 	}
 
 	// Only show sensitive details for organizations you are an admin of.
