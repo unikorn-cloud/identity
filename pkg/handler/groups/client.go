@@ -21,7 +21,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -124,10 +123,8 @@ func (c *Client) Get(ctx context.Context, organizationID, groupID string) (*open
 }
 
 func generate(ctx context.Context, organization *organizations.Meta, in *openapi.GroupWrite) *unikornv1.Group {
-	userinfo := userinfo.FromContext(ctx)
-
 	out := &unikornv1.Group{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).WithUser(userinfo.Subject).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
 		Spec: unikornv1.GroupSpec{
 			Roles: in.Spec.Roles,
 		},

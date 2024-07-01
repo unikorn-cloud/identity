@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -124,10 +123,8 @@ func (c *Client) Get(ctx context.Context, organizationID, projectID string) (*op
 }
 
 func generate(ctx context.Context, organization *organizations.Meta, in *openapi.ProjectWrite) *unikornv1.Project {
-	userinfo := userinfo.FromContext(ctx)
-
 	out := &unikornv1.Project{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).WithUser(userinfo.Subject).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
 	}
 
 	if in.Spec.GroupIDs != nil {

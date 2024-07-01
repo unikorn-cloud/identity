@@ -131,10 +131,8 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Oauth
 }
 
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.Oauth2ProviderWrite) *unikornv1.OAuth2Provider {
-	userinfo := userinfo.FromContext(ctx)
-
 	out := &unikornv1.OAuth2Provider{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).WithUser(userinfo.Subject).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
 		Spec: unikornv1.OAuth2ProviderSpec{
 			Issuer:       in.Spec.Issuer,
 			ClientID:     in.Spec.ClientID,
