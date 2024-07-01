@@ -185,10 +185,8 @@ func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.Organ
 }
 
 func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) *unikornv1.Organization {
-	userinfo := userinfo.FromContext(ctx)
-
 	out := &unikornv1.Organization{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace).WithUser(userinfo.Subject).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace).Get(ctx),
 	}
 
 	if in.Spec.OrganizationType == openapi.Domain {
