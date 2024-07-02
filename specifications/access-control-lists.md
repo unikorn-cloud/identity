@@ -28,7 +28,7 @@ These are based on CRUD and define the operation type that is allowed as follows
 These scope types can be combined into arbitrary sets to facilitate a business function for example:
 
 * **R** means you can discover and use resources but cannot make any modifications, e.g. an auditor or infrastructure consumer.
-* **RU** means you can discover and us resources, and can make modification, but cannot create or delete, e.g. an operator who requires permission to create new OPEX costs, and isn't allowed to delete mission critical infrastructure.
+* **RU** means you can discover and use resources, and can make modification, but cannot create or delete, e.g. an operator who requires permission to create new OPEX costs, and isn't allowed to delete mission critical infrastructure.
 
 ### Operation Resources
 
