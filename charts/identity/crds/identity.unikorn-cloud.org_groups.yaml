@@ -55,8 +55,8 @@ spec:
                 items:
                   type: string
                 type: array
-              roles:
-                description: Roles are a list of roles users of the group inherit.
+              roleIDs:
+                description: RoleIDs are a list of roles users of the group inherit.
                 items:
                   type: string
                 type: array

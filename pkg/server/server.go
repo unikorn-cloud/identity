@@ -29,14 +29,15 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/trace"
 
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/cors"
-	openapimiddleware "github.com/unikorn-cloud/core/pkg/server/middleware/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/opentelemetry"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/timeout"
 	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/constants"
 	"github.com/unikorn-cloud/identity/pkg/handler"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+	openapimiddleware "github.com/unikorn-cloud/identity/pkg/middleware/openapi"
 	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/local"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
@@ -117,7 +118,7 @@ func (s *Server) SetupOpenTelemetry(ctx context.Context) error {
 }
 
 func (s *Server) GetServer(client client.Client) (*http.Server, error) {
-	schema, err := openapimiddleware.NewSchema(openapi.GetSwagger)
+	schema, err := coreapi.NewSchema(openapi.GetSwagger)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 	authenticator := authorization.NewAuthenticator(issuer, oauth2)
 
 	// Setup middleware.
-	authorizer := local.NewAuthorizer(oauth2)
+	authorizer := local.NewAuthorizer(oauth2, rbac)
 
 	// Middleware specified here is applied to all requests post-routing.
 	// NOTE: these are applied in reverse order!!
@@ -153,7 +154,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		},
 	}
 
-	handlerInterface, err := handler.New(client, s.Options.Namespace, authenticator, &s.HandlerOptions)
+	handlerInterface, err := handler.New(client, s.Options.Namespace, authenticator, rbac, &s.HandlerOptions)
 	if err != nil {
 		return nil, err
 	}

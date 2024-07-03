@@ -188,19 +188,16 @@ ingress:
   clusterIssuer: letsencrypt-production
   externalDns: true
 clients:
-- name: unikorn-ui
-  id: ${UI_CLIENT_ID}
-  redirectURI: ${UI_OIDC_CALLBACK}
-  loginURI: ${UI_LOGIN_CALLBACK} # (optional)
+  unikorn-ui:
+    redirectURI: ${UI_OIDC_CALLBACK}
+    loginURI: ${UI_LOGIN_CALLBACK} # (optional)
 providers:
-# Use "uuidgen -r" to select a random ID, this MUST start with a character a-f.
-- id: bec71681-8749-4816-a708-7f529d20db2e
-  type: google # (must be either google or microsoft)
-  name: google-identity
-  displayName: Google Identity
-  issuer: https://accounts.google.com
-  clientID: <string> # provided by the identity provider, see above
-  clientSecret: <string> # provider by the identity provider, see above
+  google-identity:
+    description: Google Identity
+    type: google # (must be either google or microsoft)
+    issuer: https://accounts.google.com
+    clientID: <string> # provided by the identity provider, see above
+    clientSecret: <string> # provider by the identity provider, see above
 ```
 
 Install the Helm repository:
@@ -244,6 +241,17 @@ NAMESPACE          NAME                                   DISPLAY NAME   NAMESPA
 unikorn-identity   bec71681-8749-4816-a708-7f529d20db2e   acme.com       organization-kmvxk   Provisioned   17s
 ```
 
+Now get the defined roles:
+
+```
+$ kubectl get roles.identity.unikorn-cloud.org -A
+NAMESPACE          NAME                                   DISPLAY NAME            AGE
+unikorn-identity   f3c62fd6-103f-4acb-851d-5864e5d0e708   platform-adminstrator   25h
+unikorn-identity   f4f8996d-a763-47a9-89b1-028ee3007569   user                    25h
+unikorn-identity   fa5d6000-6acd-4303-83c6-a9593ebff251   adminstrator            25h
+unikorn-identity   fd094196-4aa3-4bdc-800c-cef58b1bb399   reader                  25h
+```
+
 Next create a group in that organization associated with a user:
 
 ```yaml
@@ -261,8 +269,8 @@ metadata:
     # This is a verbose description that can be added to resources.
     unikorn-cloud.org/description: Platform administrators.
 spec:
-  roles:
-  - superAdmin
+  roleIDs:
+  - f3c62fd6-103f-4acb-851d-5864e5d0e708
   users:
   - user@gmail.com
 ```

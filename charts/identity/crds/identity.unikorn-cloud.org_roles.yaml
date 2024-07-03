@@ -17,6 +17,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
+      name: display name
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: age
       type: date
@@ -53,41 +56,103 @@ spec:
           spec:
             description: RoleSpec defines the role's requested state.
             properties:
-              isDefault:
+              protected:
                 description: |-
-                  IsDefault indicates that all authenticated users are granted
-                  the following scopes regardless of organizational group membership
-                  and typically are required for organization discovery and RBAC functionality
-                  in the first instance.
+                  Protected means the role will only be shown to users if they already
+                  have it in the scope of the organization.
                 type: boolean
               scopes:
                 description: Scopes are a list of uniquely named scopes for the role.
-                items:
-                  properties:
-                    name:
-                      description: |-
-                        Name is a unique name that applies to the scope.  Individual APIs should
-                        coordinate with one another to avoid clashes and privilege escallation.
-                      type: string
-                    permissions:
-                      description: Permissions defines a set of CRUD permissions for
-                        the scope.
-                      items:
-                        enum:
-                        - create
-                        - read
-                        - update
-                        - delete
-                        type: string
-                      type: array
-                      x-kubernetes-list-type: set
-                  required:
-                  - name
-                  type: object
-                type: array
-                x-kubernetes-list-map-keys:
-                - name
-                x-kubernetes-list-type: map
+                properties:
+                  global:
+                    description: Global grants access to any resource anywhere.
+                    items:
+                      properties:
+                        name:
+                          description: |-
+                            Name is a unique name that applies to the scope.  Individual APIs should
+                            coordinate with one another to avoid clashes and privilege escallation.
+                          type: string
+                        operations:
+                          description: Operations defines a set of CRUD permissions
+                            for the scope.
+                          items:
+                            enum:
+                            - create
+                            - read
+                            - update
+                            - delete
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  organization:
+                    description: |-
+                      Organization grants access to the user across the organization and
+                      implicitly any project in the organization.
+                    items:
+                      properties:
+                        name:
+                          description: |-
+                            Name is a unique name that applies to the scope.  Individual APIs should
+                            coordinate with one another to avoid clashes and privilege escallation.
+                          type: string
+                        operations:
+                          description: Operations defines a set of CRUD permissions
+                            for the scope.
+                          items:
+                            enum:
+                            - create
+                            - read
+                            - update
+                            - delete
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  project:
+                    description: |-
+                      Project grants access to the user for projects linked to groups
+                      that contain them.
+                    items:
+                      properties:
+                        name:
+                          description: |-
+                            Name is a unique name that applies to the scope.  Individual APIs should
+                            coordinate with one another to avoid clashes and privilege escallation.
+                          type: string
+                        operations:
+                          description: Operations defines a set of CRUD permissions
+                            for the scope.
+                          items:
+                            enum:
+                            - create
+                            - read
+                            - update
+                            - delete
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                type: object
             type: object
           status:
             description: RoleStatus defines any role status information.

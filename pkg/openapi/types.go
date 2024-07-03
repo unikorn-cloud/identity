@@ -15,6 +15,14 @@ const (
 	Oauth2AuthenticationScopes = "oauth2Authentication.Scopes"
 )
 
+// Defines values for AclOperation.
+const (
+	Create AclOperation = "create"
+	Delete AclOperation = "delete"
+	Read   AclOperation = "read"
+	Update AclOperation = "update"
+)
+
 // Defines values for AuthMethod.
 const (
 	ClientSecretBasic AuthMethod = "client_secret_basic"
@@ -93,27 +101,45 @@ const (
 
 // Acl A list of access control scopes and permissions.
 type Acl struct {
-	// IsSuperAdmin Indicates the user can do all the things.
-	IsSuperAdmin *bool `json:"isSuperAdmin,omitempty"`
+	// Global A list of access control scopes.
+	Global *AclEndpoints `json:"global,omitempty"`
 
-	// Scopes A list of access control scopes.
-	Scopes *AclScopes `json:"scopes,omitempty"`
+	// Organization Resource scoped endpoint permissions.
+	Organization *AclScopedEndpoints `json:"organization,omitempty"`
+
+	// Projects A list of resource scoped endpoint permissions.
+	Projects *AclScopedEndpointsList `json:"projects,omitempty"`
 }
 
-// AclPermissions A list of access control permissions.
-type AclPermissions = []string
-
-// AclScope An access control scope.
-type AclScope struct {
-	// Name The scope name
+// AclEndpoint A set of access control permissions for a resource type.
+type AclEndpoint struct {
+	// Name The resource name
 	Name string `json:"name"`
 
-	// Permissions A list of access control permissions.
-	Permissions AclPermissions `json:"permissions"`
+	// Operations A list of access control operations.
+	Operations AclOperations `json:"operations"`
 }
 
-// AclScopes A list of access control scopes.
-type AclScopes = []AclScope
+// AclEndpoints A list of access control scopes.
+type AclEndpoints = []AclEndpoint
+
+// AclOperation An access control operation.
+type AclOperation string
+
+// AclOperations A list of access control operations.
+type AclOperations = []AclOperation
+
+// AclScopedEndpoints Resource scoped endpoint permissions.
+type AclScopedEndpoints struct {
+	// Endpoints A list of access control scopes.
+	Endpoints AclEndpoints `json:"endpoints"`
+
+	// Id The resource ID this scope applies to.
+	Id string `json:"id"`
+}
+
+// AclScopedEndpointsList A list of resource scoped endpoint permissions.
+type AclScopedEndpointsList = []AclScopedEndpoints
 
 // AuthMethod Supported authentication methods.
 type AuthMethod string
@@ -155,11 +181,11 @@ type GroupSpec struct {
 	// ProviderGroups A list of provider groups.
 	ProviderGroups *ProviderGroupList `json:"providerGroups,omitempty"`
 
-	// Roles A list of roles.
-	Roles RoleList `json:"roles"`
+	// RoleIDs A list of strings.
+	RoleIDs StringList `json:"roleIDs"`
 
-	// Users A list of users.
-	Users *UserList `json:"users,omitempty"`
+	// Users A list of strings.
+	Users *StringList `json:"users,omitempty"`
 }
 
 // GroupWrite A group when created or updated.
@@ -367,14 +393,23 @@ type ProviderScope string
 // ResponseType Supported response types.
 type ResponseType string
 
-// RoleList A list of roles.
-type RoleList = []string
+// RoleRead A role.
+type RoleRead struct {
+	// Metadata Resource metadata valid for all reads.
+	Metadata externalRef0.ResourceReadMetadata `json:"metadata"`
+}
+
+// Roles A list of roles.
+type Roles = []RoleRead
 
 // Scope Supported scopes.
 type Scope string
 
 // SigningAlgorithm Supported signing algorithms.
 type SigningAlgorithm string
+
+// StringList A list of strings.
+type StringList = []string
 
 // Token Oauth2 token result.
 type Token struct {
@@ -432,8 +467,29 @@ type TokenRequestOptions1 struct {
 	GrantType *interface{} `json:"grant_type,omitempty"`
 }
 
-// UserList A list of users.
-type UserList = []string
+// Userinfo Access token introspection data.
+type Userinfo struct {
+	// Aud The intended token audience.
+	Aud *string `json:"aud,omitempty"`
+
+	// Exp The token expiry time.
+	Exp *int `json:"exp,omitempty"`
+
+	// Iat When the token was issued.
+	Iat *int `json:"iat,omitempty"`
+
+	// Iss The token issuer.
+	Iss *string `json:"iss,omitempty"`
+
+	// Jti The token ID.
+	Jti *string `json:"jti,omitempty"`
+
+	// Nbf The token start time.
+	Nbf *int `json:"nbf,omitempty"`
+
+	// Sub The access token's subject.
+	Sub string `json:"sub"`
+}
 
 // GroupidParameter defines model for groupidParameter.
 type GroupidParameter = string
@@ -482,7 +538,7 @@ type ProjectResponse = ProjectRead
 type ProjectsResponse = Projects
 
 // RolesResponse A list of roles.
-type RolesResponse = RoleList
+type RolesResponse = Roles
 
 // SystemOauth2ProvidersResponse A list of oauth2 providers.
 type SystemOauth2ProvidersResponse = Oauth2Providers
@@ -490,14 +546,11 @@ type SystemOauth2ProvidersResponse = Oauth2Providers
 // TokenResponse Oauth2 token result.
 type TokenResponse = Token
 
-// UserinfoResponse defines model for userinfoResponse.
-type UserinfoResponse interface{}
+// UserinfoResponse Access token introspection data.
+type UserinfoResponse = Userinfo
 
 // CreateGroupRequest A group when created or updated.
 type CreateGroupRequest = GroupWrite
-
-// CreateOrganizationRequest An organization when created or updated.
-type CreateOrganizationRequest = OrganizationWrite
 
 // CreateProjectRequest A project when created or updated.
 type CreateProjectRequest = ProjectWrite
@@ -513,9 +566,6 @@ type UpdateOrganizationRequest = OrganizationWrite
 
 // UpdateProjectRequest A project when created or updated.
 type UpdateProjectRequest = ProjectWrite
-
-// PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
-type PostApiV1OrganizationsJSONRequestBody = OrganizationWrite
 
 // PutApiV1OrganizationsOrganizationIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDJSONRequestBody = OrganizationWrite

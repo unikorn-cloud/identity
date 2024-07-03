@@ -1,17 +1,19 @@
-{{ range $provider := .Values.providers }}
+{{ range $name, $spec := .Values.providers }}
 ---
 apiVersion: identity.unikorn-cloud.org/v1alpha1
 kind: OAuth2Provider
 metadata:
-  name: {{ include "resource.id" $provider.name }}
+  name: {{ include "resource.id" $name }}
   labels:
     {{- include "unikorn.labels" $ | nindent 4 }}
-    unikorn-cloud.org/name: {{ $provider.name }}
+    unikorn-cloud.org/name: {{ $name }}
+  {{- if $spec.description }}
   annotations:
-    unikorn-cloud.org/description: {{ $provider.description }}
+    unikorn-cloud.org/description: {{ $spec.description }}
+  {{- end }}
 spec:
-  type: {{ $provider.type }}
-  issuer: {{ $provider.issuer }}
-  clientID: {{ $provider.clientID }}
-  clientSecret: {{ $provider.clientSecret }}
+  type: {{ $spec.type }}
+  issuer: {{ $spec.issuer }}
+  clientID: {{ $spec.clientID }}
+  clientSecret: {{ $spec.clientSecret }}
 {{- end }}

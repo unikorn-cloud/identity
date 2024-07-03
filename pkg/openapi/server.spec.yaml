@@ -151,24 +151,6 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-    post:
-      description: |-
-        Allows creation of an organization.
-      security:
-      - oauth2Authentication: []
-      requestBody:
-        $ref: '#/components/requestBodies/createOrganizationRequest'
-      responses:
-        '201':
-          description: The organization was successfully created.
-        '401':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
-        '403':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
-        '409':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
-        '500':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -810,6 +792,33 @@ components:
         expires_in:
           description: The time in seconds the token will last for.
           type: integer
+    userinfo:
+      description: Access token introspection data.
+      type: object
+      required:
+      - sub
+      properties:
+        iss:
+          description: The token issuer.
+          type: string
+        sub:
+          description: The access token's subject.
+          type: string
+        aud:
+          description: The intended token audience.
+          type: string
+        exp:
+          description: The token expiry time.
+          type: integer
+        nbf:
+          description: The token start time.
+          type: integer
+        iat:
+          description: When the token was issued.
+          type: integer
+        jti:
+          description: The token ID.
+          type: string
     jsonWebKeySet:
       description: |-
         JSON web key set. This data type is defined by an external 3rd party standards
@@ -970,55 +979,82 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/organizationRead'
-    aclPermissions:
-      description: A list of access control permissions.
+    aclOperation:
+      description: An access control operation.
+      type: string
+      enum:
+      - create
+      - read
+      - update
+      - delete
+    aclOperations:
+      description: A list of access control operations.
       type: array
       items:
-        description: An access control permission.
-        type: string
-        enum:
-        - create
-        - read
-        - update
-        - delete
-    aclScope:
-      description: An access control scope.
+        $ref: '#/components/schemas/aclOperation'
+    aclEndpoint:
+      description: A set of access control permissions for a resource type.
       type: object
       required:
       - name
-      - permissions
+      - operations
       properties:
         name:
-          description: The scope name
+          description: The resource name
           type: string
-        permissions:
-          $ref: '#/components/schemas/aclPermissions'
-    aclScopes:
+        operations:
+          $ref: '#/components/schemas/aclOperations'
+    aclEndpoints:
       description: A list of access control scopes.
       type: array
       items:
-        $ref: '#/components/schemas/aclScope'
+        $ref: '#/components/schemas/aclEndpoint'
+    aclScopedEndpoints:
+      description: Resource scoped endpoint permissions.
+      type: object
+      required:
+      - id
+      - endpoints
+      properties:
+        id:
+          description: The resource ID this scope applies to.
+          type: string
+        endpoints:
+          $ref: '#/components/schemas/aclEndpoints'
+    aclScopedEndpointsList:
+      description: A list of resource scoped endpoint permissions.
+      type: array
+      items:
+        $ref: '#/components/schemas/aclScopedEndpoints'
     acl:
       description: A list of access control scopes and permissions.
       type: object
       properties:
-        isSuperAdmin:
-          description: Indicates the user can do all the things.
-          type: boolean
-        scopes:
-          $ref: '#/components/schemas/aclScopes'
-    userList:
-      description: A list of users.
+        global:
+          $ref: '#/components/schemas/aclEndpoints'
+        organization:
+          $ref: '#/components/schemas/aclScopedEndpoints'
+        projects:
+          $ref: '#/components/schemas/aclScopedEndpointsList'
+    stringList:
+      description: A list of strings.
       type: array
       items:
-        description: A canonical user name (e.g email address).
+        description: An arbitrary string.
         type: string
-    roleList:
+    roleRead:
+      description: A role.
+      type: object
+      required:
+      - metadata
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceReadMetadata'
+    roles:
       description: A list of roles.
       type: array
       items:
-        description: A role name.
-        type: string
+        $ref: '#/components/schemas/roleRead'
     availableGroup:
       description: An IdP group
       type: object
@@ -1046,12 +1082,12 @@ components:
       description: A group.
       type: object
       required:
-      - roles
+      - roleIDs
       properties:
         users:
-          $ref: '#/components/schemas/userList'
-        roles:
-          $ref: '#/components/schemas/roleList'
+          $ref: '#/components/schemas/stringList'
+        roleIDs:
+          $ref: '#/components/schemas/stringList'
         providerGroups:
           $ref: '#/components/schemas/providerGroupList'
     groupRead:
@@ -1242,7 +1278,15 @@ components:
       description: |-
         Information about the user from the access token.
       content:
-        application/json: {}
+        application/json:
+          schema:
+            $ref: '#/components/schemas/userinfo'
+          example:
+            iss: https://identity.unikorn-cloud.org
+            sub: joe.bloggs@acme.com
+            aud: https://identity.unikorn-cloud.org
+            exp: 1311281970
+            iat: 1311280970
     jwksResponse:
       description: |-
         A JSON web key set. This is a set of named public keys that are referenced by JSON
@@ -1337,22 +1381,35 @@ components:
           schema:
             $ref: '#/components/schemas/acl'
           example:
-            isSuperAdmin: false
-            scopes:
-            - name: organizations
-              permissions:
-              - read
+            organization:
+              id: adb2e414-1aef-4589-b933-ad0613d2d78f
+              endpoints:
+              - name: groups
+                operations:
+                - create
+                - read
+                - update
+                - delete
+            project:
+            - id: a866ea05-2655-41bc-8135-d99b62ed4be6
+              endpoints:
+              - name: infrastructure
+                operations:
+                - create
     rolesResponse:
       description: |-
         A set of roles within the organization.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/roleList'
+            $ref: '#/components/schemas/roles'
           example:
-          - admin
-          - user
-          - reader
+          - metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: platform-admins
+              description: Platform administrators.
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
     availableGroupsResponse:
       description: |-
         A provider group in the organization.
@@ -1380,8 +1437,8 @@ components:
             spec:
               users:
               - face@a-team.com
-              roles:
-              - admin
+              roleIDs:
+              - d4600d6e-e965-4b44-a808-84fb2fa36702
     groupsResponse:
       description: |-
         A list of groups for the organization.
@@ -1399,8 +1456,8 @@ components:
             spec:
               users:
               - face@a-team.com
-              roles:
-              - admin
+              roleIDs:
+              - d4600d6e-e965-4b44-a808-84fb2fa36702
     projectsResponse:
       description: A list of projects.
       content:

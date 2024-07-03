@@ -24,9 +24,6 @@ type ServerInterface interface {
 	// (GET /api/v1/organizations)
 	GetApiV1Organizations(w http.ResponseWriter, r *http.Request)
 
-	// (POST /api/v1/organizations)
-	PostApiV1Organizations(w http.ResponseWriter, r *http.Request)
-
 	// (GET /api/v1/organizations/{organizationID})
 	GetApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
 
@@ -119,11 +116,6 @@ func (_ Unimplemented) GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Re
 
 // (GET /api/v1/organizations)
 func (_ Unimplemented) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (POST /api/v1/organizations)
-func (_ Unimplemented) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -301,23 +293,6 @@ func (siw *ServerInterfaceWrapper) GetApiV1Organizations(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetApiV1Organizations(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r.WithContext(ctx))
-}
-
-// PostApiV1Organizations operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1Organizations(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1144,9 +1119,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations", wrapper.GetApiV1Organizations)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/organizations", wrapper.PostApiV1Organizations)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}", wrapper.GetApiV1OrganizationsOrganizationID)

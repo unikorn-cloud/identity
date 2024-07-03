@@ -33,8 +33,9 @@ import (
 
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	"github.com/unikorn-cloud/core/pkg/server/middleware/openapi"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
+	"github.com/unikorn-cloud/identity/pkg/middleware/openapi"
+	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -225,13 +226,13 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 		return "", nil, err
 	}
 
-	uiInternal := &userinfo.UserInfo{}
+	claims := &userinfo.UserInfo{}
 
-	if err := ui.Claims(uiInternal); err != nil {
+	if err := ui.Claims(claims); err != nil {
 		return "", nil, errors.OAuth2ServerError("failed to extrac user information").WithError(err)
 	}
 
-	return rawToken, uiInternal, nil
+	return rawToken, claims, nil
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
@@ -241,4 +242,24 @@ func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInpu
 	}
 
 	return "", nil, errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
+}
+
+// GetACL retrieves access control information from the subject identified
+// by the Authorize call.
+func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string) (*identityapi.Acl, error) {
+	client, err := identityclient.New(a.client, a.namespace, a.options).Client(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to create identity client").WithError(err)
+	}
+
+	response, err := client.GetApiV1OrganizationsOrganizationIDAclWithResponse(ctx, organizationID)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to perform ACL get call").WithError(err)
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		return nil, errors.OAuth2ServerError("ACL get call didn't succeed")
+	}
+
+	return response.JSON200, nil
 }

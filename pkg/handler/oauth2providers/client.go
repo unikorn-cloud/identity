@@ -21,8 +21,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -48,10 +46,6 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func showDetails(permissions *rbac.Permissions) bool {
-	return permissions != nil && permissions.IsSuperAdmin
-}
-
 func (c *Client) get(ctx context.Context, organization *organizations.Meta, providerID string) (*unikornv1.OAuth2Provider, error) {
 	result := &unikornv1.OAuth2Provider{}
 
@@ -66,7 +60,7 @@ func (c *Client) get(ctx context.Context, organization *organizations.Meta, prov
 	return result, nil
 }
 
-func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider) *openapi.Oauth2ProviderRead {
+func convert(in *unikornv1.OAuth2Provider) *openapi.Oauth2ProviderRead {
 	out := &openapi.Oauth2ProviderRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.Oauth2ProviderSpec{
@@ -79,15 +73,17 @@ func convert(permissions *rbac.Permissions, in *unikornv1.OAuth2Provider) *opena
 		out.Spec.Type = &t
 	}
 
-	// Only show sensitive details for organizations you are an admin of.
-	if showDetails(permissions) {
-		out.Spec.ClientSecret = in.Spec.ClientSecret
-	}
+	/*
+		// Only show sensitive details for organizations you are an admin of.
+		if showDetails(permissions) {
+			out.Spec.ClientSecret = in.Spec.ClientSecret
+		}
+	*/
 
 	return out
 }
 
-func convertList(permissions *rbac.Permissions, in *unikornv1.OAuth2ProviderList) openapi.Oauth2Providers {
+func convertList(in *unikornv1.OAuth2ProviderList) openapi.Oauth2Providers {
 	slices.SortStableFunc(in.Items, func(a, b unikornv1.OAuth2Provider) int {
 		return strings.Compare(a.Name, b.Name)
 	})
@@ -95,7 +91,7 @@ func convertList(permissions *rbac.Permissions, in *unikornv1.OAuth2ProviderList
 	out := make(openapi.Oauth2Providers, len(in.Items))
 
 	for i := range in.Items {
-		out[i] = *convert(permissions, &in.Items[i])
+		out[i] = *convert(&in.Items[i])
 	}
 
 	return out
@@ -112,7 +108,7 @@ func (c *Client) ListGlobal(ctx context.Context) (openapi.Oauth2Providers, error
 		return nil, err
 	}
 
-	return convertList(userinfo.FromContext(ctx).RBAC, &result), nil
+	return convertList(&result), nil
 }
 
 func (c *Client) List(ctx context.Context, organizationID string) (openapi.Oauth2Providers, error) {
@@ -127,7 +123,7 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Oauth
 		return nil, errors.OAuth2ServerError("failed to get organization oauth2 provider").WithError(err)
 	}
 
-	return convertList(nil, result), nil
+	return convertList(result), nil
 }
 
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.Oauth2ProviderWrite) *unikornv1.OAuth2Provider {

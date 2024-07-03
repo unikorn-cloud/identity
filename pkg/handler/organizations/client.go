@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
@@ -30,6 +29,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
@@ -129,23 +129,8 @@ func convertList(in *unikornv1.OrganizationList) openapi.Organizations {
 	return out
 }
 
-func hasAccess(permissions *rbac.Permissions, organizationID string) bool {
-	if permissions.IsSuperAdmin {
-		return true
-	}
-
-	for _, organization := range permissions.Organizations {
-		if organization.Name == organizationID {
-			return true
-		}
-	}
-
-	return false
-}
-
 // get returns the implicit organization identified by the JWT claims.
 func (c *Client) get(ctx context.Context, organizationID string) (*unikornv1.Organization, error) {
-	// TODO: hasAccess()
 	result := &unikornv1.Organization{}
 
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationID}, result); err != nil {
@@ -159,18 +144,35 @@ func (c *Client) get(ctx context.Context, organizationID string) (*unikornv1.Org
 	return result, nil
 }
 
-func (c *Client) List(ctx context.Context) (openapi.Organizations, error) {
+func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organizations, error) {
+	// This is the only special case in the system.  When requesting organizations we
+	// will have an unscoped ACL, so can check for global access to all organizations.
+	// If we don't have that then we need to use RBAC to get a list of organizations we are
+	// members of and return only them.
+	if err := rbac.AllowGlobalScope(ctx, "organizations", openapi.Read); err != nil {
+		userinfo := userinfo.FromContext(ctx)
+
+		memberships, err := rbacClient.GetOrganizationMemberships(ctx, userinfo.Subject)
+		if err != nil {
+			return nil, err
+		}
+
+		result := unikornv1.OrganizationList{
+			Items: make([]unikornv1.Organization, len(memberships)),
+		}
+
+		for i := range memberships {
+			result.Items[i] = *memberships[i].Organization
+		}
+
+		return convertList(&result), nil
+	}
+
 	var result unikornv1.OrganizationList
 
 	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
 		return nil, err
 	}
-
-	userinfo := userinfo.FromContext(ctx)
-
-	result.Items = slices.DeleteFunc(result.Items, func(item unikornv1.Organization) bool {
-		return !hasAccess(userinfo.RBAC, item.Name)
-	})
 
 	return convertList(&result), nil
 }

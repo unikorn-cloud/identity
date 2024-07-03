@@ -244,7 +244,7 @@ func (a *Authenticator) lookupClient(w http.ResponseWriter, r *http.Request, cli
 	}
 
 	for i := range clients.Items {
-		if clients.Items[i].Spec.ID == clientID {
+		if clients.Items[i].Name == clientID {
 			return &clients.Items[i], true
 		}
 	}

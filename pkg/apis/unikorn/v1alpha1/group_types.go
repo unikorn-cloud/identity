@@ -49,8 +49,8 @@ type GroupSpec struct {
 	ProviderGroupNames []string `json:"providerGroupNames,omitempty"`
 	// Users are a list of user names that are members of the group.
 	Users []string `json:"users,omitempty"`
-	// Roles are a list of roles users of the group inherit.
-	Roles []string `json:"roles,omitempty"`
+	// RoleIDs are a list of roles users of the group inherit.
+	RoleIDs []string `json:"roleIDs,omitempty"`
 }
 
 // GroupStatus defines the status of the group.
