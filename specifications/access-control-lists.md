@@ -13,6 +13,7 @@ This specification describes how this authorization information is propagated fr
 ## Changelog
 
 - v1.0.0 2024-07-02 (@spjmurray): Initial RFC
+- v1.0.1 2024-07-04 (@spjmurray): Update to reflect real life implmentation
 
 ## Primitives
 
@@ -59,7 +60,9 @@ Additionally, by breaking down scopes by project, any endpoint RBAC can triviall
 Consider the following data-structure:
 
 ```yaml
-superAdmin: false
+global:
+- name: organizations
+  operations: [create, read, update, delete]
 organization:
   id: a4726815-d2b9-4a4b-8a01-3299810c59c4
   scopes:
@@ -74,10 +77,9 @@ projects:
     operations: [create]
   - name: kubernetesclusters
     operations: [create, read, update, delete]
-signature: VGhpcyBpcyBhIGRpZ2l0YWwgc2lnbmF0dXJlIQ==
 ```
 
-The **superAdmin** property grants access to do and see everything across the platform, any other configuration (besides the `signature` is irrelevant.
+The **global** property grants access to all resources on the system.
 
 The **organization** property defines the organization this ACL is scoped against.
 This allows RBAC to check that the ACL corresponds to the API request and we're not using the wrong data.
@@ -85,10 +87,6 @@ So to access the Identity service's organization groups, RBAC would first check 
 
 The **project** property defines access scopes for specific named projects.
 To create a Kubernetes cluster you would first check the _organizationID_ parameter matches the ACL organization, then check the _projectID_ parameter exists in the project scopes, then finally check the correct resource and operation exist.
-
-The **signature** is there to verify message integrity and prevent MitM attacks from performing privilege escalation.
-To generate, the signature the message without the `signature` property is canonicalized as defined by [JCS](https://datatracker.ietf.org/doc/html/rfc8785), a digest is calculated with SHA256 then signed with ECDSA using the identity service's private key.
-To verify, follow the same canonicalization and digest rules, then verify ECDSA signature.
 
 ### ACL Use
 
@@ -116,19 +114,15 @@ It can also be used to scope resources as described earlier:
 
 ```go
 func HandleReadClustersOrganizationScoped(w http.ResponseWriter, r *http.Request, organizationID string) {
-	// API level RBAC here as above
-
-	// Read and apply scoping.
-	selector := []string{
-		"organizationID=" + organizationID,
-		"projectID in (" + strings.Join(rbac.GetACL(r.Context()).Projects(rbac.Read), ",") + ")",
-	}
-
 	resources := &ClusterList{}
 
 	if err := client.List(r.Context(), &resources, Options{LabelSelector: selector}); err != nil {
 		// handle error
 	}
+
+	resources = slices.DeleteFunc(resources, func(resource Cluster) bool {
+		return rbac.AllowProjectScoped(r.Context(), "kubernetesclusters", rbac.Read, organizationID, resource.Labels["projectId"])
+        })
 
 	writeResponse(w, resources)
 }
@@ -166,15 +160,11 @@ spec:
   scopes:
     global:
     - name: oauth2providers
-      operations: [read]
-    organization:
-    - name: oauth2providers
       operations: [create, update, read, delete]
     - name: groups
       operations: [create, update, read, delete]
     - name: projects
       operations: [create, update, read, delete]
-    project:
     - name: infrastructure
       operations: [create, update, read, delete]
     - name: kubernetesclusters
@@ -183,14 +173,15 @@ spec:
 
 When building the ACL we:
 
-* List all groups in the organization
-  * Select only the groups that the user is a member of
-  * For each group, add any global scoped resource permissions to the ACL
-  * For each group, add any organization scoped resource permissions to the ACL
-* List all projects in the organization
-  * Select only the projects that have access granted to any of the selected groups
-  * For each project, add any project scoped resource permissions to that project in the ACL
-* Sign the ACL
+* For all organizations
+  * For all groups the user is member of
+    * Add global scopes to the ACL
+    * If the organization is the one the request is scoped to
+      * Add organization scopes to the ACL
+  * If the organization is the one the request is scoped to
+    * For all projects in the organization
+      * For all linked groups the user is member of
+        * Add project scopes to the ACL
 
 > [!NOTE]
 > You may have multiple roles that contain the same organization scopes with different permissions.

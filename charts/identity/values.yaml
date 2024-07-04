@@ -43,52 +43,82 @@ issuer:
 
 # A static list of registered client applications.
 # clients:
-# - # Must be a valid Kubernetes resource name.
-#   name: foo
-#   # A redirect URI to return control back to the client.
-#   redirectURI: http://app.acme.org
-#   # An optional, trusted, login dialog.
-#   loginURI: http://app.acme.org/login
+#   # Must be a valid Kubernetes resource name.
+#   foo:
+#     # A redirect URI to return control back to the client.
+#     redirectURI: http://app.acme.org
+#     # An optional, trusted, login dialog.
+#     loginURI: http://app.acme.org/login
 
 # A static list of registered oauth2 providers.
 # providers:
-# - # Must be a valid Kubernetes label name.
-#   name: google-identity
-#   # A human readable name, most often used for UIs.
-#   description: Google Identity
-#   # Must be one of {google,microsoft}
-#   type: google
-#   # The issuer is usually provided by the oidc provider and will have
-#   # a discovery endpoint attached to it at /.well-known/openid-configuration.
-#   issuer: https://accounts.google.com
-#   # The client ID assigned by the identity provider.
-#   clientID: foo.apps.googleusercontent.com
-#   # The client secret assigned by the identity provider.
-#   clientSecret:  GOCSPX-akjfdns3238r328r9832rewjbds
+#   # Must be a valid Kubernetes label name.
+#   google-identity:
+#     # A human readable name, most often used for UIs.
+#     description: Google Identity
+#     # Must be one of {google,microsoft}
+#     type: google
+#     # The issuer is usually provided by the oidc provider and will have
+#     # a discovery endpoint attached to it at /.well-known/openid-configuration.
+#     issuer: https://accounts.google.com
+#     # The client ID assigned by the identity provider.
+#     clientID: foo.apps.googleusercontent.com
+#     # The client secret assigned by the identity provider.
+#     clientSecret:  GOCSPX-akjfdns3238r328r9832rewjbds
 
 # A static list of roles.
+# Any unscoped API resources are to be managed by the platform operator
+# and are assumed to be read only for all.  Global permissions are applied
+# regardless of organization or project scoping.  Organization permissions
+# are applied to the organization, regardless of project scoping etc.
 roles:
-  # A default role contains permissions that work at any scope
-  # in the system, and are a set of minimum required permissions.
-  default:
-    isDefault: true
+  # A platform-admin can do anything anywhere.
+  platform-adminstrator:
+    description: Platform administrator
+    protected: true
     scopes:
-      organizations: [read]
-      projects: [read]
-  reader:
+      global:
+        organizations: [create,read,update,delete]
+        oauth2providers: [create,read,update,delete]
+        roles: [create,read,update,delete]
+        groups: [create,read,update,delete]
+        projects: [create,read,update,delete]
+        infrastructure: [create,read,update,delete]
+        kubernetesclustermanagers: [create,read,update,delete]
+        kubernetesclusters: [create,read,update,delete]
+  # An administrator can do anything within an organization.
+  adminstrator:
+    description: Organization administrator
     scopes:
-      infrastructure: [read]
+      organization:
+        organizations: [read,update]
+        oauth2providers: [create,read,update,delete]
+        roles: [create,read,update,delete]
+        groups: [create,read,update,delete]
+        projects: [create,read,update,delete]
+        infrastructure: [create,read,update,delete]
+        kubernetesclustermanagers: [create,read,update,delete]
+        kubernetesclusters: [create,read,update,delete]
+  # A user can view projects they are a member of and
+  # provision kubernetes clusters.
   user:
+    description: Project user
     scopes:
-      infrastructure: [create,read,update,delete]
-  admin:
+      project:
+        projects: [read]
+        infrastructure: [create,read]
+        kubernetesclustermanagers: [read]
+        kubernetesclusters: [create,read,update,delete]
+  # A reader can view projects they are a member of and view
+  # kubernetes clusters.
+  reader:
+    description: Project reader
     scopes:
-      roles: [read]
-      organizations: [read,update]
-      groups: [create,read,update,delete]
-      oauth2providers: [create,read,update,delete]
-      projects: [create,read,update,delete]
-      infrastructure: [create,read,update,delete]
+      project:
+        projects: [read]
+        infrastructure: [read]
+        kubernetesclustermanagers: [read]
+        kubernetesclusters: [read]
 
 ingress:
   # Sets the ingress class to use.

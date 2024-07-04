@@ -11,7 +11,7 @@ require (
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
-	github.com/unikorn-cloud/core v0.1.55
+	github.com/unikorn-cloud/core v0.1.57
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.24.0
 	go.opentelemetry.io/otel/sdk v1.24.0

@@ -80,18 +80,22 @@ func convertList(in *unikornv1.ProjectList) openapi.Projects {
 }
 
 func (c *Client) List(ctx context.Context, organizationID string) (openapi.Projects, error) {
-	scoper := NewScoper(ctx, c.client, organizationID)
-
-	result, err := scoper.ListProjects(ctx)
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to list projects").WithError(err)
+		return nil, err
+	}
+
+	var result unikornv1.ProjectList
+
+	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: organization.Namespace}); err != nil {
+		return nil, err
 	}
 
 	slices.SortStableFunc(result.Items, func(a, b unikornv1.Project) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	return convertList(result), nil
+	return convertList(&result), nil
 }
 
 func (c *Client) get(ctx context.Context, organization *organizations.Meta, projectID string) (*unikornv1.Project, error) {

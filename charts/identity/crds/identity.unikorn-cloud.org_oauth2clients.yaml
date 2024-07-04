@@ -17,8 +17,8 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.id
-      name: client id
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
+      name: display name
       type: string
     - jsonPath: .spec.redirectUri
       name: redirect uri
@@ -52,9 +52,6 @@ spec:
             description: OAuth2ClientSpec defines the required configuration for the
               client.
             properties:
-              id:
-                description: ID uniquely identifes the client.
-                type: string
               loginUri:
                 description: LoginURI is a URI to pass control to for login dialogs.
                 type: string
@@ -62,7 +59,6 @@ spec:
                 description: RedirectURI is the URI to pass control back to the client.
                 type: string
             required:
-            - id
             - redirectUri
             type: object
           status:

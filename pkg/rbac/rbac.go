@@ -19,15 +19,9 @@ package rbac
 import (
 	"context"
 	"slices"
-	"strings"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/constants"
-	"github.com/unikorn-cloud/core/pkg/authorization/rbac"
-	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -46,8 +40,8 @@ func New(client client.Client, namespace string) *RBAC {
 	}
 }
 
-// getOrganizatons grabs all organizations for the system.
-func (r *RBAC) getOrganizatons(ctx context.Context) (*unikornv1.OrganizationList, error) {
+// getOrganizations grabs all organizations for the system.
+func (r *RBAC) getOrganizations(ctx context.Context) (*unikornv1.OrganizationList, error) {
 	var organizations unikornv1.OrganizationList
 
 	if err := r.client.List(ctx, &organizations, &client.ListOptions{Namespace: r.namespace}); err != nil {
@@ -57,8 +51,76 @@ func (r *RBAC) getOrganizatons(ctx context.Context) (*unikornv1.OrganizationList
 	return &organizations, nil
 }
 
-func (r *RBAC) getGroups(ctx context.Context, organization *unikornv1.Organization) (*unikornv1.GroupList, error) {
+// groupContainsUser checks if the group contains the user.
+// TODO: implied group membership needs doing.
+func groupContainsUser(group *unikornv1.Group, subject string) bool {
+	// Simple check to see if the user is explicitly a member.
+	return slices.Contains(group.Spec.Users, subject)
+}
+
+// getGroupsWithMembership grabs all groups for an organization that contain the subject.
+func (r *RBAC) getGroupsWithMembership(ctx context.Context, organization *unikornv1.Organization, subject string) (*unikornv1.GroupList, error) {
 	result := &unikornv1.GroupList{}
+
+	if err := r.client.List(ctx, result, &client.ListOptions{Namespace: organization.Status.Namespace}); err != nil {
+		return nil, err
+	}
+
+	result.Items = slices.DeleteFunc(result.Items, func(resource unikornv1.Group) bool {
+		return !groupContainsUser(&resource, subject)
+	})
+
+	return result, nil
+}
+
+// OrganizationMemberships is an organization with groups a user is a member of.
+type OrganizationMemberships struct {
+	Organization *unikornv1.Organization
+	Groups       *unikornv1.GroupList
+}
+
+func (o *OrganizationMemberships) GetGroup(groupID string) *unikornv1.Group {
+	for i := range o.Groups.Items {
+		if o.Groups.Items[i].Name == groupID {
+			return &o.Groups.Items[i]
+		}
+	}
+
+	return nil
+}
+
+// GetOrganizationMemberships returns a list of organizations we have membership of and
+// the groups we are members of.
+func (r *RBAC) GetOrganizationMemberships(ctx context.Context, subject string) ([]OrganizationMemberships, error) {
+	organizations, err := r.getOrganizations(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []OrganizationMemberships
+
+	for i := range organizations.Items {
+		organization := &organizations.Items[i]
+
+		groups, err := r.getGroupsWithMembership(ctx, organization, subject)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(groups.Items) > 0 {
+			result = append(result, OrganizationMemberships{
+				Organization: organization,
+				Groups:       groups,
+			})
+		}
+	}
+
+	return result, nil
+}
+
+// getProjects grabs all projects for an organization.
+func (r *RBAC) getProjects(ctx context.Context, organization *unikornv1.Organization) (*unikornv1.ProjectList, error) {
+	result := &unikornv1.ProjectList{}
 
 	if err := r.client.List(ctx, result, &client.ListOptions{Namespace: organization.Status.Namespace}); err != nil {
 		return nil, err
@@ -67,140 +129,11 @@ func (r *RBAC) getGroups(ctx context.Context, organization *unikornv1.Organizati
 	return result, nil
 }
 
-func (r *RBAC) organizationGroups(ctx context.Context, organization *unikornv1.Organization, email string) ([]rbac.GroupPermissions, bool) {
-	groupList, err := r.getGroups(ctx, organization)
-	if err != nil {
-		return nil, false
-	}
-
-	//nolint:prealloc
-	var groups []rbac.GroupPermissions
-
-	for _, group := range groupList.Items {
-		// TODO: implicit groups.
-		if !slices.Contains(group.Spec.Users, email) {
-			continue
-		}
-
-		// Hoist super admin powers.
-		if slices.Contains(group.Spec.Roles, constants.SuperAdmin) {
-			return nil, true
-		}
-
-		// Remove any special roles.
-		minifiedRoles := slices.DeleteFunc(group.Spec.Roles, func(role string) bool {
-			return role == constants.SuperAdmin
-		})
-
-		if len(minifiedRoles) == 0 {
-			continue
-		}
-
-		groups = append(groups, rbac.GroupPermissions{
-			ID:    group.Name,
-			Roles: minifiedRoles,
-		})
-	}
-
-	return groups, false
-}
-
-func (r *RBAC) organizationProjects(ctx context.Context, organization *unikornv1.Organization, groups []rbac.GroupPermissions) ([]rbac.ProjectPermissions, error) {
-	orgRequirement, err := labels.NewRequirement(coreconstants.OrganizationLabel, selection.Equals, []string{organization.Name})
-	if err != nil {
-		return nil, err
-	}
-
-	selector := labels.NewSelector()
-	selector = selector.Add(*orgRequirement)
-
-	options := &client.ListOptions{
-		LabelSelector: selector,
-	}
-
-	result := &unikornv1.ProjectList{}
-
-	if err := r.client.List(ctx, result, options); err != nil {
-		return nil, err
-	}
-
-	//nolint:prealloc
-	var projectPermissions []rbac.ProjectPermissions
-
-	for _, project := range result.Items {
-		var roles []string
-
-		// Accumulate any roles we have on a project if we are a member of a
-		// group that has access to the project, or if we have admin access.
-		for _, group := range groups {
-			if !slices.Contains(project.Spec.GroupIDs, group.ID) && !slices.Contains(group.Roles, "admin") {
-				continue
-			}
-
-			roles = append(roles, group.Roles...)
-		}
-
-		if len(roles) == 0 {
-			continue
-		}
-
-		slices.Sort(roles)
-
-		projectPermissions = append(projectPermissions, rbac.ProjectPermissions{
-			Name:  project.Name,
-			Roles: slices.Compact(roles),
-		})
-	}
-
-	return projectPermissions, nil
-}
-
-// UserPermissions builds up a hierarchy of permissions for a user, this is used
-// both internally and given out to resource servers via token introspection.
-func (r *RBAC) UserPermissions(ctx context.Context, email string) (*rbac.Permissions, error) {
-	permissions := &rbac.Permissions{}
-
-	organizations, err := r.getOrganizatons(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	for i := range organizations.Items {
-		organization := &organizations.Items[i]
-
-		groups, isSuperAdmin := r.organizationGroups(ctx, organization, email)
-		if isSuperAdmin {
-			permissions.IsSuperAdmin = true
-		}
-
-		if len(groups) == 0 {
-			continue
-		}
-
-		projects, err := r.organizationProjects(ctx, organization, groups)
-		if err != nil {
-			return nil, err
-		}
-
-		permissions.Organizations = append(permissions.Organizations, rbac.OrganizationPermissions{
-			Name:     organization.Name,
-			Groups:   groups,
-			Projects: projects,
-		})
-	}
-
-	return permissions, nil
-}
-
 // UserExists is an optimized version of the permissions builder that is used to
 // authorize authentication requests.  Failure here means the user need to signup
 // and register themselves with an organization uing a back-channel.
-func (r *RBAC) UserExists(ctx context.Context, email string) (bool, error) {
-	parts := strings.Split(email, "@")
-
-	domain := parts[1]
-
-	organizations, err := r.getOrganizatons(ctx)
+func (r *RBAC) UserExists(ctx context.Context, subject string) (bool, error) {
+	organizations, err := r.getOrganizations(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -208,85 +141,166 @@ func (r *RBAC) UserExists(ctx context.Context, email string) (bool, error) {
 	for i := range organizations.Items {
 		organization := &organizations.Items[i]
 
-		if organization.Spec.Domain != nil && *organization.Spec.Domain == domain {
-			return true, nil
-		}
-
-		groups, err := r.getGroups(ctx, organization)
+		// If the user is a member of a group in an organization, let them in.
+		// Doing otherwise would be pointless as the user wouldn't be able to
+		// do anything, and we shouldn't allow global APIs to be accessed without
+		// some form of authorization.
+		groups, err := r.getGroupsWithMembership(ctx, organization, subject)
 		if err != nil {
 			return false, err
 		}
 
-		for _, group := range groups.Items {
-			if slices.Contains(group.Spec.Users, email) {
-				return true, nil
-			}
+		if len(groups.Items) > 0 {
+			return true, nil
 		}
 	}
 
 	return false, nil
 }
 
-// GetACL returns a granualr set of permissions for a user based on their scope.
-// This is used for API leval access control and UX.
-func (r *RBAC) GetACL(ctx context.Context, permissions *rbac.Permissions, organization string) (*rbac.ACL, error) {
-	// Super user gets everything, so shortcut.
-	if permissions.IsSuperAdmin {
-		acl := &rbac.ACL{
-			IsSuperAdmin: true,
+func convertOperation(in unikornv1.Operation) openapi.AclOperation {
+	switch in {
+	case unikornv1.Create:
+		return openapi.Create
+	case unikornv1.Read:
+		return openapi.Read
+	case unikornv1.Update:
+		return openapi.Update
+	case unikornv1.Delete:
+		return openapi.Delete
+	}
+
+	return ""
+}
+
+func convertOperationList(in []unikornv1.Operation) openapi.AclOperations {
+	out := make(openapi.AclOperations, len(in))
+
+	for i := range in {
+		out[i] = convertOperation(in[i])
+	}
+
+	return out
+}
+
+// addScopesToEndpointList adds a new scope to the existing list if it doesn't exist,
+// or perges permissions with an existing entry.
+func addScopesToEndpointList(e *openapi.AclEndpoints, scopes []unikornv1.RoleScope) {
+	for _, scope := range scopes {
+		operations := convertOperationList(scope.Operations)
+
+		indexFunc := func(ep openapi.AclEndpoint) bool {
+			return ep.Name == scope.Name
 		}
 
-		return acl, nil
-	}
+		// If an existing entry exists, create a union of operations.
+		if index := slices.IndexFunc(*e, indexFunc); index >= 0 {
+			endpoint := &(*e)[index]
 
-	// If this is scoped to an organization, do the lookup and deny entry if the user
-	// is not part of the organization.
-	var organizationPermissions *rbac.OrganizationPermissions
+			endpoint.Operations = slices.Concat(endpoint.Operations, operations)
+			slices.Sort(endpoint.Operations)
 
-	if organization != "" {
-		temp, err := permissions.LookupOrganization(organization)
-		if err != nil {
-			return nil, err
-		}
+			endpoint.Operations = slices.Compact(endpoint.Operations)
 
-		organizationPermissions = temp
-	}
-
-	var roles unikornv1.RoleList
-
-	if err := r.client.List(ctx, &roles, &client.ListOptions{Namespace: r.namespace}); err != nil {
-		return nil, err
-	}
-
-	acl := &rbac.ACL{}
-
-	for _, role := range roles.Items {
-		// If it's not a default role that everyone gets, or the user doesn't have
-		// access to it, ignore.
-		if !role.Spec.IsDefault && !organizationPermissions.HasRole(role.Name) {
 			continue
 		}
 
-		for _, scope := range role.Spec.Scopes {
-			// Lookup the scope, it may be defined by a different role already,
-			// if it doesn't exist, create it and add to the ACL.
-			aclScope := acl.GetScope(scope.Name)
+		// If not add a new entry.
+		*e = append(*e, openapi.AclEndpoint{
+			Name:       scope.Name,
+			Operations: operations,
+		})
+	}
+}
 
-			if aclScope == nil {
-				aclScope = &rbac.Scope{
-					Name: scope.Name,
+// GetACL returns a granular set of permissions for a user based on their scope.
+// This is used for API level access control and UX.
+//
+//nolint:cyclop,gocognit
+func (r *RBAC) GetACL(ctx context.Context, organizationID, subject string) (*openapi.Acl, error) {
+	var globalACL openapi.AclEndpoints
+
+	organizationACL := openapi.AclScopedEndpoints{
+		Id: organizationID,
+	}
+
+	var projectACLs []openapi.AclScopedEndpoints
+
+	// A subject may be part of any organization's group, and may have global endpoints
+	// defined, if so add them.
+	memberships, err := r.GetOrganizationMemberships(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, membership := range memberships {
+		for _, group := range membership.Groups.Items {
+			for _, roleID := range group.Spec.RoleIDs {
+				var role unikornv1.Role
+
+				if err := r.client.Get(ctx, client.ObjectKey{Namespace: r.namespace, Name: roleID}, &role); err != nil {
+					return nil, err
 				}
 
-				acl.Scopes = append(acl.Scopes, aclScope)
+				addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
+
+				// While we are here, if the organization is the correct one
+				// add any organization endpoints to the organization scope.
+				if organizationID == membership.Organization.Name {
+					addScopesToEndpointList(&organizationACL.Endpoints, role.Spec.Scopes.Organization)
+				}
+			}
+		}
+
+		// If the organization is the one we are requesting, we need to check each project
+		// for user membership, if so add any project scoped endpoints to the ACL.
+		if organizationID == membership.Organization.Name {
+			projects, err := r.getProjects(ctx, membership.Organization)
+			if err != nil {
+				return nil, err
 			}
 
-			// Do a boolean union of existing permissions and any new ones.
-			permissions := slices.Concat(aclScope.Permissions, scope.Permissions)
+			for _, project := range projects.Items {
+				projectACL := openapi.AclScopedEndpoints{
+					Id: project.Name,
+				}
 
-			slices.Sort(permissions)
+				for _, groupID := range project.Spec.GroupIDs {
+					group := membership.GetGroup(groupID)
+					if group == nil {
+						continue
+					}
 
-			aclScope.Permissions = slices.Compact(permissions)
+					for _, roleID := range group.Spec.RoleIDs {
+						var role unikornv1.Role
+
+						if err := r.client.Get(ctx, client.ObjectKey{Namespace: r.namespace, Name: roleID}, &role); err != nil {
+							return nil, err
+						}
+
+						addScopesToEndpointList(&projectACL.Endpoints, role.Spec.Scopes.Project)
+					}
+				}
+
+				if len(projectACL.Endpoints) != 0 {
+					projectACLs = append(projectACLs, projectACL)
+				}
+			}
 		}
+	}
+
+	acl := &openapi.Acl{}
+
+	if len(globalACL) != 0 {
+		acl.Global = &globalACL
+	}
+
+	if len(organizationACL.Endpoints) != 0 {
+		acl.Organization = &organizationACL
+	}
+
+	if len(projectACLs) != 0 {
+		acl.Projects = &projectACLs
 	}
 
 	return acl, nil

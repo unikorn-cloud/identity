@@ -1,15 +1,19 @@
-{{ range $client := .Values.clients }}
+{{ range $name, $spec := .Values.clients }}
 ---
 apiVersion: identity.unikorn-cloud.org/v1alpha1
 kind: OAuth2Client
 metadata:
-  name: {{ $client.name }}
+  name: {{ include "resource.id" $name }}
   labels:
     {{- include "unikorn.labels" $ | nindent 4 }}
+    unikorn-cloud.org/name: {{ $name }}
+  {{- if $spec.description }}
+  annotations:
+    unikorn-cloud.org/description: {{ $spec.description }}
+  {{- end }}
 spec:
-  id: {{ include "resource.id" $client.name }}
-  redirectUri: {{ $client.redirectURI }}
-  {{- if $client.loginURI }}
-  loginUri: {{ $client.loginURI }}
+  redirectUri: {{ $spec.redirectURI }}
+  {{- if $spec.loginURI }}
+  loginUri: {{ $spec.loginURI }}
   {{- end }}
 {{- end }}

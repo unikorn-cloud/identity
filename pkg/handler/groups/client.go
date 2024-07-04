@@ -50,7 +50,7 @@ func convert(in *unikornv1.Group) *openapi.GroupRead {
 	out := &openapi.GroupRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.GroupSpec{
-			Roles: in.Spec.Roles,
+			RoleIDs: in.Spec.RoleIDs,
 		},
 	}
 
@@ -126,7 +126,7 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 	out := &unikornv1.Group{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
 		Spec: unikornv1.GroupSpec{
-			Roles: in.Spec.Roles,
+			RoleIDs: in.Spec.RoleIDs,
 		},
 	}
 

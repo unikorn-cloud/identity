@@ -18,8 +18,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/unikorn-cloud/core/pkg/authorization/constants"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,7 +43,7 @@ type OAuth2ClientList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Namespaced,categories=unikorn
-// +kubebuilder:printcolumn:name="client id",type="string",JSONPath=".spec.id"
+// +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/name']"
 // +kubebuilder:printcolumn:name="redirect uri",type="string",JSONPath=".spec.redirectUri"
 // +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
 type OAuth2Client struct {
@@ -57,8 +55,6 @@ type OAuth2Client struct {
 
 // OAuth2ClientSpec defines the required configuration for the client.
 type OAuth2ClientSpec struct {
-	// ID uniquely identifes the client.
-	ID string `json:"id"`
 	// RedirectURI is the URI to pass control back to the client.
 	RedirectURI string `json:"redirectUri"`
 	// LoginURI is a URI to pass control to for login dialogs.
@@ -133,6 +129,7 @@ type RoleList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/name']"
 // +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
 type Role struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -143,25 +140,48 @@ type Role struct {
 
 // RoleSpec defines the role's requested state.
 type RoleSpec struct {
-	// IsDefault indicates that all authenticated users are granted
-	// the following scopes regardless of organizational group membership
-	// and typically are required for organization discovery and RBAC functionality
-	// in the first instance.
-	IsDefault bool `json:"isDefault,omitempty"`
+	// Protected means the role will only be shown to users if they already
+	// have it in the scope of the organization.
+	Protected bool `json:"protected,omitempty"`
 	// Scopes are a list of uniquely named scopes for the role.
+	Scopes RoleScopes `json:"scopes,omitempty"`
+}
+
+type RoleScopes struct {
+	// Global grants access to any resource anywhere.
 	// +listType=map
 	// +listMapKey=name
-	Scopes []RoleScope `json:"scopes,omitempty"`
+	Global []RoleScope `json:"global,omitempty"`
+	// Organization grants access to the user across the organization and
+	// implicitly any project in the organization.
+	// +listType=map
+	// +listMapKey=name
+	Organization []RoleScope `json:"organization,omitempty"`
+	// Project grants access to the user for projects linked to groups
+	// that contain them.
+	// +listType=map
+	// +listMapKey=name
+	Project []RoleScope `json:"project,omitempty"`
 }
 
 type RoleScope struct {
 	// Name is a unique name that applies to the scope.  Individual APIs should
 	// coordinate with one another to avoid clashes and privilege escallation.
 	Name string `json:"name"`
-	// Permissions defines a set of CRUD permissions for the scope.
+	// Operations defines a set of CRUD permissions for the scope.
 	// +listType=set
-	Permissions []constants.Permission `json:"permissions,omitempty"`
+	Operations []Operation `json:"operations,omitempty"`
 }
+
+// +kubebuilder:validation:Enum=create;read;update;delete
+type Operation string
+
+const (
+	Create Operation = "create"
+	Read   Operation = "read"
+	Update Operation = "update"
+	Delete Operation = "delete"
+)
 
 // RoleStatus defines any role status information.
 type RoleStatus struct {

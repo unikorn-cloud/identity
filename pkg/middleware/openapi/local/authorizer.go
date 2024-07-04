@@ -18,6 +18,7 @@ limitations under the License.
 package local
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -26,17 +27,21 @@ import (
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/rbac"
 )
 
 // Authorizer provides OpenAPI based authorization middleware.
 type Authorizer struct {
 	authenticator *oauth2.Authenticator
+	rbac          *rbac.RBAC
 }
 
 // NewAuthorizer returns a new authorizer with required parameters.
-func NewAuthorizer(authenticator *oauth2.Authenticator) *Authorizer {
+func NewAuthorizer(authenticator *oauth2.Authenticator, rbac *rbac.RBAC) *Authorizer {
 	return &Authorizer{
 		authenticator: authenticator,
+		rbac:          rbac,
 	}
 }
 
@@ -79,17 +84,9 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 		return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 	}
 
-	permissions, err := a.authenticator.GetRBAC().UserPermissions(r.Context(), claims.Subject)
-	if err != nil {
-		return "", nil, errors.OAuth2AccessDenied("failed to get user permissions").WithError(err)
-	}
+	ui := userinfo.UserInfo(claims.Claims)
 
-	ui := &userinfo.UserInfo{
-		Claims: claims.Claims,
-		RBAC:   permissions,
-	}
-
-	return token, ui, nil
+	return token, &ui, nil
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
@@ -99,4 +96,10 @@ func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInpu
 	}
 
 	return "", nil, errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
+}
+
+// GetACL retrieves access control information from the subject identified
+// by the Authorize call.
+func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string) (*openapi.Acl, error) {
+	return a.rbac.GetACL(ctx, organizationID, subject)
 }

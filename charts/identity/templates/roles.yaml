@@ -1,0 +1,42 @@
+{{- range $name, $spec := .Values.roles }}
+---
+apiVersion: identity.unikorn-cloud.org/v1alpha1
+kind: Role
+metadata:
+  name: {{ include "resource.id" $name }}
+  labels:
+    {{- include "unikorn.labels" $ | nindent 4 }}
+    unikorn-cloud.org/name: {{ $name }}
+  {{- if $spec.description }}
+  annotations:
+    unikorn-cloud.org/description: {{ $spec.description }}
+  {{- end }}
+spec:
+  {{- if $spec.protected }}
+  protected: true
+  {{- end }}
+  {{- with $scopes := $spec.scopes }}
+  scopes:
+    {{- with $global := $scopes.global }}
+    global:
+      {{- range $endpoint, $operations := $global }}
+        {{- printf "- name: %s" $endpoint | nindent 4 }}
+        {{- printf "operations: [%v]" ($operations | join ", ") | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- with $organization := $scopes.organization }}
+    organization:
+      {{- range $endpoint, $operations := $organization }}
+        {{- printf "- name: %s" $endpoint | nindent 4 }}
+        {{- printf "operations: [%v]" ($operations | join ", ") | nindent 6 }}
+      {{- end }}
+    {{- end }}
+    {{- with $project := $scopes.project }}
+    project:
+      {{- range $endpoint, $operations := $project }}
+        {{- printf "- name: %s" $endpoint | nindent 4 }}
+        {{- printf "operations: [%v]" ($operations | join ", ") | nindent 6 }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}

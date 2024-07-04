@@ -17,9 +17,12 @@ limitations under the License.
 package roles
 
 import (
+	"cmp"
 	"context"
 	"slices"
 
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
@@ -38,23 +41,36 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func convertList(in unikornv1.RoleList) openapi.RoleList {
-	var out openapi.RoleList
-
-	for _, role := range in.Items {
-		if role.Spec.IsDefault {
-			continue
-		}
-
-		out = append(out, role.Name)
+func convert(in *unikornv1.Role) openapi.RoleRead {
+	out := openapi.RoleRead{
+		Metadata: conversion.ResourceReadMetadata(in, coreapi.ResourceProvisioningStatusProvisioned),
 	}
-
-	slices.Sort(out)
 
 	return out
 }
 
-func (c *Client) List(ctx context.Context) (openapi.RoleList, error) {
+func convertList(in unikornv1.RoleList) openapi.Roles {
+	var out openapi.Roles
+
+	for i := range in.Items {
+		resource := &in.Items[i]
+
+		// We need to only display these if we have them in scope.
+		if resource.Spec.Protected {
+			continue
+		}
+
+		out = append(out, convert(resource))
+	}
+
+	slices.SortFunc(out, func(a, b openapi.RoleRead) int {
+		return cmp.Compare(a.Metadata.Name, b.Metadata.Name)
+	})
+
+	return out
+}
+
+func (c *Client) List(ctx context.Context) (openapi.Roles, error) {
 	var result unikornv1.RoleList
 
 	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
