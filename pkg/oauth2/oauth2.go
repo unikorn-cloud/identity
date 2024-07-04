@@ -474,6 +474,10 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var (
+	ErrUserNotDomainMapped = goerrors.New("user is not domain mapped to an organization")
+)
+
 // lookupOrganization maps from an email address to an organization, this handles
 // corporate mandates that say your entire domain have to use a single sign on
 // provider across the entire enterprise.
@@ -505,9 +509,7 @@ func (a *Authenticator) lookupOrganization(ctx context.Context, email string) (*
 		}
 	}
 
-	// TODO: error type!
-	//nolint:goerr113
-	return nil, fmt.Errorf("unsupported domain")
+	return nil, ErrUserNotDomainMapped
 }
 
 func (a *Authenticator) lookupProviderByType(ctx context.Context, t unikornv1.IdentityProviderType) (*unikornv1.OAuth2Provider, error) {
@@ -1063,7 +1065,12 @@ func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (openapi.
 
 	organization, err := a.lookupOrganization(r.Context(), userinfo.Subject)
 	if err != nil {
-		return nil, errors.OAuth2InvalidRequest("user not a member of this domain").WithError(err)
+		if goerrors.Is(err, ErrUserNotDomainMapped) {
+			// No domain mapped organization, no cry...
+			return openapi.AvailableGroups{}, nil
+		}
+
+		return nil, errors.OAuth2ServerError("failed to get organization").WithError(err)
 	}
 
 	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderID)

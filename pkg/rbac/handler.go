@@ -21,12 +21,13 @@ import (
 	"slices"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 )
 
-// allowEndpoints iterates through all endpoints and tries to match the required name and
+// operationAllowedByEndpoints iterates through all endpoints and tries to match the required name and
 // operation.
-func allowEndpoints(endpoints openapi.AclEndpoints, endpoint string, operation openapi.AclOperation) error {
+func operationAllowedByEndpoints(endpoints openapi.AclEndpoints, endpoint string, operation openapi.AclOperation) error {
 	for _, e := range endpoints {
 		if e.Name != endpoint {
 			continue
@@ -50,7 +51,7 @@ func AllowGlobalScope(ctx context.Context, endpoint string, operation openapi.Ac
 		return errors.HTTPForbidden("operation is not allowed by rbac (no global endpoints)")
 	}
 
-	return allowEndpoints(*acl.Global, endpoint, operation)
+	return operationAllowedByEndpoints(*acl.Global, endpoint, operation)
 }
 
 // AllowOrganizationScope tries to allow the requested operation at the global scope, then
@@ -66,7 +67,7 @@ func AllowOrganizationScope(ctx context.Context, endpoint string, operation open
 		return errors.HTTPForbidden("operation is not allowed by rbac (no matching organization endpoints)")
 	}
 
-	return allowEndpoints(acl.Organization.Endpoints, endpoint, operation)
+	return operationAllowedByEndpoints(acl.Organization.Endpoints, endpoint, operation)
 }
 
 // AllowProjectScope tries to allow the requested operation at the global scope, then
@@ -87,10 +88,41 @@ func AllowProjectScope(ctx context.Context, endpoint string, operation openapi.A
 			continue
 		}
 
-		if err := allowEndpoints(project.Endpoints, endpoint, operation); err == nil {
+		if err := operationAllowedByEndpoints(project.Endpoints, endpoint, operation); err == nil {
 			return nil
 		}
 	}
 
 	return errors.HTTPForbidden("operation is not allowed by rbac (no matching project endpoints)")
+}
+
+// AllowRole determines whether your ACL contains the same or higher privileges than
+// the role, which is then used to determine role visibility and limit privilege
+// escalation.
+func AllowRole(ctx context.Context, role *unikornv1.Role, organizationID string) error {
+	for _, endpoint := range role.Spec.Scopes.Global {
+		for _, operation := range endpoint.Operations {
+			if err := AllowGlobalScope(ctx, endpoint.Name, convertOperation(operation)); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, endpoint := range role.Spec.Scopes.Organization {
+		for _, operation := range endpoint.Operations {
+			if err := AllowOrganizationScope(ctx, endpoint.Name, convertOperation(operation), organizationID); err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, endpoint := range role.Spec.Scopes.Project {
+		for _, operation := range endpoint.Operations {
+			if err := AllowOrganizationScope(ctx, endpoint.Name, convertOperation(operation), organizationID); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
