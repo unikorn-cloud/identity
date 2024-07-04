@@ -140,9 +140,6 @@ type Role struct {
 
 // RoleSpec defines the role's requested state.
 type RoleSpec struct {
-	// Protected means the role will only be shown to users if they already
-	// have it in the scope of the organization.
-	Protected bool `json:"protected,omitempty"`
 	// Scopes are a list of uniquely named scopes for the role.
 	Scopes RoleScopes `json:"scopes,omitempty"`
 }

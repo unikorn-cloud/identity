@@ -56,11 +56,6 @@ spec:
           spec:
             description: RoleSpec defines the role's requested state.
             properties:
-              protected:
-                description: |-
-                  Protected means the role will only be shown to users if they already
-                  have it in the scope of the organization.
-                type: boolean
               scopes:
                 description: Scopes are a list of uniquely named scopes for the role.
                 properties:

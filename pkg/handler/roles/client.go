@@ -25,6 +25,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,9 +42,9 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func convert(in *unikornv1.Role) openapi.RoleRead {
+func convert(in unikornv1.Role) openapi.RoleRead {
 	out := openapi.RoleRead{
-		Metadata: conversion.ResourceReadMetadata(in, coreapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.ResourceReadMetadata(&in, coreapi.ResourceProvisioningStatusProvisioned),
 	}
 
 	return out
@@ -52,14 +53,7 @@ func convert(in *unikornv1.Role) openapi.RoleRead {
 func convertList(in unikornv1.RoleList) openapi.Roles {
 	var out openapi.Roles
 
-	for i := range in.Items {
-		resource := &in.Items[i]
-
-		// We need to only display these if we have them in scope.
-		if resource.Spec.Protected {
-			continue
-		}
-
+	for _, resource := range in.Items {
 		out = append(out, convert(resource))
 	}
 
@@ -70,12 +64,16 @@ func convertList(in unikornv1.RoleList) openapi.Roles {
 	return out
 }
 
-func (c *Client) List(ctx context.Context) (openapi.Roles, error) {
+func (c *Client) List(ctx context.Context, organizationID string) (openapi.Roles, error) {
 	var result unikornv1.RoleList
 
 	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
 		return nil, err
 	}
+
+	result.Items = slices.DeleteFunc(result.Items, func(role unikornv1.Role) bool {
+		return rbac.AllowRole(ctx, &role, organizationID) != nil
+	})
 
 	return convertList(result), nil
 }

@@ -187,7 +187,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRoles(w http.ResponseWriter
 		return
 	}
 
-	result, err := roles.New(h.client, h.namespace).List(r.Context())
+	result, err := roles.New(h.client, h.namespace).List(r.Context(), organizationID)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
