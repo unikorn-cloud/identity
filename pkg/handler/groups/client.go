@@ -18,6 +18,7 @@ package groups
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -122,7 +123,21 @@ func (c *Client) Get(ctx context.Context, organizationID, groupID string) (*open
 	return convert(result), nil
 }
 
-func generate(ctx context.Context, organization *organizations.Meta, in *openapi.GroupWrite) *unikornv1.Group {
+func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.GroupWrite) (*unikornv1.Group, error) {
+	// Validate roles exist.
+	for _, roleID := range in.Spec.RoleIDs {
+		var resource unikornv1.Role
+
+		if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: roleID}, &resource); err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil, errors.OAuth2InvalidRequest(fmt.Sprintf("role ID %s does not exist", roleID)).WithError(err)
+			}
+
+			return nil, errors.OAuth2ServerError("failed to validate role ID").WithError(err)
+		}
+	}
+
+	// TODO: validate groups exist.
 	out := &unikornv1.Group{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
 		Spec: unikornv1.GroupSpec{
@@ -138,7 +153,7 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 		out.Spec.ProviderGroupNames = *in.Spec.ProviderGroups
 	}
 
-	return out
+	return out, nil
 }
 
 func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.GroupWrite) error {
@@ -147,7 +162,10 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	resource := generate(ctx, organization, request)
+	resource, err := c.generate(ctx, organization, request)
+	if err != nil {
+		return err
+	}
 
 	if err := c.client.Create(ctx, resource); err != nil {
 		if kerrors.IsAlreadyExists(err) {
@@ -171,7 +189,10 @@ func (c *Client) Update(ctx context.Context, organizationID, groupID string, req
 		return err
 	}
 
-	required := generate(ctx, organization, request)
+	required, err := c.generate(ctx, organization, request)
+	if err != nil {
+		return err
+	}
 
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
@@ -193,6 +214,7 @@ func (c *Client) Delete(ctx context.Context, organizationID, groupID string) err
 		return err
 	}
 
+	// TODO: remove the group from any projects.
 	resource := &unikornv1.Group{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      groupID,
