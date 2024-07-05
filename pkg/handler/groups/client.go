@@ -214,7 +214,31 @@ func (c *Client) Delete(ctx context.Context, organizationID, groupID string) err
 		return err
 	}
 
-	// TODO: remove the group from any projects.
+	// Projects have a "foreign key" into groups, so we need to remove that
+	// association with the group that's about to be deleted.  Failure to
+	// do so may cause RBAC problems otherwise.
+	var projects unikornv1.ProjectList
+
+	if err := c.client.List(ctx, &projects, &client.ListOptions{Namespace: organization.Namespace}); err != nil {
+		if kerrors.IsNotFound(err) {
+			return errors.HTTPNotFound().WithError(err)
+		}
+
+		return errors.OAuth2ServerError("failed to list projects").WithError(err)
+	}
+
+	for i := range projects.Items {
+		project := &projects.Items[i]
+
+		if index := slices.Index(project.Spec.GroupIDs, groupID); index >= 0 {
+			project.Spec.GroupIDs = slices.Delete(project.Spec.GroupIDs, index, index+1)
+
+			if err := c.client.Update(ctx, project); err != nil {
+				return errors.OAuth2ServerError("failed to update project").WithError(err)
+			}
+		}
+	}
+
 	resource := &unikornv1.Group{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      groupID,
