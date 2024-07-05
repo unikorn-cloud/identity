@@ -192,6 +192,7 @@ func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) *u
 	}
 
 	if in.Spec.OrganizationType == openapi.Domain {
+		// TODO: Validate the providerID exists.
 		out.Spec.Domain = in.Spec.Domain
 		out.Spec.ProviderScope = util.ToPointer(unikornv1.ProviderScope(*in.Spec.ProviderScope))
 		out.Spec.ProviderID = in.Spec.ProviderID

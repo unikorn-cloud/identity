@@ -19,6 +19,7 @@ package projects
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -126,16 +127,28 @@ func (c *Client) Get(ctx context.Context, organizationID, projectID string) (*op
 	return convert(result), nil
 }
 
-func generate(ctx context.Context, organization *organizations.Meta, in *openapi.ProjectWrite) *unikornv1.Project {
+func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.ProjectWrite) (*unikornv1.Project, error) {
 	out := &unikornv1.Project{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
 	}
 
 	if in.Spec.GroupIDs != nil {
+		for _, groupID := range *in.Spec.GroupIDs {
+			var resource unikornv1.Group
+
+			if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: groupID}, &resource); err != nil {
+				if kerrors.IsNotFound(err) {
+					return nil, errors.OAuth2InvalidRequest(fmt.Sprintf("group ID %s does not exist", groupID)).WithError(err)
+				}
+
+				return nil, errors.OAuth2ServerError("failed to validate group ID").WithError(err)
+			}
+		}
+
 		out.Spec.GroupIDs = *in.Spec.GroupIDs
 	}
 
-	return out
+	return out, nil
 }
 
 // Create creates the implicit project indentified by the JTW claims.
@@ -145,7 +158,10 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	resource := generate(ctx, organization, request)
+	resource, err := c.generate(ctx, organization, request)
+	if err != nil {
+		return err
+	}
 
 	if err := c.client.Create(ctx, resource); err != nil {
 		// TODO: we can do a cached lookup to save the API traffic.
@@ -170,7 +186,10 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID string, r
 		return err
 	}
 
-	required := generate(ctx, organization, request)
+	required, err := c.generate(ctx, organization, request)
+	if err != nil {
+		return err
+	}
 
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
