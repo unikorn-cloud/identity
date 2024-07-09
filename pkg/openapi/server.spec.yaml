@@ -752,22 +752,28 @@ components:
           description: A refresh token for the refresh_token grant type.
           type: string
           nullable: true
-      oneOf:
-      - required:
-        - code
-        - client_id
-        - redirect_uri
-        - code_verifier
-        properties:
-          grant_type:
-            enum:
-            - authorization_code
-      - required:
-        - refresh_token
-        properties:
-          grant_type:
-            enum:
-            - refresh_token
+# This broke with an update to kin-openapi. The correct fix for that was to
+# add a type so the property types match, which seems reasonable.  That however
+# then broke oapi-codegen so we're leaving this here as a reminder - to those
+# who haven't read the spec - until the latter can get its shit together.
+#      oneOf:
+#      - required:
+#        - code
+#        - client_id
+#        - redirect_uri
+#        - code_verifier
+#        properties:
+#          grant_type:
+#            type: string
+#            enum:
+#            - authorization_code
+#      - required:
+#        - refresh_token
+#        properties:
+#          grant_type:
+#            type: string
+#            enum:
+#            - refresh_token
     token:
       description: Oauth2 token result.
       type: object
