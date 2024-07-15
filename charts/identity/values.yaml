@@ -83,7 +83,8 @@ roles:
         roles: [create,read,update,delete]
         groups: [create,read,update,delete]
         projects: [create,read,update,delete]
-        infrastructure: [create,read,update,delete]
+        regions: [create,read,update,delete]
+        identities: [create,read,update,delete]
         kubernetesclustermanagers: [create,read,update,delete]
         kubernetesclusters: [create,read,update,delete]
   # An administrator can do anything within an organization.
@@ -96,7 +97,8 @@ roles:
         roles: [create,read,update,delete]
         groups: [create,read,update,delete]
         projects: [create,read,update,delete]
-        infrastructure: [create,read,update,delete]
+        regions: [read]
+        identities: [create]
         kubernetesclustermanagers: [create,read,update,delete]
         kubernetesclusters: [create,read,update,delete]
   # A user can view projects they are a member of and
@@ -104,9 +106,11 @@ roles:
   user:
     description: Project user
     scopes:
+      organization:
+        regions: [read]
       project:
         projects: [read]
-        infrastructure: [create,read]
+        identities: [create]
         kubernetesclustermanagers: [read]
         kubernetesclusters: [create,read,update,delete]
   # A reader can view projects they are a member of and view
@@ -114,9 +118,10 @@ roles:
   reader:
     description: Project reader
     scopes:
+      organization:
+        regions: [read]
       project:
         projects: [read]
-        infrastructure: [read]
         kubernetesclustermanagers: [read]
         kubernetesclusters: [read]
 
