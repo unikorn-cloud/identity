@@ -127,8 +127,8 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
-github.com/unikorn-cloud/core v0.1.59 h1:Fow+RmWADvIHcDGnKxeE+m7uJzq2ARJb1/nPA2tY6+o=
-github.com/unikorn-cloud/core v0.1.59/go.mod h1:Cd0zU1LrKo+OwnnCwuTQ+QL3yibnkjDHtkujfDM4AdE=
+github.com/unikorn-cloud/core v0.1.61 h1:mnQ+43wKTsXYHRztiC0ddUS+ZZ2OaIdy5JYjDlaRpg4=
+github.com/unikorn-cloud/core v0.1.61/go.mod h1:Cd0zU1LrKo+OwnnCwuTQ+QL3yibnkjDHtkujfDM4AdE=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=

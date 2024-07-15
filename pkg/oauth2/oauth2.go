@@ -42,6 +42,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/util/retry"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
@@ -964,9 +965,29 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 			return nil, err
 		}
 
-		provider, err := newOIDCProvider(r.Context(), providerResource)
-		if err != nil {
-			return nil, err
+		// Quality of life improvement, when you are a road-warrior, you are going
+		// to get an expired access token almost immediately, and a token refresh
+		// well before Wifi comes up, so allow retries while DNS errors are
+		// occurring, within reason.
+		var provider *oidc.Provider
+
+		//nolint:contextcheck
+		callback := func() error {
+			t, err := newOIDCProvider(r.Context(), providerResource)
+			if err != nil {
+				return err
+			}
+
+			provider = t
+
+			return nil
+		}
+
+		retryContext, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		if err := retry.Forever().DoWithContext(retryContext, callback); err != nil {
+			return nil, errors.OAuth2ServerError("failed to perform provider discovery").WithError(err)
 		}
 
 		refreshToken := &oauth2.Token{
