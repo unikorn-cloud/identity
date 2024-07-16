@@ -264,7 +264,7 @@ paths:
         $ref: '#/components/requestBodies/oauth2ProviderRequest'
       responses:
         '201':
-          description: Organizational identity provider created.
+          $ref: '#/components/responses/oauth2ProviderResponse'
         '401':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
@@ -368,7 +368,7 @@ paths:
         $ref: '#/components/requestBodies/createGroupRequest'
       responses:
         '201':
-          description: Group successfully created and returned.
+          $ref: '#/components/responses/groupResponse'
         '401':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
@@ -465,7 +465,7 @@ paths:
         $ref: '#/components/requestBodies/createProjectRequest'
       responses:
         '202':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/acceptedResponse'
+          $ref: '#/components/responses/projectResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -1319,6 +1319,23 @@ components:
             $ref: '#/components/schemas/oauth2Providers'
           example:
           - metadata:
+              id: a142f641-7fd6-4ab9-a875-344c7ebadc53
+              name: google-identity
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              issuer: https://accounts.google.com
+              clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
+    oauth2ProviderResponse:
+      description: |-
+        An oauth2 provider.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/oauth2ProviderRead'
+          example:
+            metadata:
               id: a142f641-7fd6-4ab9-a875-344c7ebadc53
               name: google-identity
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702

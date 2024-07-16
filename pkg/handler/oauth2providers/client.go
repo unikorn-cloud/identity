@@ -139,23 +139,19 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 	return out
 }
 
-func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.Oauth2ProviderWrite) error {
+func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.Oauth2ProviderWrite) (*openapi.Oauth2ProviderRead, error) {
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resource := c.generate(ctx, organization, request)
 
 	if err := c.client.Create(ctx, resource); err != nil {
-		if kerrors.IsAlreadyExists(err) {
-			return errors.HTTPConflict()
-		}
-
-		return errors.OAuth2ServerError("failed to create oauth2 provider").WithError(err)
+		return nil, errors.OAuth2ServerError("failed to create oauth2 provider").WithError(err)
 	}
 
-	return nil
+	return convert(resource), nil
 }
 
 func (c *Client) Update(ctx context.Context, organizationID, providerID string, request *openapi.Oauth2ProviderWrite) error {

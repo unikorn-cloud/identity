@@ -156,26 +156,22 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 	return out, nil
 }
 
-func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.GroupWrite) error {
+func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.GroupWrite) (*openapi.GroupRead, error) {
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resource, err := c.generate(ctx, organization, request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := c.client.Create(ctx, resource); err != nil {
-		if kerrors.IsAlreadyExists(err) {
-			return errors.HTTPConflict()
-		}
-
-		return errors.OAuth2ServerError("failed to create group").WithError(err)
+		return nil, errors.OAuth2ServerError("failed to create group").WithError(err)
 	}
 
-	return nil
+	return convert(resource), nil
 }
 
 func (c *Client) Update(ctx context.Context, organizationID, groupID string, request *openapi.GroupWrite) error {
