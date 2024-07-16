@@ -152,27 +152,22 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 }
 
 // Create creates the implicit project indentified by the JTW claims.
-func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.ProjectWrite) error {
+func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.ProjectWrite) (*openapi.ProjectRead, error) {
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resource, err := c.generate(ctx, organization, request)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := c.client.Create(ctx, resource); err != nil {
-		// TODO: we can do a cached lookup to save the API traffic.
-		if kerrors.IsAlreadyExists(err) {
-			return errors.HTTPConflict()
-		}
-
-		return errors.OAuth2ServerError("failed to create project").WithError(err)
+		return nil, errors.OAuth2ServerError("failed to create project").WithError(err)
 	}
 
-	return nil
+	return convert(resource), nil
 }
 
 func (c *Client) Update(ctx context.Context, organizationID, projectID string, request *openapi.ProjectWrite) error {

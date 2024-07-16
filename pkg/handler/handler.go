@@ -226,13 +226,14 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDOauth2providers(w http.Res
 		return
 	}
 
-	if err := oauth2providers.New(h.client, h.namespace).Create(r.Context(), organizationID, request); err != nil {
+	result, err := oauth2providers.New(h.client, h.namespace).Create(r.Context(), organizationID, request)
+	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
 	h.setUncacheable(w)
-	w.WriteHeader(http.StatusCreated)
+	util.WriteJSONResponse(w, r, http.StatusCreated, result)
 }
 
 func (h *Handler) PutApiV1OrganizationsOrganizationIDOauth2providersProviderID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, providerID openapi.Oauth2ProvderIDParameter) {
@@ -366,13 +367,14 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDGroups(w http.ResponseWrit
 		return
 	}
 
-	if err := groups.New(h.client, h.namespace).Create(r.Context(), organizationID, request); err != nil {
+	result, err := groups.New(h.client, h.namespace).Create(r.Context(), organizationID, request)
+	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
 	h.setUncacheable(w)
-	w.WriteHeader(http.StatusCreated)
+	util.WriteJSONResponse(w, r, http.StatusCreated, result)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDGroupsGroupid(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, groupID openapi.GroupidParameter) {
@@ -457,13 +459,14 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDProjects(w http.ResponseWr
 		return
 	}
 
-	if err := projects.New(h.client, h.namespace).Create(r.Context(), organizationID, request); err != nil {
+	result, err := projects.New(h.client, h.namespace).Create(r.Context(), organizationID, request)
+	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
 	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
+	util.WriteJSONResponse(w, r, http.StatusAccepted, result)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter) {

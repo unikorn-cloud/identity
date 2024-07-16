@@ -2042,6 +2042,7 @@ func (r GetApiV1OrganizationsOrganizationIDGroupsResponse) StatusCode() int {
 type PostApiV1OrganizationsOrganizationIDGroupsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON201      *GroupResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
 	JSON409      *externalRef0.ConflictResponse
@@ -2168,6 +2169,7 @@ func (r GetApiV1OrganizationsOrganizationIDOauth2providersResponse) StatusCode()
 type PostApiV1OrganizationsOrganizationIDOauth2providersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON201      *Oauth2ProviderResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
 	JSON409      *externalRef0.ConflictResponse
@@ -2268,6 +2270,7 @@ func (r GetApiV1OrganizationsOrganizationIDProjectsResponse) StatusCode() int {
 type PostApiV1OrganizationsOrganizationIDProjectsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	JSON202      *ProjectResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -3202,6 +3205,13 @@ func ParsePostApiV1OrganizationsOrganizationIDGroupsResponse(rsp *http.Response)
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest GroupResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest externalRef0.UnauthorizedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3444,6 +3454,13 @@ func ParsePostApiV1OrganizationsOrganizationIDOauth2providersResponse(rsp *http.
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Oauth2ProviderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest externalRef0.UnauthorizedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3632,6 +3649,13 @@ func ParsePostApiV1OrganizationsOrganizationIDProjectsResponse(rsp *http.Respons
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
+		var dest ProjectResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON202 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest externalRef0.BadRequestResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

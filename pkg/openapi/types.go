@@ -504,6 +504,9 @@ type GroupsResponse = Groups
 // committee. Consult the relevant documentation for further details.
 type JwksResponse = JsonWebKeySet
 
+// Oauth2ProviderResponse An OAuth2 provider when read.
+type Oauth2ProviderResponse = Oauth2ProviderRead
+
 // Oauth2ProvidersResponse A list of oauth2 providers.
 type Oauth2ProvidersResponse = Oauth2Providers
 
