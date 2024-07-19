@@ -186,12 +186,14 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID string, r
 		return err
 	}
 
+	if err := conversion.UpdateObjectMetadata(required, current); err != nil {
+		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)
+	}
+
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
-
-	conversion.UpdateObjectMetadata(updated, required)
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return errors.OAuth2ServerError("failed to patch project").WithError(err)
