@@ -18,43 +18,24 @@ package client
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
-	"fmt"
 	"net/http"
 
-	"github.com/spf13/pflag"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/accesstoken"
+	coreclient "github.com/unikorn-cloud/core/pkg/client"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
+	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/accesstoken"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
-
-	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	// ErrFormatError is returned when a secret doesn't meet the specification.
-	ErrFormatError = errors.New("secret incorrectly formatted")
-)
+type Options = coreclient.HTTPOptions
 
-type Options struct {
-	// Host is the identity Host name.
-	Host string
-	// CASecretNamespace tells us where to source the CA secret.
-	CASecretNamespace string
-	// CASecretName is the root CA secret of the identity endpoint.
-	CASecretName string
-}
-
-// AddFlags adds the options to the CLI flags.
-func (o *Options) AddFlags(f *pflag.FlagSet) {
-	f.StringVar(&o.Host, "identity-host", "", "Identity endpoint URL.")
-	f.StringVar(&o.CASecretNamespace, "identity-ca-secret-namespace", "", "Identity endpoint CA certificate secret namespace.")
-	f.StringVar(&o.CASecretName, "identity-ca-secret-name", "", "Identity endpoint CA certificate secret.")
+// NewOptions must be used to create options for consistency.
+func NewOptions() *Options {
+	return coreclient.NewHTTPOptions("identity")
 }
 
 // Client wraps up the raw OpenAPI client with things to make it useable e.g.
@@ -62,70 +43,28 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 type Client struct {
 	// client is a Kubenetes client.
 	client client.Client
-	// namespace is the namespace the client is running in.
-	namespace string
-	// options allows setting of option from the CLI
+	// options allows setting of options from the CLI
 	options *Options
+	// clientOptions may be specified to inject client certificates etc.
+	clientOptions *coreclient.HTTPClientOptions
 }
 
 // New creates a new client.
-func New(client client.Client, namespace string, options *Options) *Client {
+func New(client client.Client, options *Options, clientOptions *coreclient.HTTPClientOptions) *Client {
 	return &Client{
-		client:    client,
-		namespace: namespace,
-		options:   options,
+		client:        client,
+		options:       options,
+		clientOptions: clientOptions,
 	}
 }
 
-// tlsClientConfig abstracts away private TLS CAs or self signed certificates.
-func (c *Client) tlsClientConfig(ctx context.Context) (*tls.Config, error) {
-	if c.options.CASecretName == "" {
-		//nolint:nilnil
-		return nil, nil
-	}
-
-	namespace := c.namespace
-
-	if c.options.CASecretNamespace != "" {
-		namespace = c.options.CASecretNamespace
-	}
-
-	secret := &corev1.Secret{}
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: c.options.CASecretName}, secret); err != nil {
-		return nil, err
-	}
-
-	if secret.Type != corev1.SecretTypeTLS {
-		return nil, fmt.Errorf("%w: issuer CA not of type kubernetes.io/tls", ErrFormatError)
-	}
-
-	cert, ok := secret.Data[corev1.TLSCertKey]
-	if !ok {
-		return nil, fmt.Errorf("%w: issuer CA missing tls.crt", ErrFormatError)
-	}
-
-	certPool := x509.NewCertPool()
-
-	if ok := certPool.AppendCertsFromPEM(cert); !ok {
-		return nil, fmt.Errorf("%w: failed to load identity CA certificate", ErrFormatError)
-	}
-
-	config := &tls.Config{
-		RootCAs:    certPool,
-		MinVersion: tls.VersionTLS13,
-	}
-
-	return config, nil
-}
-
-// httpClient returns a new http client that will transparently do oauth2 header
+// HTTPClient returns a new http client that will transparently do oauth2 header
 // injection and refresh token updates.
-func (c *Client) httpClient(ctx context.Context) (*http.Client, error) {
+func (c *Client) HTTPClient(ctx context.Context) (*http.Client, error) {
 	// Handle non-system CA certificates for the OIDC discovery protocol
 	// and oauth2 token refresh. This will return nil if none is specified
 	// and default to the system roots.
-	tlsClientConfig, err := c.tlsClientConfig(ctx)
+	tlsClientConfig, err := coreclient.TLSClientConfig(ctx, c.client, c.options, c.clientOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -139,23 +78,28 @@ func (c *Client) httpClient(ctx context.Context) (*http.Client, error) {
 	return client, nil
 }
 
-// accessTokenInjector implements OAuth2 bearer token authorization.
-func accessTokenInjector(ctx context.Context, req *http.Request) error {
-	req.Header.Set("Authorization", "bearer "+accesstoken.FromContext(ctx))
+// requestMutator implements OAuth2 bearer token authorization.
+func RequestMutator(ctx context.Context, req *http.Request) error {
+	// NOTE: this can legitimately not be set e.g. if we are actually getting
+	// an access token, which makes the error checking somewhat useless!
+	if accessToken, err := accesstoken.FromContext(ctx); err == nil {
+		req.Header.Set("Authorization", "bearer "+accessToken)
+	}
 
 	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+	authorization.InjectClientCert(ctx, req.Header)
 
 	return nil
 }
 
 // Client returns a new OpenAPI client that can be used to access the API.
 func (c *Client) Client(ctx context.Context) (*openapi.ClientWithResponses, error) {
-	httpClient, err := c.httpClient(ctx)
+	httpClient, err := c.HTTPClient(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := openapi.NewClientWithResponses(c.options.Host, openapi.WithHTTPClient(httpClient), openapi.WithRequestEditorFn(accessTokenInjector))
+	client, err := openapi.NewClientWithResponses(c.options.Host(), openapi.WithHTTPClient(httpClient), openapi.WithRequestEditorFn(RequestMutator))
 	if err != nil {
 		return nil, err
 	}

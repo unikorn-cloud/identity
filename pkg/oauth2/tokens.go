@@ -53,8 +53,15 @@ type CustomAccessTokenClaims struct {
 type AccessTokenClaims struct {
 	jwt.Claims `json:",inline"`
 
+	Config *AccessTokenConfigClaims `json:"cnf,omitempty"`
+
 	// Custom claims are application specific extensions.
 	Custom *CustomAccessTokenClaims `json:"cat,omitempty"`
+}
+
+type AccessTokenConfigClaims struct {
+	//nolint: tagliatelle
+	X509Thumbprint *string `json:"x5t@S256,omitempty"`
 }
 
 // CustomRefreshTokenClaims contains all application specific claims in a single
@@ -76,31 +83,36 @@ type RefreshTokenClaims struct {
 }
 
 type Tokens struct {
+	Provider     string
 	Expiry       time.Time
 	AccessToken  string
-	RefreshToken string
+	RefreshToken *string
 }
 
 type IssueInfo struct {
-	Issuer   string
-	Audience string
-	Subject  string
-	Tokens   Tokens
-	Provider string
+	Issuer         string
+	Audience       string
+	Subject        string
+	Tokens         *Tokens
+	X509Thumbprint string
 }
 
 // Issue issues a new JWT access token.
 func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, error) {
 	now := time.Now()
 
-	// We don't control the expiry of the provider's access token, but we can cap it,
-	// so we use the smallest of these two figures.  To make the experience more
-	// resilient, we remove a "fudge factor" from the provider's token so we don't
-	// accidentally try to use it when it's already expired, e.g. time has expired
-	// since provider issue and when we wrap it up here.
-	expiry := info.Tokens.Expiry.Add(-a.options.TokenLeewayDuration)
-	if limit := now.Add(a.options.AccessTokenDuration); limit.Before(expiry) {
-		expiry = limit
+	expiry := now.Add(a.options.AccessTokenDuration)
+
+	if info.Tokens != nil {
+		// We don't control the expiry of the provider's access token, but we can cap it,
+		// so we use the smallest of these two figures.  To make the experience more
+		// resilient, we remove a "fudge factor" from the provider's token so we don't
+		// accidentally try to use it when it's already expired, e.g. time has expired
+		// since provider issue and when we wrap it up here.
+		expiry = info.Tokens.Expiry.Add(-a.options.TokenLeewayDuration)
+		if limit := now.Add(a.options.AccessTokenDuration); limit.Before(expiry) {
+			expiry = limit
+		}
 	}
 
 	nowRFC7519 := jwt.NewNumericDate(now)
@@ -119,10 +131,23 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 			NotBefore: nowRFC7519,
 			Expiry:    atExpiresAtRFC7519,
 		},
-		Custom: &CustomAccessTokenClaims{
-			Provider:    info.Provider,
+	}
+
+	// If we have a provider, then wrap up their access token so we can use
+	// it to access their APIs.
+	if info.Tokens != nil {
+		atClaims.Custom = &CustomAccessTokenClaims{
+			Provider:    info.Tokens.Provider,
 			AccessToken: info.Tokens.AccessToken,
-		},
+		}
+	}
+
+	// An X509 thumbprint means we bind the token to the client certificate
+	// and only accept it when presented with the client cerficate also.
+	if info.X509Thumbprint != "" {
+		atClaims.Config = &AccessTokenConfigClaims{
+			X509Thumbprint: &info.X509Thumbprint,
+		}
 	}
 
 	at, err := a.issuer.EncodeJWEToken(ctx, atClaims, jose.TokenTypeAccessToken)
@@ -130,33 +155,36 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 		return nil, err
 	}
 
-	rtClaims := &RefreshTokenClaims{
-		Claims: jwt.Claims{
-			ID:      uuid.New().String(),
-			Subject: info.Subject,
-			Audience: jwt.Audience{
-				info.Audience,
-			},
-			Issuer:    info.Issuer,
-			IssuedAt:  nowRFC7519,
-			NotBefore: nowRFC7519,
-			Expiry:    rtExpiresAtRFC7519,
-		},
-		Custom: &CustomRefreshTokenClaims{
-			Provider:     info.Provider,
-			RefreshToken: info.Tokens.RefreshToken,
-		},
-	}
-
-	rt, err := a.issuer.EncodeJWEToken(ctx, rtClaims, jose.TokenTypeRefreshToken)
-	if err != nil {
-		return nil, err
-	}
-
 	tokens := &Tokens{
-		AccessToken:  at,
-		RefreshToken: rt,
-		Expiry:       expiry,
+		AccessToken: at,
+		Expiry:      expiry,
+	}
+
+	if info.Tokens != nil && info.Tokens.RefreshToken != nil {
+		rtClaims := &RefreshTokenClaims{
+			Claims: jwt.Claims{
+				ID:      uuid.New().String(),
+				Subject: info.Subject,
+				Audience: jwt.Audience{
+					info.Audience,
+				},
+				Issuer:    info.Issuer,
+				IssuedAt:  nowRFC7519,
+				NotBefore: nowRFC7519,
+				Expiry:    rtExpiresAtRFC7519,
+			},
+			Custom: &CustomRefreshTokenClaims{
+				Provider:     info.Tokens.Provider,
+				RefreshToken: *info.Tokens.RefreshToken,
+			},
+		}
+
+		rt, err := a.issuer.EncodeJWEToken(ctx, rtClaims, jose.TokenTypeRefreshToken)
+		if err != nil {
+			return nil, err
+		}
+
+		tokens.RefreshToken = &rt
 	}
 
 	return tokens, nil

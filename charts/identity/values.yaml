@@ -75,7 +75,6 @@ roles:
   # A platform-admin can do anything anywhere.
   platform-adminstrator:
     description: Platform administrator
-    protected: true
     scopes:
       global:
         organizations: [create,read,update,delete]
@@ -87,6 +86,14 @@ roles:
         identities: [create,read,update,delete]
         kubernetesclustermanagers: [create,read,update,delete]
         kubernetesclusters: [create,read,update,delete]
+  # A region admin is a role primarily for the Kubernetes service that
+  # can manage identities and physical networks on behalf of a cluster.
+  region-admin:
+    decription: Region administrator
+    scopes:
+      global:
+        regions: [create,read,update,delete]
+        identities: [create,read,update,delete]
   # An administrator can do anything within an organization.
   adminstrator:
     description: Organization administrator

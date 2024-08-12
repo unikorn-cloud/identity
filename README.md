@@ -231,6 +231,7 @@ metadata:
     # This is the human readable, and mutable, name that will get displayed in clients.
     # It is expected to exist on all CRD backed resources.
     unikorn-cloud.org/name: acme.com
+spec: {}
 ```
 
 This will provision fairly quickly, you can extract the organization's namespace via:

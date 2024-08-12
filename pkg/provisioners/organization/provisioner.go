@@ -22,6 +22,7 @@ import (
 	"errors"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/core/pkg/manager"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
 	"github.com/unikorn-cloud/core/pkg/provisioners/resource"
 	"github.com/unikorn-cloud/core/pkg/provisioners/util"
@@ -44,7 +45,7 @@ type Provisioner struct {
 }
 
 // New returns a new initialized provisioner object.
-func New() provisioners.ManagerProvisioner {
+func New(_ manager.ControllerOptions) provisioners.ManagerProvisioner {
 	return &Provisioner{}
 }
 

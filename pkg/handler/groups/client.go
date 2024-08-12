@@ -27,6 +27,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -124,6 +125,11 @@ func (c *Client) Get(ctx context.Context, organizationID, groupID string) (*open
 }
 
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.GroupWrite) (*unikornv1.Group, error) {
+	userinfo, err := authorization.UserinfoFromContext(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	}
+
 	// Validate roles exist.
 	for _, roleID := range in.Spec.RoleIDs {
 		var resource unikornv1.Role
@@ -139,7 +145,7 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 
 	// TODO: validate groups exist.
 	out := &unikornv1.Group{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.GroupSpec{
 			RoleIDs: in.Spec.RoleIDs,
 		},

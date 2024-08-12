@@ -24,11 +24,12 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
+	"github.com/unikorn-cloud/identity/pkg/util"
 )
 
 // Authorizer provides OpenAPI based authorization middleware.
@@ -62,7 +63,7 @@ func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInfo, error) {
+func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *openapi.Userinfo, error) {
 	authorizationScheme, token, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
 		return "", nil, err
@@ -84,13 +85,48 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 		return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 	}
 
-	ui := userinfo.UserInfo(claims.Claims)
+	// All API requests will ultimately end up here as service call back
+	// into the identity service to validate the token presented to the API.
+	// If the token is bound to a certificate, we also expect the client
+	// certificate to be presented by the first client in the chain and
+	// propagated here.
+	if claims.Config != nil && claims.Config.X509Thumbprint != nil {
+		certPEM, err := authorization.ClientCertFromContext(r.Context())
+		if err != nil {
+			return "", nil, errors.OAuth2AccessDenied("client certificate not present for bound token").WithError(err)
+		}
 
-	return token, &ui, nil
+		certificate, err := util.GetClientCertificate(certPEM)
+		if err != nil {
+			return "", nil, errors.OAuth2AccessDenied("client certificate parse error").WithError(err)
+		}
+
+		thumbprint := util.GetClientCertiifcateThumbprint(certificate)
+
+		if thumbprint != *claims.Config.X509Thumbprint {
+			return "", nil, errors.OAuth2AccessDenied("client certificate mismatch for bound token")
+		}
+	}
+
+	exp := int(claims.Expiry.Time().Unix())
+	nbf := int(claims.NotBefore.Time().Unix())
+	iat := int(claims.IssuedAt.Time().Unix())
+
+	userinfo := &openapi.Userinfo{
+		Iss: &claims.Issuer,
+		Sub: claims.Subject,
+		Aud: &claims.Audience[0],
+		Exp: &exp,
+		Nbf: &nbf,
+		Iat: &iat,
+		Jti: &claims.ID,
+	}
+
+	return token, userinfo, nil
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
-func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *userinfo.UserInfo, error) {
+func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *openapi.Userinfo, error) {
 	if authentication.SecurityScheme.Type == "oauth2" {
 		return a.authorizeOAuth2(authentication.RequestValidationInput.Request)
 	}

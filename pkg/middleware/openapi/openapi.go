@@ -26,10 +26,10 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/accesstoken"
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
+	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/accesstoken"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
@@ -53,7 +53,7 @@ type Validator struct {
 	accessToken string
 
 	// userinfo is used for identity and RBAC.
-	userinfo *userinfo.UserInfo
+	userinfo *identityapi.Userinfo
 
 	// err is used to indicate the actual openapi error.
 	err error
@@ -170,6 +170,19 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Propagate the client certificate now so it's available in the request validation
+	// in case its required for a bound access token.
+	ctx, err := authorization.ExtractClientCert(r.Context(), r.Header)
+	if err != nil {
+		errors.HandleError(w, r, errors.OAuth2InvalidRequest("certificate propagation failure").WithError(err))
+		return
+	}
+
+	// Make a shallow copy of the request with the new context.  OpenAPI validation
+	// will read the body, and replace it with a new buffer, so be sure to use this
+	// version from here on.
+	r = r.WithContext(ctx)
+
 	responseValidationInput, err := v.validateRequest(r, route, params)
 	if err != nil {
 		// If the authenticator errored, override whatever openapi spits out.
@@ -184,36 +197,30 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Propagate authentication/authorization info to the handlers
 	// and the ACL layer to use.
-	ctx := r.Context()
 	ctx = accesstoken.NewContext(ctx, v.accessToken)
-	ctx = userinfo.NewContext(ctx, v.userinfo)
-
-	// This parameter is standardized across all services.
-	organizationID := params["organizationID"]
-
-	var acl *identityapi.Acl
+	ctx = authorization.NewContextWithUserinfo(ctx, v.userinfo)
 
 	if v.userinfo != nil {
-		acl, err = v.authorizer.GetACL(ctx, organizationID, v.userinfo.Subject)
+		// The organizationID parameter is standardized across all services.
+		acl, err := v.authorizer.GetACL(ctx, params["organizationID"], v.userinfo.Sub)
 		if err != nil {
 			errors.HandleError(w, r, err)
-
 			return
 		}
 
 		ctx = rbac.NewContext(ctx, acl)
 	}
 
-	req := r.WithContext(ctx)
+	r = r.WithContext(ctx)
 
 	// Override the writer so we can inspect the contents and status.
 	writer := &bufferingResponseWriter{
 		next: w,
 	}
 
-	v.next.ServeHTTP(writer, req)
+	v.next.ServeHTTP(writer, r)
 
-	v.validateResponse(writer, req, responseValidationInput)
+	v.validateResponse(writer, r, responseValidationInput)
 }
 
 // Middleware returns a function that generates per-request

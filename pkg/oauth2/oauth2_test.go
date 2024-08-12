@@ -67,13 +67,15 @@ func TestTokens(t *testing.T) {
 
 	time.Sleep(2 * josetesting.RefreshPeriod)
 
+	refreshToken := "bar"
+
 	issueInfo := &oauth2.IssueInfo{
 		Issuer:   "https://foo.com",
 		Audience: "foo.com",
 		Subject:  "barry@foo.com",
-		Tokens: oauth2.Tokens{
+		Tokens: &oauth2.Tokens{
 			AccessToken:  "foo",
-			RefreshToken: "bar",
+			RefreshToken: &refreshToken,
 			Expiry:       time.Now().Add(2 * accessTokenDuration),
 		},
 	}
