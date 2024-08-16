@@ -29,6 +29,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -128,8 +129,13 @@ func (c *Client) Get(ctx context.Context, organizationID, projectID string) (*op
 }
 
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.ProjectWrite) (*unikornv1.Project, error) {
+	userinfo, err := authorization.UserinfoFromContext(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	}
+
 	out := &unikornv1.Project{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
 	}
 
 	if in.Spec.GroupIDs != nil {

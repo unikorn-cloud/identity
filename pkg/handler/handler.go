@@ -23,14 +23,15 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/handler/projects"
 	"github.com/unikorn-cloud/identity/pkg/handler/roles"
+	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
+	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	"github.com/unikorn-cloud/identity/pkg/util"
@@ -45,8 +46,11 @@ type Handler struct {
 	// namespace is the namespace we are running in.
 	namespace string
 
-	// authenticator gives access to authentication and token handling functions.
-	authenticator *authorization.Authenticator
+	// issuer allows creation and validation of JWT bearer tokens.
+	issuer *jose.JWTIssuer
+
+	// oauth2 is the oauth2 deletgating authenticator.
+	oauth2 *oauth2.Authenticator
 
 	// rbac gives access to low level rbac functionality.
 	rbac *rbac.RBAC
@@ -55,13 +59,14 @@ type Handler struct {
 	options *Options
 }
 
-func New(client client.Client, namespace string, authenticator *authorization.Authenticator, rbac *rbac.RBAC, options *Options) (*Handler, error) {
+func New(client client.Client, namespace string, issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator, rbac *rbac.RBAC, options *Options) (*Handler, error) {
 	h := &Handler{
-		client:        client,
-		namespace:     namespace,
-		authenticator: authenticator,
-		rbac:          rbac,
-		options:       options,
+		client:    client,
+		namespace: namespace,
+		issuer:    issuer,
+		oauth2:    oauth2,
+		rbac:      rbac,
+		options:   options,
 	}
 
 	return h, nil
@@ -109,9 +114,12 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 		},
 		TokenEndpointAuthMethodsSupported: []openapi.AuthMethod{
 			openapi.ClientSecretPost,
+			openapi.TlsClientAuth,
 		},
 		GrantTypesSupported: []openapi.GrantType{
 			openapi.AuthorizationCode,
+			openapi.ClientCredentials,
+			openapi.RefreshToken,
 		},
 		IdTokenSigningAlgValuesSupported: []openapi.SigningAlgorithm{
 			openapi.ES512,
@@ -125,15 +133,15 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 }
 
 func (h *Handler) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
-	h.authenticator.OAuth2.Authorization(w, r)
+	h.oauth2.Authorization(w, r)
 }
 
 func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
-	h.authenticator.OAuth2.Login(w, r)
+	h.oauth2.Login(w, r)
 }
 
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
-	result, err := h.authenticator.OAuth2.Token(w, r)
+	result, err := h.oauth2.Token(w, r)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
@@ -144,14 +152,19 @@ func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
+	userinfo, err := authorization.UserinfoFromContext(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, errors.OAuth2ServerError("userinfo is not set").WithError(err))
+	}
+
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, userinfo.FromContext(r.Context()))
+	util.WriteJSONResponse(w, r, http.StatusOK, userinfo)
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
-	result, err := h.authenticator.JWKS(r.Context())
+	result, err := h.issuer.JWKS(r.Context())
 	if err != nil {
-		errors.HandleError(w, r, err)
+		errors.HandleError(w, r, errors.OAuth2ServerError("unable to generate json web key set").WithError(err))
 		return
 	}
 
@@ -160,7 +173,7 @@ func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
-	h.authenticator.OAuth2.OIDCCallback(w, r)
+	h.oauth2.OIDCCallback(w, r)
 }
 
 func (h *Handler) GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request) {
@@ -328,7 +341,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDAvailableGroups(w http.Resp
 		return
 	}
 
-	result, err := h.authenticator.OAuth2.Groups(w, r)
+	result, err := h.oauth2.Groups(w, r)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return

@@ -22,12 +22,12 @@ import (
 	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
@@ -150,9 +150,12 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organ
 	// If we don't have that then we need to use RBAC to get a list of organizations we are
 	// members of and return only them.
 	if err := rbac.AllowGlobalScope(ctx, "organizations", openapi.Read); err != nil {
-		userinfo := userinfo.FromContext(ctx)
+		userinfo, err := authorization.UserinfoFromContext(ctx)
+		if err != nil {
+			return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+		}
 
-		memberships, err := rbacClient.GetOrganizationMemberships(ctx, userinfo.Subject)
+		memberships, err := rbacClient.GetOrganizationMemberships(ctx, userinfo.Sub)
 		if err != nil {
 			return nil, err
 		}
@@ -186,9 +189,14 @@ func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.Organ
 	return convert(result), nil
 }
 
-func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) *unikornv1.Organization {
+func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) (*unikornv1.Organization, error) {
+	userinfo, err := authorization.UserinfoFromContext(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	}
+
 	out := &unikornv1.Organization{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace).Get(ctx),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace, userinfo.Sub).Get(),
 	}
 
 	if in.Spec.OrganizationType == openapi.Domain {
@@ -208,7 +216,7 @@ func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) *u
 		}
 	}
 
-	return out
+	return out, nil
 }
 
 func (c *Client) Update(ctx context.Context, organizationID string, request *openapi.OrganizationWrite) error {
@@ -217,7 +225,10 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	required := c.generate(ctx, request)
+	required, err := c.generate(ctx, request)
+	if err != nil {
+		return err
+	}
 
 	if err := conversion.UpdateObjectMetadata(required, current); err != nil {
 		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)

@@ -26,6 +26,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -126,9 +127,14 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Oauth
 	return convertList(result), nil
 }
 
-func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.Oauth2ProviderWrite) *unikornv1.OAuth2Provider {
+func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.Oauth2ProviderWrite) (*unikornv1.OAuth2Provider, error) {
+	userinfo, err := authorization.UserinfoFromContext(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	}
+
 	out := &unikornv1.OAuth2Provider{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace).WithOrganization(organization.ID).Get(ctx),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.OAuth2ProviderSpec{
 			Issuer:       in.Spec.Issuer,
 			ClientID:     in.Spec.ClientID,
@@ -136,7 +142,7 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 		},
 	}
 
-	return out
+	return out, nil
 }
 
 func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.Oauth2ProviderWrite) (*openapi.Oauth2ProviderRead, error) {
@@ -145,7 +151,10 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, err
 	}
 
-	resource := c.generate(ctx, organization, request)
+	resource, err := c.generate(ctx, organization, request)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := c.client.Create(ctx, resource); err != nil {
 		return nil, errors.OAuth2ServerError("failed to create oauth2 provider").WithError(err)
@@ -165,7 +174,10 @@ func (c *Client) Update(ctx context.Context, organizationID, providerID string, 
 		return err
 	}
 
-	required := c.generate(ctx, organization, request)
+	required, err := c.generate(ctx, organization, request)
+	if err != nil {
+		return err
+	}
 
 	if err := conversion.UpdateObjectMetadata(required, current); err != nil {
 		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)

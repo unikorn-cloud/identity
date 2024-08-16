@@ -17,6 +17,8 @@ spec:
       containers:
       - name: unikorn-organization-controller
         image: {{ include "unikorn.organizationControllerImage" . }}
+        args:
+        {{- include "unikorn.otlp.flags" . | nindent 8 }}
         resources:
           requests:
             cpu: 50m

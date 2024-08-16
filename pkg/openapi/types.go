@@ -23,6 +23,7 @@ const (
 const (
 	ClientSecretBasic AuthMethod = "client_secret_basic"
 	ClientSecretPost  AuthMethod = "client_secret_post"
+	TlsClientAuth     AuthMethod = "tls_client_auth"
 )
 
 // Defines values for Claim.
@@ -50,6 +51,7 @@ const (
 // Defines values for GrantType.
 const (
 	AuthorizationCode GrantType = "authorization_code"
+	ClientCredentials GrantType = "client_credentials"
 	RefreshToken      GrantType = "refresh_token"
 )
 
@@ -419,7 +421,7 @@ type Token struct {
 	IdToken *string `json:"id_token,omitempty"`
 
 	// RefreshToken The opaque refresh token.
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken *string `json:"refresh_token,omitempty"`
 
 	// TokenType How the access token is to be presented to the resource server.
 	TokenType string `json:"token_type"`

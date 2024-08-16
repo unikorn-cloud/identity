@@ -19,44 +19,38 @@ package authorizer
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/getkin/kin-openapi/openapi3filter"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
 	"golang.org/x/oauth2"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
+	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/middleware/openapi"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
-
-	corev1 "k8s.io/api/core/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Authorizer provides OpenAPI based authorization middleware.
 type Authorizer struct {
-	client    client.Client
-	namespace string
-	options   *identityclient.Options
+	client        client.Client
+	options       *identityclient.Options
+	clientOptions *coreclient.HTTPClientOptions
 }
 
 var _ openapi.Authorizer = &Authorizer{}
 
 // NewAuthorizer returns a new authorizer with required parameters.
-func NewAuthorizer(client client.Client, namespace string, options *identityclient.Options) *Authorizer {
+func NewAuthorizer(client client.Client, options *identityclient.Options, clientOptions *coreclient.HTTPClientOptions) *Authorizer {
 	return &Authorizer{
-		client:    client,
-		namespace: namespace,
-		options:   options,
+		client:        client,
+		options:       options,
+		clientOptions: clientOptions,
 	}
 }
 
@@ -74,41 +68,6 @@ func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 	}
 
 	return parts[0], parts[1], nil
-}
-
-type propagationFunc func(r *http.Request)
-
-type propagatingTransport struct {
-	base http.Transport
-	f    propagationFunc
-}
-
-func newPropagatingTransport(ctx context.Context) *propagatingTransport {
-	return &propagatingTransport{
-		f: func(r *http.Request) {
-			otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(r.Header))
-		},
-	}
-}
-
-func (t *propagatingTransport) Clone() *propagatingTransport {
-	return &propagatingTransport{
-		f: t.f,
-	}
-}
-
-func (t *propagatingTransport) CloseIdleConnections() {
-	t.base.CloseIdleConnections()
-}
-
-func (t *propagatingTransport) RegisterProtocol(scheme string, rt http.RoundTripper) {
-	t.base.RegisterProtocol(scheme, rt)
-}
-
-func (t *propagatingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	t.f(req)
-
-	return t.base.RoundTrip(req)
 }
 
 // oidcErrorIsUnauthorized tries to convert the error returned by the OIDC library
@@ -136,49 +95,23 @@ func oidcErrorIsUnauthorized(err error) bool {
 	return code == http.StatusUnauthorized
 }
 
-func (a *Authorizer) tlsClientConfig(ctx context.Context) (*tls.Config, error) {
-	if a.options.CASecretName == "" {
-		//nolint:nilnil
-		return nil, nil
+type requestMutatingTransport struct {
+	base    http.RoundTripper
+	mutator func(r *http.Request) error
+}
+
+func (t *requestMutatingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := t.mutator(req); err != nil {
+		return nil, err
 	}
 
-	namespace := a.namespace
-
-	if a.options.CASecretNamespace != "" {
-		namespace = a.options.CASecretNamespace
-	}
-
-	secret := &corev1.Secret{}
-
-	if err := a.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: a.options.CASecretName}, secret); err != nil {
-		return nil, errors.OAuth2ServerError("unable to fetch issuer CA").WithError(err)
-	}
-
-	if secret.Type != corev1.SecretTypeTLS {
-		return nil, errors.OAuth2ServerError("issuer CA not of type kubernetes.io/tls")
-	}
-
-	cert, ok := secret.Data[corev1.TLSCertKey]
-	if !ok {
-		return nil, errors.OAuth2ServerError("issuer CA missing tls.crt")
-	}
-
-	certPool := x509.NewCertPool()
-
-	if ok := certPool.AppendCertsFromPEM(cert); !ok {
-		return nil, errors.OAuth2InvalidRequest("failed to parse oidc issuer CA cert")
-	}
-
-	config := &tls.Config{
-		RootCAs:    certPool,
-		MinVersion: tls.VersionTLS13,
-	}
-
-	return config, nil
+	return t.base.RoundTrip(req)
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInfo, error) {
+func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.Userinfo, error) {
+	ctx := r.Context()
+
 	authorizationScheme, rawToken, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
 		return "", nil, err
@@ -188,26 +121,32 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 		return "", nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
 	}
 
-	// Handle non-public CA certiifcates used in development.
-	ctx := r.Context()
+	// The identity client neatly wraps up TLS...
+	identity := identityclient.New(a.client, a.options, a.clientOptions)
 
-	tlsClientConfig, err := a.tlsClientConfig(r.Context())
+	client, err := identity.HTTPClient(ctx)
 	if err != nil {
 		return "", nil, err
 	}
 
-	transport := newPropagatingTransport(ctx)
-	transport.base.TLSClientConfig = tlsClientConfig
+	mutator := func(req *http.Request) error {
+		return identityclient.RequestMutator(ctx, req)
+	}
 
-	client := &http.Client{
-		Transport: transport,
+	// But it doesn't do request mutation, so we have to slightly hack it by
+	// making a nested transport.
+	client = &http.Client{
+		Transport: &requestMutatingTransport{
+			base:    client.Transport,
+			mutator: mutator,
+		},
 	}
 
 	ctx = oidc.ClientContext(ctx, client)
 
 	// Perform userinfo call against the identity service that will validate the token
-	// and also return some information about the user.
-	provider, err := oidc.NewProvider(ctx, a.options.Host)
+	// and also return some information about the user that we can use for audit logging.
+	provider, err := oidc.NewProvider(ctx, a.options.Host())
 	if err != nil {
 		return "", nil, errors.OAuth2ServerError("oidc service discovery failed").WithError(err)
 	}
@@ -226,7 +165,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 		return "", nil, err
 	}
 
-	claims := &userinfo.UserInfo{}
+	claims := &identityapi.Userinfo{}
 
 	if err := ui.Claims(claims); err != nil {
 		return "", nil, errors.OAuth2ServerError("failed to extrac user information").WithError(err)
@@ -236,7 +175,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *userinfo.UserInf
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
-func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *userinfo.UserInfo, error) {
+func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *identityapi.Userinfo, error) {
 	if authentication.SecurityScheme.Type == "oauth2" {
 		return a.authorizeOAuth2(authentication.RequestValidationInput.Request)
 	}
@@ -247,7 +186,7 @@ func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInpu
 // GetACL retrieves access control information from the subject identified
 // by the Authorize call.
 func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string) (*identityapi.Acl, error) {
-	client, err := identityclient.New(a.client, a.namespace, a.options).Client(ctx)
+	client, err := identityclient.New(a.client, a.options, a.clientOptions).Client(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to create identity client").WithError(err)
 	}

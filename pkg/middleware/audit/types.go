@@ -14,29 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package accesstoken
+package audit
 
-import (
-	"context"
-
-	"github.com/unikorn-cloud/core/pkg/errors"
-)
-
-type keyType int
-
-//nolint:gochecknoglobals
-var key keyType
-
-func NewContext(ctx context.Context, accessToken string) context.Context {
-	return context.WithValue(ctx, key, accessToken)
+type Component struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
 }
 
-func FromContext(ctx context.Context) (string, error) {
-	if value := ctx.Value(key); value != nil {
-		if accessToken, ok := value.(string); ok {
-			return accessToken, nil
-		}
-	}
+type Actor struct {
+	Subject string `json:"subject"`
+}
 
-	return "", errors.ErrInvalidContext
+type Resource struct {
+	Type string `json:"type"`
+	ID   string `json:"id,omitempty"`
+}
+
+type Operation struct {
+	Verb string `json:"verb"`
+}
+
+type Result struct {
+	Status int `json:"status"`
 }

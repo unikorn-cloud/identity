@@ -53,7 +53,7 @@ type Provisioner struct {
 }
 
 // New returns a new initialized provisioner object.
-func New() provisioners.ManagerProvisioner {
+func New(_ manager.ControllerOptions) provisioners.ManagerProvisioner {
 	return &Provisioner{}
 }
 
@@ -122,7 +122,10 @@ func (p *Provisioner) deprovisionDescendants(ctx context.Context, namespace *cor
 		return err
 	}
 
-	cli := coreclient.StaticClientFromContext(ctx)
+	cli, err := coreclient.ProvisionerClientFromContext(ctx)
+	if err != nil {
+		return err
+	}
 
 	// If we found any resources, we need to await deletion.
 	yield := false

@@ -39,16 +39,17 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/util/retry"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
 	providererrors "github.com/unikorn-cloud/identity/pkg/oauth2/providers/errors"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
+	"github.com/unikorn-cloud/identity/pkg/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -941,98 +942,9 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 	return &idToken, nil
 }
 
-// Token issues an OAuth2 access token from the provided authorization code.
-//
-//nolint:cyclop
-func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
-	if err := r.ParseForm(); err != nil {
-		return nil, errors.OAuth2InvalidRequest("failed to parse form data: " + err.Error())
-	}
-
-	//nolint:nestif
-	if r.Form.Get("grant_type") == "refresh_token" {
-		// Validate the refresh token and extract the claims.
-		claims := &RefreshTokenClaims{}
-
-		if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("refresh_token"), claims, jose.TokenTypeRefreshToken); err != nil {
-			return nil, errors.OAuth2InvalidGrant("refresh token is invalid or has expired").WithError(err)
-		}
-
-		// Lookup the provider details, then do a token refresh against that to update
-		// the access token.
-		providerResource, err := a.lookupProviderByName(r.Context(), claims.Custom.Provider)
-		if err != nil {
-			return nil, err
-		}
-
-		// Quality of life improvement, when you are a road-warrior, you are going
-		// to get an expired access token almost immediately, and a token refresh
-		// well before Wifi comes up, so allow retries while DNS errors are
-		// occurring, within reason.
-		var provider *oidc.Provider
-
-		//nolint:contextcheck
-		callback := func() error {
-			t, err := newOIDCProvider(r.Context(), providerResource)
-			if err != nil {
-				return err
-			}
-
-			provider = t
-
-			return nil
-		}
-
-		retryContext, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		defer cancel()
-
-		if err := retry.Forever().DoWithContext(retryContext, callback); err != nil {
-			return nil, errors.OAuth2ServerError("failed to perform provider discovery").WithError(err)
-		}
-
-		refreshToken := &oauth2.Token{
-			Expiry:       time.Now(),
-			RefreshToken: claims.Custom.RefreshToken,
-		}
-
-		providerTokens, err := a.oidcConfig(r, providerResource, provider.Endpoint(), nil).TokenSource(r.Context(), refreshToken).Token()
-		if err != nil {
-			var rerr *oauth2.RetrieveError
-
-			if goerrors.As(err, &rerr) && rerr.ErrorCode == string(coreopenapi.InvalidGrant) {
-				return nil, errors.OAuth2InvalidGrant("provider refresh token has expired").WithError(err)
-			}
-
-			return nil, err
-		}
-
-		info := &IssueInfo{
-			Issuer:   "https://" + r.Host,
-			Audience: r.Host,
-			Subject:  claims.Claims.Subject,
-			Provider: claims.Custom.Provider,
-			Tokens: Tokens{
-				Expiry:       providerTokens.Expiry,
-				AccessToken:  providerTokens.AccessToken,
-				RefreshToken: providerTokens.RefreshToken,
-			},
-		}
-
-		tokens, err := a.Issue(r.Context(), info)
-		if err != nil {
-			return nil, err
-		}
-
-		result := &openapi.Token{
-			TokenType:    "Bearer",
-			AccessToken:  tokens.AccessToken,
-			RefreshToken: tokens.RefreshToken,
-			ExpiresIn:    int(time.Until(tokens.Expiry).Seconds()),
-		}
-
-		return result, nil
-	}
-
+// TokenAuthorizationCode issues a token based on whether the provided code is correct and
+// the client code verifier (PKCS) matches.
+func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
 	if err := tokenValidate(r); err != nil {
 		return nil, err
 	}
@@ -1051,12 +963,15 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Subject:  code.IDToken.OIDCClaimsEmail.Email,
-		Provider: code.OAuth2Provider,
-		Tokens: Tokens{
-			Expiry:       code.AccessTokenExpiry,
-			AccessToken:  code.AccessToken,
-			RefreshToken: code.RefreshToken,
+		Tokens: &Tokens{
+			Provider:    code.OAuth2Provider,
+			Expiry:      code.AccessTokenExpiry,
+			AccessToken: code.AccessToken,
 		},
+	}
+
+	if code.RefreshToken != "" {
+		info.Tokens.RefreshToken = &code.RefreshToken
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -1081,10 +996,158 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 	return result, nil
 }
 
-func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (openapi.AvailableGroups, error) {
-	userinfo := userinfo.FromContext(r.Context())
+// TokenRefreshToken issues a token if the provided refresh token is valid.
+func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
+	// Validate the refresh token and extract the claims.
+	claims := &RefreshTokenClaims{}
 
-	organization, err := a.lookupOrganization(r.Context(), userinfo.Subject)
+	if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("refresh_token"), claims, jose.TokenTypeRefreshToken); err != nil {
+		return nil, errors.OAuth2InvalidGrant("refresh token is invalid or has expired").WithError(err)
+	}
+
+	// Lookup the provider details, then do a token refresh against that to update
+	// the access token.
+	providerResource, err := a.lookupProviderByName(r.Context(), claims.Custom.Provider)
+	if err != nil {
+		return nil, err
+	}
+
+	// Quality of life improvement, when you are a road-warrior, you are going
+	// to get an expired access token almost immediately, and a token refresh
+	// well before Wifi comes up, so allow retries while DNS errors are
+	// occurring, within reason.
+	var provider *oidc.Provider
+
+	//nolint:contextcheck
+	callback := func() error {
+		t, err := newOIDCProvider(r.Context(), providerResource)
+		if err != nil {
+			return err
+		}
+
+		provider = t
+
+		return nil
+	}
+
+	retryContext, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	if err := retry.Forever().DoWithContext(retryContext, callback); err != nil {
+		return nil, errors.OAuth2ServerError("failed to perform provider discovery").WithError(err)
+	}
+
+	refreshToken := &oauth2.Token{
+		Expiry:       time.Now(),
+		RefreshToken: claims.Custom.RefreshToken,
+	}
+
+	providerTokens, err := a.oidcConfig(r, providerResource, provider.Endpoint(), nil).TokenSource(r.Context(), refreshToken).Token()
+	if err != nil {
+		var rerr *oauth2.RetrieveError
+
+		if goerrors.As(err, &rerr) && rerr.ErrorCode == string(coreopenapi.InvalidGrant) {
+			return nil, errors.OAuth2InvalidGrant("provider refresh token has expired").WithError(err)
+		}
+
+		return nil, err
+	}
+
+	info := &IssueInfo{
+		Issuer:   "https://" + r.Host,
+		Audience: r.Host,
+		Subject:  claims.Claims.Subject,
+		Tokens: &Tokens{
+			Provider:    claims.Custom.Provider,
+			Expiry:      providerTokens.Expiry,
+			AccessToken: providerTokens.AccessToken,
+		},
+	}
+
+	if providerTokens.RefreshToken != "" {
+		info.Tokens.RefreshToken = &providerTokens.RefreshToken
+	}
+
+	tokens, err := a.Issue(r.Context(), info)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &openapi.Token{
+		TokenType:    "Bearer",
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		ExpiresIn:    int(time.Until(tokens.Expiry).Seconds()),
+	}
+
+	return result, nil
+}
+
+// TokenClientCredentials issues a token if the client credentials are valid.  We only support
+// mTLS based authentication.
+func (a *Authenticator) TokenClientCredentials(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
+	certPEM, err := util.GetClientCertificateHeader(r.Header)
+	if err != nil {
+		return nil, errors.OAuth2InvalidRequest("mTLS client verification failed").WithError(err)
+	}
+
+	certificate, err := util.GetClientCertificate(certPEM)
+	if err != nil {
+		return nil, errors.OAuth2InvalidRequest("mTLS certificate validation failed").WithError(err)
+	}
+
+	thumbprint := util.GetClientCertiifcateThumbprint(certificate)
+
+	info := &IssueInfo{
+		Issuer:         "https://" + r.Host,
+		Audience:       r.Host,
+		Subject:        certificate.Subject.CommonName,
+		X509Thumbprint: thumbprint,
+	}
+
+	tokens, err := a.Issue(r.Context(), info)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &openapi.Token{
+		TokenType:   "Bearer",
+		AccessToken: tokens.AccessToken,
+		ExpiresIn:   int(time.Until(tokens.Expiry).Seconds()),
+	}
+
+	return result, nil
+}
+
+// Token issues an OAuth2 access token from the provided authorization code.
+func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
+	if err := r.ParseForm(); err != nil {
+		return nil, errors.OAuth2InvalidRequest("failed to parse form data: " + err.Error())
+	}
+
+	// We sup"ort 3 garnt types:
+	// * "authorization_code" is used by all humans in the system
+	// * "refresh_token" is used by anyone to get a new access token
+	// * "client_credentials" is used by other services for IPC
+	switch openapi.GrantType(r.Form.Get("grant_type")) {
+	case openapi.AuthorizationCode:
+		return a.TokenAuthorizationCode(w, r)
+	case openapi.RefreshToken:
+		return a.TokenRefreshToken(w, r)
+	case openapi.ClientCredentials:
+		return a.TokenClientCredentials(w, r)
+	}
+
+	return nil, errors.OAuth2InvalidRequest("token grant type is not supported")
+}
+
+func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (openapi.AvailableGroups, error) {
+	userinfo, err := authorization.UserinfoFromContext(r.Context())
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to get userinfo").WithError(err)
+	}
+
+	organization, err := a.lookupOrganization(r.Context(), userinfo.Sub)
 	if err != nil {
 		if goerrors.Is(err, ErrUserNotDomainMapped) {
 			// No domain mapped organization, no cry...

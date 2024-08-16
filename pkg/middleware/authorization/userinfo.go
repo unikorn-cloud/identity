@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package accesstoken
+package authorization
 
 import (
 	"context"
 
 	"github.com/unikorn-cloud/core/pkg/errors"
+	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 )
 
 type keyType int
@@ -27,16 +28,16 @@ type keyType int
 //nolint:gochecknoglobals
 var key keyType
 
-func NewContext(ctx context.Context, accessToken string) context.Context {
-	return context.WithValue(ctx, key, accessToken)
+func NewContextWithUserinfo(ctx context.Context, userinfo *identityapi.Userinfo) context.Context {
+	return context.WithValue(ctx, key, userinfo)
 }
 
-func FromContext(ctx context.Context) (string, error) {
+func UserinfoFromContext(ctx context.Context) (*identityapi.Userinfo, error) {
 	if value := ctx.Value(key); value != nil {
-		if accessToken, ok := value.(string); ok {
-			return accessToken, nil
+		if userinfo, ok := value.(*identityapi.Userinfo); ok {
+			return userinfo, nil
 		}
 	}
 
-	return "", errors.ErrInvalidContext
+	return nil, errors.ErrInvalidContext
 }

@@ -21,7 +21,6 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 
-	"github.com/unikorn-cloud/core/pkg/authorization/userinfo"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 )
 
@@ -29,7 +28,7 @@ import (
 type Authorizer interface {
 	// Authorize checks the request against the OpenAPI security scheme
 	// and returns the access token.
-	Authorize(authentication *openapi3filter.AuthenticationInput) (string, *userinfo.UserInfo, error)
+	Authorize(authentication *openapi3filter.AuthenticationInput) (string, *openapi.Userinfo, error)
 
 	// GetACL retrieves access control information from the subject identified
 	// by the Authorize call.

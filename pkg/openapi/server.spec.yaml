@@ -681,11 +681,13 @@ components:
       enum:
       - client_secret_post
       - client_secret_basic
+      - tls_client_auth
     grantType:
       description: Supported grant type.
       type: string
       enum:
       - authorization_code
+      - client_credentials
       - refresh_token
     signingAlgorithm:
       description: Supported signing algorithms.
@@ -780,7 +782,6 @@ components:
       required:
       - token_type
       - access_token
-      - refresh_token
       - expires_in
       properties:
         token_type:

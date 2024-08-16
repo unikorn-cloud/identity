@@ -24,20 +24,17 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/spf13/pflag"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/trace"
 
+	"github.com/unikorn-cloud/core/pkg/manager/otel"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
-	"github.com/unikorn-cloud/core/pkg/server/middleware/audit"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/cors"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/opentelemetry"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/timeout"
-	"github.com/unikorn-cloud/identity/pkg/authorization"
 	"github.com/unikorn-cloud/identity/pkg/constants"
 	"github.com/unikorn-cloud/identity/pkg/handler"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/middleware/audit"
 	openapimiddleware "github.com/unikorn-cloud/identity/pkg/middleware/openapi"
 	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/local"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
@@ -69,6 +66,9 @@ type Server struct {
 
 	// CORSOptions are for remote resource sharing.
 	CORSOptions cors.Options
+
+	// OTelOptions are for tracing.
+	OTelOptions otel.Options
 }
 
 func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
@@ -79,6 +79,7 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.JoseOptions.AddFlags(flags)
 	s.OAuth2Options.AddFlags(flags)
 	s.CORSOptions.AddFlags(flags)
+	s.OTelOptions.AddFlags(flags)
 }
 
 func (s *Server) SetupLogging() {
@@ -88,34 +89,8 @@ func (s *Server) SetupLogging() {
 	log.SetLogger(logr)
 }
 
-// SetupOpenTelemetry adds a span processor that will print root spans to the
-// logs by default, and optionally ship the spans to an OTLP listener.
-// TODO: move config into an otel specific options struct.
 func (s *Server) SetupOpenTelemetry(ctx context.Context) error {
-	otel.SetLogger(log.Log)
-
-	otel.SetTextMapPropagator(propagation.TraceContext{})
-
-	opts := []trace.TracerProviderOption{
-		trace.WithSpanProcessor(&opentelemetry.LoggingSpanProcessor{}),
-	}
-
-	if s.Options.OTLPEndpoint != "" {
-		exporter, err := otlptracehttp.New(ctx,
-			otlptracehttp.WithEndpoint(s.Options.OTLPEndpoint),
-			otlptracehttp.WithInsecure(),
-		)
-
-		if err != nil {
-			return err
-		}
-
-		opts = append(opts, trace.WithBatcher(exporter))
-	}
-
-	otel.SetTracerProvider(trace.NewTracerProvider(opts...))
-
-	return nil
+	return s.OTelOptions.Setup(ctx, trace.WithSpanProcessor(&opentelemetry.LoggingSpanProcessor{}))
 }
 
 func (s *Server) GetServer(client client.Client) (*http.Server, error) {
@@ -140,7 +115,6 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 
 	rbac := rbac.New(client, s.Options.Namespace)
 	oauth2 := oauth2.New(&s.OAuth2Options, s.Options.Namespace, client, issuer, rbac)
-	authenticator := authorization.NewAuthenticator(issuer, oauth2)
 
 	// Setup middleware.
 	authorizer := local.NewAuthorizer(oauth2, rbac)
@@ -156,7 +130,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		},
 	}
 
-	handlerInterface, err := handler.New(client, s.Options.Namespace, authenticator, rbac, &s.HandlerOptions)
+	handlerInterface, err := handler.New(client, s.Options.Namespace, issuer, oauth2, rbac, &s.HandlerOptions)
 	if err != nil {
 		return nil, err
 	}
