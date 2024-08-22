@@ -276,6 +276,30 @@ spec:
   - user@gmail.com
 ```
 
+### Service Organization
+
+When using an integration such as the [Unikorn Kubernetes Service](https://github.com/unikorn-cloud/kubernetes) you will need to create a service organization and groups in order for them to function.
+
+Taking Kubernetes cluster provisioning as an example, the provisioner is a Kubernetes controller that needs access to the region API in order to check the provisioning status of cloud identities, and possibly physical networks, before proceeding.
+Additionally it needs provider specific information from those resources to pass to the cluster provisioner.
+
+As these APIs are protected by oauth2 it needs a way to first acquire an access token, as it has no access to the requesting user's.
+To solve this problem we use the oauth2 `client_credentials` grant to authenticate the Kubernetes service against the Identity service.
+This takes the form of mutual-TLS authentication as defined by RFC-8705.
+
+When the access token is then passed to the Region service, it will authenticate the token against the Identity service, then it needs to retrieve the ACL to perform RBAC related checks on the API endpoints.
+For that reason, we need an organization and a group containing the client service user, mapping to a role that allows API access.
+
+The steps to create a service organization are exactly as described above:
+
+* Create an organization, e.g. `system` or `service`
+* Create a group for that service
+  * The group contains explicit user names e.g. `unikorn-kubernetes` as defined in the X.509 client certificate's common name (CN)
+  * The group defines a role relevant to that service e.g. `infra-manager-service`
+
+Individual services will document their CN and role requirements.
+All official Unikorn Cloud services will have their roles pre-defined by this repository.
+
 ## What Next?
 
 As you've noted, objects are named based on UUIDs, therefore administration is somewhat counterintuitive, but it does allow names to be mutable.
