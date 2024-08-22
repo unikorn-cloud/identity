@@ -84,16 +84,18 @@ roles:
         projects: [create,read,update,delete]
         regions: [create,read,update,delete]
         identities: [create,read,update,delete]
+        physicalnetworks: [create,read,update,delete]
         kubernetesclustermanagers: [create,read,update,delete]
         kubernetesclusters: [create,read,update,delete]
-  # A region admin is a role primarily for the Kubernetes service that
-  # can manage identities and physical networks on behalf of a cluster.
-  region-admin:
-    decription: Region administrator
+  # An infrastructure manager service is a role primarily for Kubernetes like
+  # services that can manage identities and physical networks on behalf of a cluster.
+  infra-manager-service:
+    decription: Infrastructure manager service
     scopes:
       global:
-        regions: [create,read,update,delete]
-        identities: [create,read,update,delete]
+        regions: [read]
+        identities: [read,delete]
+        physicalnetworks: [read,delete]
   # An administrator can do anything within an organization.
   adminstrator:
     description: Organization administrator
@@ -106,6 +108,7 @@ roles:
         projects: [create,read,update,delete]
         regions: [read]
         identities: [create]
+        physicalnetworks: [create]
         kubernetesclustermanagers: [create,read,update,delete]
         kubernetesclusters: [create,read,update,delete]
   # A user can view projects they are a member of and
@@ -118,6 +121,7 @@ roles:
       project:
         projects: [read]
         identities: [create]
+        physicalnetworks: [create]
         kubernetesclustermanagers: [read]
         kubernetesclusters: [create,read,update,delete]
   # A reader can view projects they are a member of and view

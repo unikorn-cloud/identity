@@ -205,7 +205,7 @@ func (c *Client) Update(ctx context.Context, organizationID, groupID string, req
 		return err
 	}
 
-	if err := conversion.UpdateObjectMetadata(required, current); err != nil {
+	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {
 		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)
 	}
 
