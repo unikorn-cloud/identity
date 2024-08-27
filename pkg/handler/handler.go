@@ -24,6 +24,7 @@ import (
 	"slices"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/util"
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
@@ -34,7 +35,6 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
-	"github.com/unikorn-cloud/identity/pkg/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
