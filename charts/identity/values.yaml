@@ -96,6 +96,7 @@ roles:
         regions: [read]
         identities: [read,delete]
         physicalnetworks: [read,delete]
+        quotas: [read,update]
   # An administrator can do anything within an organization.
   adminstrator:
     description: Organization administrator
