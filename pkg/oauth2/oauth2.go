@@ -51,6 +51,8 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	"github.com/unikorn-cloud/identity/pkg/util"
 
+	"k8s.io/apimachinery/pkg/util/cache"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -71,6 +73,10 @@ type Options struct {
 	// lifetime so we can "guarantee" ours will expire before theirs and force
 	// a refresh before any errors can come from the IdP.
 	TokenLeewayDuration time.Duration
+
+	// TokenCacheSize is used to control the size of the LRU cache for token validation
+	// checks.  This bounds the memory use to prevent DoS attacks.
+	TokenCacheSize int
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
@@ -78,6 +84,7 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.RefreshTokenDuration, "refresh-token-duration", 0, "Maximum time a refresh token can be active for.")
 	f.DurationVar(&o.TokenVerificationLeeway, "token-verification-leeway", 0, "How mush leeway to permit for verification of token validity.")
 	f.DurationVar(&o.TokenLeewayDuration, "token-leeway", time.Minute, "How long to remove from the provider token expiry to account for network and processing latency.")
+	f.IntVar(&o.TokenCacheSize, "token-cache-size", 8192, "How many token cache entries to allow.")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -92,17 +99,22 @@ type Authenticator struct {
 	issuer *jose.JWTIssuer
 
 	rbac *rbac.RBAC
+
+	// tokenCache is used to enhance interaction as the validation is a
+	// very expensive operation.
+	tokenCache *cache.LRUExpireCache
 }
 
 // New returns a new authenticator with required fields populated.
 // You must call AddFlags after this.
 func New(options *Options, namespace string, client client.Client, issuer *jose.JWTIssuer, rbac *rbac.RBAC) *Authenticator {
 	return &Authenticator{
-		options:   options,
-		namespace: namespace,
-		client:    client,
-		issuer:    issuer,
-		rbac:      rbac,
+		options:    options,
+		namespace:  namespace,
+		client:     client,
+		issuer:     issuer,
+		rbac:       rbac,
+		tokenCache: cache.NewLRUExpireCache(options.TokenCacheSize),
 	}
 }
 

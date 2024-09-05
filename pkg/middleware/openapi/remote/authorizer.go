@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -33,6 +34,8 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/middleware/openapi"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 
+	"k8s.io/apimachinery/pkg/util/cache"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,6 +44,9 @@ type Authorizer struct {
 	client        client.Client
 	options       *identityclient.Options
 	clientOptions *coreclient.HTTPClientOptions
+	// tokenCache is used to enhance interaction as the validation is a
+	// very expensive operation.
+	tokenCache *cache.LRUExpireCache
 }
 
 var _ openapi.Authorizer = &Authorizer{}
@@ -51,6 +57,9 @@ func NewAuthorizer(client client.Client, options *identityclient.Options, client
 		client:        client,
 		options:       options,
 		clientOptions: clientOptions,
+		// TODO: make this configurable, possibly even a shared flag with the
+		// authorizer to maintain consistency.
+		tokenCache: cache.NewLRUExpireCache(4096),
 	}
 }
 
@@ -121,6 +130,15 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 		return "", nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
 	}
 
+	if value, ok := a.tokenCache.Get(rawToken); ok {
+		claims, ok := value.(*identityapi.Userinfo)
+		if !ok {
+			return "", nil, errors.OAuth2ServerError("invalid token cache data")
+		}
+
+		return rawToken, claims, nil
+	}
+
 	// The identity client neatly wraps up TLS...
 	identity := identityclient.New(a.client, a.options, a.clientOptions)
 
@@ -170,6 +188,8 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 	if err := ui.Claims(claims); err != nil {
 		return "", nil, errors.OAuth2ServerError("failed to extrac user information").WithError(err)
 	}
+
+	a.tokenCache.Add(rawToken, claims, time.Until(time.Unix(int64(*claims.Exp), 0)))
 
 	return rawToken, claims, nil
 }
