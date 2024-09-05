@@ -198,6 +198,19 @@ type VerifyInfo struct {
 
 // Verify checks the access token parses and validates.
 func (a *Authenticator) Verify(ctx context.Context, info *VerifyInfo) (*AccessTokenClaims, error) {
+	// The verification process is very expensive, so we add a cache in here to
+	// improve interactivity.  Once this is in place, then the network latency becomes
+	// the bottle neck, presumably this is the TLS handshake.  Similar code can be
+	// in the remote client-side verification middleware.
+	if value, ok := a.tokenCache.Get(info.Token); ok {
+		claims, ok := value.(*AccessTokenClaims)
+		if !ok {
+			return nil, fmt.Errorf("%w: failed to assert cache claims", ErrTokenVerification)
+		}
+
+		return claims, nil
+	}
+
 	// Parse and verify the claims with the public key.
 	claims := &AccessTokenClaims{}
 
@@ -217,6 +230,8 @@ func (a *Authenticator) Verify(ctx context.Context, info *VerifyInfo) (*AccessTo
 	if err := claims.Claims.ValidateWithLeeway(expected, a.options.TokenVerificationLeeway); err != nil {
 		return nil, fmt.Errorf("failed to validate claims: %w", err)
 	}
+
+	a.tokenCache.Add(info.Token, claims, time.Until(claims.Expiry.Time()))
 
 	return claims, nil
 }
