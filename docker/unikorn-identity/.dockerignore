@@ -1,3 +1,3 @@
 *
-!bin/*-linux-gnu/unikorn-server
+!bin/*-linux/unikorn-server
 !hack/passwd.nonroot

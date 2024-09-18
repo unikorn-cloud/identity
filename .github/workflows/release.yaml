@@ -34,6 +34,11 @@ jobs:
       run: make touch all images -e RELEASE=1 VERSION=${{ github.ref_name }}
 #    - name: Build Documentation
 #      run: sudo apt -y install wbritish && go run github.com/unikorn-cloud/core/hack/docs -o docs/server-api.md
+    - name: Create Artefacts
+      run: |
+        cp bin/amd64-linux/kubectl-unikorn kubectl-unikorn-amd64-linux
+        cp bin/arm64-linux/kubectl-unikorn kubectl-unikorn-arm64-linux
+        cp bin/arm64-darwin/kubectl-unikorn kubectl-unikorn-arm64-darwin
     - name: Configure Git
       run: |
         git config user.name "$GITHUB_ACTOR"
@@ -48,3 +53,10 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         name: Release ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
+        with:
+          files: |
+            kubectl-unikorn-amd64-linux
+            kubectl-unikorn-arm64-linux
+            kubectl-unikorn-arm64-darwin
+            cmd/kubectl-unikorn/kubectl_complete-unikorn.bash
+            cmd/kubectl-unikorn/kubectl_complete-unikorn.zsh

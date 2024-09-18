@@ -212,68 +212,38 @@ Deploy:
 helm update --install --namespace unikorn-identity unikorn-identity/unikorn-identity -f values.yaml
 ```
 
+### Installing the Management Plugin
+
+Download the following artefacts an install them in your path:
+
+* `kubectl-unikorn`
+* `kubectl_complete-unikorn`
+
 ### Creating an Organization
 
 Organizations allow users to actually log in.
 A user must be mapped to an organization to be permitted access.
 Organizations are typically manged via a back channel after email verification, billing and other tests.
 
-Create an organization resource:
+We provide CLI integration to perform initial user onboarding, first create an organization:
 
-```yaml
-apiVersion: identity.unikorn-cloud.org/v1alpha1
-kind: Organization
-metadata:
-  # Use "uuidgen -r" to select a random ID, this MUST start with a character a-f.
-  name: bec71681-8749-4816-a708-7f529d20db2e
-  namespace: unikorn-identity
-  labels:
-    # This is the human readable, and mutable, name that will get displayed in clients.
-    # It is expected to exist on all CRD backed resources.
-    unikorn-cloud.org/name: acme.com
-spec: {}
+```shell
+kubectl unikorn create organization \
+    --namespace unikorn-identity \
+    --name acme.com \
+    --description "A place for Looney Tunes!"
 ```
 
-This will provision fairly quickly, you can extract the organization's namespace via:
+Then create a group linking a user to a role:
 
-```
-$ kubectl get organizations.identity.unikorn-cloud.org -A
-NAMESPACE          NAME                                   DISPLAY NAME   NAMESPACE            STATUS        AGE
-unikorn-identity   bec71681-8749-4816-a708-7f529d20db2e   acme.com       organization-kmvxk   Provisioned   17s
-```
-
-Now get the defined roles:
-
-```
-$ kubectl get roles.identity.unikorn-cloud.org -A
-NAMESPACE          NAME                                   DISPLAY NAME            AGE
-unikorn-identity   f3c62fd6-103f-4acb-851d-5864e5d0e708   platform-adminstrator   25h
-unikorn-identity   f4f8996d-a763-47a9-89b1-028ee3007569   user                    25h
-unikorn-identity   fa5d6000-6acd-4303-83c6-a9593ebff251   adminstrator            25h
-unikorn-identity   fd094196-4aa3-4bdc-800c-cef58b1bb399   reader                  25h
-```
-
-Next create a group in that organization associated with a user:
-
-```yaml
-apiVersion: identity.unikorn-cloud.org/v1alpha1
-kind: Group
-metadata:
-  # Use "uuidgen -r" to select a random ID, this MUST start with a character a-f.
-  name: c7e8492f-c320-4278-8201-48cd38fed38b
-  namespace: organization-kmvxk
-  labels:
-    # This is the human readable, and mutable, name that will get displayed in clients.
-    # It is expected to exist on all CRD backed resources.
-    unikorn-cloud.org/name: super-admins
-  annotations:
-    # This is a verbose description that can be added to resources.
-    unikorn-cloud.org/description: Platform administrators.
-spec:
-  roleIDs:
-  - f3c62fd6-103f-4acb-851d-5864e5d0e708
-  users:
-  - user@gmail.com
+```shell
+kubectl unikorn create group \
+    --namespace unikorn-identity \
+    --organization acme.com \
+    --name platform-administrators \
+    --description "Platform super users" \
+    --role platform-administrator \
+    --user wile.e.coyote@acme.com
 ```
 
 ### Service Organization
@@ -290,15 +260,32 @@ This takes the form of mutual-TLS authentication as defined by RFC-8705.
 When the access token is then passed to the Region service, it will authenticate the token against the Identity service, then it needs to retrieve the ACL to perform RBAC related checks on the API endpoints.
 For that reason, we need an organization and a group containing the client service user, mapping to a role that allows API access.
 
-The steps to create a service organization are exactly as described above:
+The steps to create a service organization are exactly as described above, first create an organization:
 
-* Create an organization, e.g. `system` or `service`
-* Create a group for that service
-  * The group contains explicit user names e.g. `unikorn-kubernetes` as defined in the X.509 client certificate's common name (CN)
-  * The group defines a role relevant to that service e.g. `infra-manager-service`
+```shell
+kubectl unikorn create organization \
+    --namespace unikorn-identity \
+    --name system \
+    --description "System service accounts"
+```
 
-Individual services will document their CN and role requirements.
-All official Unikorn Cloud services will have their roles pre-defined by this repository.
+Then create groups to link services to roles:
+
+```shell
+kubectl unikorn create group \
+    --namespace unikorn-identity \
+    --organization system \
+    --name region-managers \
+    --description "Services that can operate on compute regions" \
+    --role infra-manager-service \
+    --user unikorn-kubernetes \
+    --user unikorn-baremetal 
+```
+
+> [!NOTE]
+> The group contains explicit user names e.g. `unikorn-kubernetes` as defined in the X.509 client certificate's common name (CN).
+> Individual services will document their CN and role requirements.
+> All official Unikorn Cloud services will have their roles pre-defined by this repository.
 
 ## What Next?
 

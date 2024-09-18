@@ -10,6 +10,9 @@ REVISION := $(shell git rev-parse HEAD)
 # Commands to build, the first lot are architecture agnostic and will be built
 # for your host's architecture.  The latter are going to run in Kubernetes, so
 # want to be amd64.
+COMMANDS = \
+  kubectl-unikorn
+
 CONTROLLERS = \
   unikorn-identity \
   unikorn-organization-controller \
@@ -23,9 +26,11 @@ CONTROLLERS = \
 # Docker apparently cannot support this after some 3 years...  So don't
 # run that target locally when compiling in release mode.
 ifdef RELEASE
+COMMAND_TARGETS := amd64-linux arm64-linux arm64-darwin
 CONTROLLER_ARCH := amd64 arm64
 BUILDX_OUTPUT := --push
 else
+COMMAND_TARGETS := $(shell go env GOARCH)-$(shell go env GOOS)
 CONTROLLER_ARCH := $(shell go env GOARCH)
 BUILDX_OUTPUT := --load
 endif
@@ -44,7 +49,8 @@ CRDDIR = charts/identity/crds
 PREFIX = $(HOME)/bin
 
 # List of binaries to build.
-CONTROLLER_BINARIES := $(foreach arch,$(CONTROLLER_ARCH),$(foreach ctrl,$(CONTROLLERS),$(BINDIR)/$(arch)-linux-gnu/$(ctrl)))
+COMMAND_BINARIES := $(foreach target,$(COMMAND_TARGETS),$(foreach ctrl,$(COMMANDS),$(BINDIR)/$(target)/$(ctrl)))
+CONTROLLER_BINARIES := $(foreach arch,$(CONTROLLER_ARCH),$(foreach ctrl,$(CONTROLLERS),$(BINDIR)/$(arch)-linux/$(ctrl)))
 
 # List of sources to trigger a build.
 # TODO: Bazel may be quicker, but it's a massive hog, and a pain in the arse.
@@ -100,21 +106,24 @@ DOCKER_ORG = ghcr.io/unikorn-cloud
 
 # Main target, builds all binaries.
 .PHONY: all
-all: $(CONTROLLER_BINARIES) $(CRDDIR)
+all: $(COMMAND_BINARIES) $(CONTROLLER_BINARIES) $(CRDDIR)
 
 # Create a binary output directory, this should be an order-only prerequisite.
-$(BINDIR) $(BINDIR)/amd64-linux-gnu $(BINDIR)/arm64-linux-gnu:
+$(BINDIR) $(BINDIR)/amd64-linux $(BINDIR)/arm64-linux $(BINDIR)/amd64-darwin $(BINDIR)/arm64-darwin:
 	mkdir -p $@
 
 # Create a binary from a command.
 $(BINDIR)/%: $(SOURCES) $(GENDIR) $(OPENAPI_FILES) | $(BINDIR)
 	CGO_ENABLED=0 go build $(FLAGS) -o $@ $(CMDDIR)/$*/main.go
 
-$(BINDIR)/amd64-linux-gnu/%: $(SOURCES) $(GENDIR) $(OPENAPI_FILES) | $(BINDIR)/amd64-linux-gnu
+$(BINDIR)/amd64-linux/%: $(SOURCES) $(GENDIR) $(OPENAPI_FILES) | $(BINDIR)/amd64-linux
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(FLAGS) -o $@ $(CMDDIR)/$*/main.go
 
-$(BINDIR)/arm64-linux-gnu/%: $(SOURCES) $(GENDIR) | $(BINDIR)/arm64-linux-gnu
+$(BINDIR)/arm64-linux/%: $(SOURCES) $(GENDIR) | $(BINDIR)/arm64-linux
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(FLAGS) -o $@ $(CMDDIR)/$*/main.go
+
+$(BINDIR)/arm64-darwin/%: $(SOURCES) $(GENDIR) | $(BINDIR)/arm64-darwin
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(FLAGS) -o $@ $(CMDDIR)/$*/main.go
 
 # TODO: we may wamt to consider porting the rest of the CRD and client generation
 # stuff over... that said, we don't need the clients really do we, controller-runtime
