@@ -410,7 +410,11 @@ func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims interface{}) (string, 
 		Key:       keyPair.Key,
 	}
 
-	signer, err := jose.NewSigner(signingKey, nil)
+	options := &jose.SignerOptions{
+		EmbedJWK: true,
+	}
+
+	signer, err := jose.NewSigner(signingKey, options)
 	if err != nil {
 		return "", fmt.Errorf("failed to create signer: %w", err)
 	}
