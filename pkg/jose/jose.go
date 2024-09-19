@@ -411,7 +411,9 @@ func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims interface{}) (string, 
 	}
 
 	options := &jose.SignerOptions{
-		EmbedJWK: true,
+		ExtraHeaders: map[jose.HeaderKey]interface{}{
+			"kid": getKeyID(keyPair.Cert),
+		},
 	}
 
 	signer, err := jose.NewSigner(signingKey, options)

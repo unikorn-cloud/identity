@@ -73,7 +73,7 @@ issuer:
 # are applied to the organization, regardless of project scoping etc.
 roles:
   # A platform-admin can do anything anywhere.
-  platform-adminstrator:
+  platform-administrator:
     description: Platform administrator
     scopes:
       global:
@@ -99,7 +99,7 @@ roles:
         physicalnetworks: [read,delete]
         quotas: [read,update]
   # An administrator can do anything within an organization.
-  adminstrator:
+  administrator:
     description: Organization administrator
     scopes:
       organization:
