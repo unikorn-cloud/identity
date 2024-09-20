@@ -162,14 +162,8 @@ func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
-	result, err := h.issuer.JWKS(r.Context())
-	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to generate json web key set").WithError(err))
-		return
-	}
-
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
+	util.WriteJSONResponse(w, r, http.StatusOK, h.issuer.GetJSONWebKeySet(r.Context()))
 }
 
 func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
