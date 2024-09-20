@@ -22,14 +22,21 @@ rules:
   - create
   - delete
 - apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - signingkeys
+  verbs:
+  - list
+  - watch
+  - create
+  - update
+- apiGroups:
   - ""
   resources:
   - secrets
   verbs:
   - list
   - watch
-  - create
-  - update
 - apiGroups:
   - coordination.k8s.io
   resources:

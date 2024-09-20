@@ -183,3 +183,36 @@ const (
 // RoleStatus defines any role status information.
 type RoleStatus struct {
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type SigningKeyList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SigningKey `json:"items"`
+}
+
+// SigningKey is a circular buffer of signing keys used to atomically process
+// key rotations, and ensure issued tokens can be verified even after a key rotation.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+type SigningKey struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SigningKeySpec   `json:"spec"`
+	Status            SigningKeyStatus `json:"status,omitempty"`
+}
+
+type SigningKeySpec struct {
+	// PrivateKeys is an ordered list of private keys, the first is
+	// the most recent, so essentially a FIFO queue.
+	PrivateKeys []PrivateKey `json:"privateKeys,omitempty"`
+}
+
+type PrivateKey struct {
+	// PEM is the PEM encded private key.
+	PEM []byte `json:"pem,omitempty"`
+}
+
+type SigningKeyStatus struct {
+}

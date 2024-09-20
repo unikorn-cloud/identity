@@ -23,8 +23,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	josetesting "github.com/unikorn-cloud/identity/pkg/jose/testing"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -33,15 +37,24 @@ type TestClaims struct {
 	Foo string `json:"foo"`
 }
 
+func getScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+
+	s := runtime.NewScheme()
+	require.NoError(t, scheme.AddToScheme(s))
+	require.NoError(t, unikornv1.AddToScheme(s))
+
+	return s
+}
+
 // TestRotation tests the behaviour of the low level certificate rotation code, ensuring
 // our shadown keys are kept in sync with what's provided by cert-manager.
 func TestRotation(t *testing.T) {
 	t.Parallel()
 
-	client := fake.NewFakeClient()
+	client := fake.NewClientBuilder().WithScheme(getScheme(t)).Build()
 
-	serial1 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial1)
+	key1 := josetesting.RotateCertificate(t, client)
 
 	options := &jose.Options{
 		IssuerSecretName: josetesting.KeySecretName,
@@ -57,35 +70,28 @@ func TestRotation(t *testing.T) {
 
 	// After at least one tick, expect the primary copy to exist, and the secondary not to.
 	time.Sleep(josetesting.RefreshPeriod * 2)
-	josetesting.CheckCertificate(t, client, issuer.GetPrimaryKeyName(), serial1)
-	josetesting.CheckCertificateNotExist(t, client, issuer.GetSecondaryKeyName())
+	josetesting.CheckSigningKeys(t, client, key1)
 
 	// After ar at least another tick, expect the state to be the same.
 	time.Sleep(josetesting.RefreshPeriod)
-	josetesting.CheckCertificate(t, client, issuer.GetPrimaryKeyName(), serial1)
-	josetesting.CheckCertificateNotExist(t, client, issuer.GetSecondaryKeyName())
+	josetesting.CheckSigningKeys(t, client, key1)
 
 	// Rotate the certificate, and after at least one tick the primary should be updated
 	// and the old primary copied to the secondary.
-	serial2 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial2)
+	key2 := josetesting.RotateCertificate(t, client)
 
 	time.Sleep(josetesting.RefreshPeriod * 2)
-	josetesting.CheckCertificate(t, client, issuer.GetPrimaryKeyName(), serial2)
-	josetesting.CheckCertificate(t, client, issuer.GetSecondaryKeyName(), serial1)
+	josetesting.CheckSigningKeys(t, client, key2, key1)
 
 	// After ar at least another tick, expect the state to be the same.
 	time.Sleep(josetesting.RefreshPeriod)
-	josetesting.CheckCertificate(t, client, issuer.GetPrimaryKeyName(), serial2)
-	josetesting.CheckCertificate(t, client, issuer.GetSecondaryKeyName(), serial1)
+	josetesting.CheckSigningKeys(t, client, key2, key1)
 
 	// And one more time...
-	serial3 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial3)
+	key3 := josetesting.RotateCertificate(t, client)
 
 	time.Sleep(josetesting.RefreshPeriod * 2)
-	josetesting.CheckCertificate(t, client, issuer.GetPrimaryKeyName(), serial3)
-	josetesting.CheckCertificate(t, client, issuer.GetSecondaryKeyName(), serial2)
+	josetesting.CheckSigningKeys(t, client, key3, key2)
 }
 
 // TestJWTIssue tests that issued JWTs validate across key rotation, and cease working
@@ -93,10 +99,9 @@ func TestRotation(t *testing.T) {
 func TestJWTIssue(t *testing.T) {
 	t.Parallel()
 
-	client := fake.NewFakeClient()
+	client := fake.NewClientBuilder().WithScheme(getScheme(t)).Build()
 
-	serial1 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial1)
+	josetesting.RotateCertificate(t, client)
 
 	options := &jose.Options{
 		IssuerSecretName: josetesting.KeySecretName,
@@ -126,8 +131,7 @@ func TestJWTIssue(t *testing.T) {
 	require.NoError(t, issuer.DecodeJWT(ctx, token1, &decodedClaims))
 
 	// Rotate the key, check the existing token and a new on validate.
-	serial2 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial2)
+	josetesting.RotateCertificate(t, client)
 
 	time.Sleep(josetesting.RefreshPeriod * 2)
 
@@ -138,8 +142,7 @@ func TestJWTIssue(t *testing.T) {
 	require.NoError(t, issuer.DecodeJWT(ctx, token2, &decodedClaims))
 
 	// Do it again, the first token shouldn't work any more, but the second one should.
-	serial3 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial3)
+	josetesting.RotateCertificate(t, client)
 
 	time.Sleep(josetesting.RefreshPeriod * 2)
 
@@ -152,10 +155,9 @@ func TestJWTIssue(t *testing.T) {
 func TestJWEIssue(t *testing.T) {
 	t.Parallel()
 
-	client := fake.NewFakeClient()
+	client := fake.NewClientBuilder().WithScheme(getScheme(t)).Build()
 
-	serial1 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial1)
+	josetesting.RotateCertificate(t, client)
 
 	options := &jose.Options{
 		IssuerSecretName: josetesting.KeySecretName,
@@ -185,8 +187,7 @@ func TestJWEIssue(t *testing.T) {
 	require.NoError(t, issuer.DecodeJWEToken(ctx, token1, &decodedClaims, jose.TokenTypeAccessToken))
 
 	// Rotate the key, check the existing token and a new on validate.
-	serial2 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial2)
+	josetesting.RotateCertificate(t, client)
 
 	time.Sleep(josetesting.RefreshPeriod * 2)
 
@@ -197,8 +198,7 @@ func TestJWEIssue(t *testing.T) {
 	require.NoError(t, issuer.DecodeJWEToken(ctx, token2, &decodedClaims, jose.TokenTypeAccessToken))
 
 	// Do it again, the first token shouldn't work any more, but the second one should.
-	serial3 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial3)
+	josetesting.RotateCertificate(t, client)
 
 	time.Sleep(josetesting.RefreshPeriod * 2)
 
