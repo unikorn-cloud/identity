@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -62,6 +63,9 @@ var (
 	// ErrContextError is raised when a required value cannot be retrieved
 	// from a context.
 	ErrContextError = errors.New("value missing from context")
+
+	// ErrJOSE is raised when something is wrong with a JWT.
+	ErrJOSE = errors.New("jose error")
 )
 
 type Options struct {
@@ -324,34 +328,31 @@ func parsePrivatekey(pemData []byte) (crypto.PrivateKey, error) {
 	return nil, fmt.Errorf("%w: unknown key type %s", ErrKeyFormat, block.Type)
 }
 
-func parseCertificate(pemData []byte) (*x509.Certificate, error) {
-	block, rest := pem.Decode(pemData)
-	if len(rest) > 0 {
-		return nil, fmt.Errorf("%w: Key encoding has extra data", ErrKeyFormat)
+type PublicKeyer interface {
+	Public() crypto.PublicKey
+}
+
+func getKeyID(key crypto.PrivateKey) (string, error) {
+	pkey, ok := key.(PublicKeyer)
+	if !ok {
+		return "", fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
 	}
 
-	if block.Type != "CERTIFICATE" {
-		return nil, fmt.Errorf("%w: unknown certificate type %s", ErrKeyFormat, block.Type)
+	// Use the public key, so you cannot (easily) get the private key.
+	serialized, err := json.Marshal(pkey.Public())
+	if err != nil {
+		return "", err
 	}
 
-	return x509.ParseCertificate(block.Bytes)
+	// Likewise hash it to make it even more impossible...
+	sum := sha256.Sum256(serialized)
+
+	// And stringify the result.
+	return base64.RawURLEncoding.EncodeToString(sum[:]), nil
 }
 
-func getKeyID(cert *x509.Certificate) string {
-	kid := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
-
-	return base64.RawURLEncoding.EncodeToString(kid[:])
-}
-
-type KeyPair struct {
-	Cert *x509.Certificate
-	Key  crypto.PrivateKey
-}
-
-// GetKeyPair returns the public key, private key and key id from the configuration data.
-// The key id is inspired by X.509 subject key identifiers, so a hash over the subject public
-// key info.
-func (i *JWTIssuer) GetKeyPair(ctx context.Context, name string) (*KeyPair, error) {
+// GetJSONWebKey converts from a X.509 secret into a JWK.
+func (i *JWTIssuer) GetJSONWebKey(ctx context.Context, name string) (*jose.JSONWebKey, error) {
 	var secret corev1.Secret
 
 	if err := i.client.Get(ctx, client.ObjectKey{Namespace: i.namespace, Name: name}, &secret); err != nil {
@@ -368,55 +369,46 @@ func (i *JWTIssuer) GetKeyPair(ctx context.Context, name string) (*KeyPair, erro
 		return nil, err
 	}
 
-	cert, ok := secret.Data[corev1.TLSCertKey]
-	if !ok {
-		return nil, fmt.Errorf("%w: JOSE secret does not contain tls.crt", ErrMissingKey)
-	}
-
-	certificate, err := parseCertificate(cert)
+	keyID, err := getKeyID(privateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	keyPair := &KeyPair{
-		Cert: certificate,
-		Key:  privateKey,
+	jwk := &jose.JSONWebKey{
+		Key:       privateKey,
+		KeyID:     keyID,
+		Algorithm: "ES512",
+		Use:       "sig",
 	}
 
-	return keyPair, nil
+	return jwk, nil
 }
 
-// GetKeyPairs returns all key pairs that exist.
-func (i *JWTIssuer) GetKeyPairs(ctx context.Context) []*KeyPair {
-	var keyPairs []*KeyPair
+// GetJSONWebKeySet returns all JSON web keys.
+func (i *JWTIssuer) GetJSONWebKeySet(ctx context.Context) *jose.JSONWebKeySet {
+	jwks := &jose.JSONWebKeySet{}
 
 	for _, name := range []string{i.GetPrimaryKeyName(), i.GetSecondaryKeyName()} {
-		if keyPair, err := i.GetKeyPair(ctx, name); err == nil {
-			keyPairs = append(keyPairs, keyPair)
+		if jwk, err := i.GetJSONWebKey(ctx, name); err == nil {
+			jwks.Keys = append(jwks.Keys, *jwk)
 		}
 	}
 
-	return keyPairs
+	return jwks
 }
 
 func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims interface{}) (string, error) {
-	keyPair, err := i.GetKeyPair(ctx, i.GetPrimaryKeyName())
+	key, err := i.GetJSONWebKey(ctx, i.GetPrimaryKeyName())
 	if err != nil {
 		return "", fmt.Errorf("failed to get key pair: %w", err)
 	}
 
 	signingKey := jose.SigningKey{
 		Algorithm: jose.ES512,
-		Key:       keyPair.Key,
+		Key:       key,
 	}
 
-	options := &jose.SignerOptions{
-		ExtraHeaders: map[jose.HeaderKey]interface{}{
-			"kid": getKeyID(keyPair.Cert),
-		},
-	}
-
-	signer, err := jose.NewSigner(signingKey, options)
+	signer, err := jose.NewSigner(signingKey, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create signer: %w", err)
 	}
@@ -424,27 +416,39 @@ func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims interface{}) (string, 
 	return jwt.Signed(signer).Claims(claims).CompactSerialize()
 }
 
-func (i *JWTIssuer) decodeJWT(keyPair *KeyPair, tokenString string, claims interface{}) error {
+func (i *JWTIssuer) DecodeJWT(ctx context.Context, tokenString string, claims interface{}) error {
 	token, err := jwt.ParseSigned(tokenString)
 	if err != nil {
 		return err
 	}
 
-	if err := token.Claims(keyPair.Cert.PublicKey, claims); err != nil {
+	if len(token.Headers) != 1 {
+		return fmt.Errorf("%w: jwt doesn't have exactly one header", ErrJOSE)
+	}
+
+	keyID := token.Headers[0].KeyID
+	if keyID == "" {
+		return fmt.Errorf("%w: jwt doesn't have a kid set", ErrJOSE)
+	}
+
+	jwks := i.GetJSONWebKeySet(ctx).Key(keyID)
+	if len(jwks) != 1 {
+		return fmt.Errorf("%w: jwks key lookup failed", ErrJOSE)
+	}
+
+	jwk := jwks[0]
+
+	key, ok := jwk.Key.(PublicKeyer)
+	if !ok {
+		return fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
+	}
+
+	// Annoyingly this cannot extract the public key from the private one...
+	if err := token.Claims(key.Public(), claims); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (i *JWTIssuer) DecodeJWT(ctx context.Context, tokenString string, claims interface{}) error {
-	for _, keyPair := range i.GetKeyPairs(ctx) {
-		if err := i.decodeJWT(keyPair, tokenString, claims); err == nil {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("%w: token cannot be validated against any key", ErrTokenVerification)
 }
 
 // TokenType is used to define the specific use of a token.
@@ -472,14 +476,14 @@ const (
 func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims interface{}, tokenType TokenType) (string, error) {
 	// TODO: according to the spec we MUST support RS256, but we do both
 	// issue and verification, so not strictly necessary.
-	keyPair, err := i.GetKeyPair(ctx, i.GetPrimaryKeyName())
+	key, err := i.GetJSONWebKey(ctx, i.GetPrimaryKeyName())
 	if err != nil {
 		return "", fmt.Errorf("failed to get key pair: %w", err)
 	}
 
 	signingKey := jose.SigningKey{
 		Algorithm: jose.ES512,
-		Key:       keyPair.Key,
+		Key:       key,
 	}
 
 	signer, err := jose.NewSigner(signingKey, nil)
@@ -487,10 +491,15 @@ func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims interface{}, toke
 		return "", fmt.Errorf("failed to create signer: %w", err)
 	}
 
+	pkey, ok := key.Key.(PublicKeyer)
+	if !ok {
+		return "", fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
+	}
+
 	recipient := jose.Recipient{
 		Algorithm: jose.ECDH_ES,
-		Key:       keyPair.Cert.PublicKey,
-		KeyID:     getKeyID(keyPair.Cert),
+		Key:       pkey.Public(),
+		KeyID:     key.KeyID,
 	}
 
 	encrypterOptions := &jose.EncrypterOptions{}
@@ -509,8 +518,7 @@ func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims interface{}, toke
 	return token, nil
 }
 
-func (i *JWTIssuer) decodeJWEToken(keyPair *KeyPair, tokenString string, claims interface{}, tokenType TokenType) error {
-	// Parse and decrypt the JWE token with the private key.
+func (i *JWTIssuer) DecodeJWEToken(ctx context.Context, tokenString string, claims interface{}, tokenType TokenType) error {
 	nestedToken, err := jwt.ParseSignedAndEncrypted(tokenString)
 	if err != nil {
 		return fmt.Errorf("failed to parse encrypted token: %w", err)
@@ -520,7 +528,9 @@ func (i *JWTIssuer) decodeJWEToken(keyPair *KeyPair, tokenString string, claims 
 		return fmt.Errorf("%w: expected exactly one header", ErrTokenVerification)
 	}
 
-	t, ok := nestedToken.Headers[0].ExtraHeaders["typ"].(string)
+	header := nestedToken.Headers[0]
+
+	t, ok := header.ExtraHeaders["typ"].(string)
 	if !ok {
 		return fmt.Errorf("%w: typ header not present", ErrTokenVerification)
 	}
@@ -529,39 +539,32 @@ func (i *JWTIssuer) decodeJWEToken(keyPair *KeyPair, tokenString string, claims 
 		return fmt.Errorf("%w: typ header incorrect", ErrTokenVerification)
 	}
 
-	token, err := nestedToken.Decrypt(keyPair.Key)
+	keyID := header.KeyID
+	if keyID == "" {
+		return fmt.Errorf("%w: jwt doesn't have a kid set", ErrJOSE)
+	}
+
+	jwks := i.GetJSONWebKeySet(ctx).Key(keyID)
+	if len(jwks) != 1 {
+		return fmt.Errorf("%w: jwks key lookup failed", ErrJOSE)
+	}
+
+	jwk := jwks[0]
+
+	token, err := nestedToken.Decrypt(jwk.Key)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt token: %w", err)
 	}
 
-	// Parse and verify the claims with the public key.
-	if err := token.Claims(keyPair.Cert.PublicKey, claims); err != nil {
-		return fmt.Errorf("failed to decrypt claims: %w", err)
+	key, ok := jwk.Key.(PublicKeyer)
+	if !ok {
+		return fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
+	}
+
+	// Annoyingly this cannot extract the public key from the private one...
+	if err := token.Claims(key.Public(), claims); err != nil {
+		return fmt.Errorf("failed to extract claims: %w", err)
 	}
 
 	return nil
-}
-
-func (i *JWTIssuer) DecodeJWEToken(ctx context.Context, tokenString string, claims interface{}, tokenType TokenType) error {
-	for _, keyPair := range i.GetKeyPairs(ctx) {
-		if err := i.decodeJWEToken(keyPair, tokenString, claims, tokenType); err == nil {
-			return nil
-		}
-	}
-
-	return fmt.Errorf("%w: token cannot be validated against any key", ErrTokenVerification)
-}
-
-func (i *JWTIssuer) JWKS(ctx context.Context) (*jose.JSONWebKeySet, error) {
-	jwks := &jose.JSONWebKeySet{}
-
-	for _, keyPair := range i.GetKeyPairs(ctx) {
-		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
-			Key:   keyPair.Cert.PublicKey,
-			KeyID: getKeyID(keyPair.Cert),
-			Use:   "sig",
-		})
-	}
-
-	return jwks, nil
 }
