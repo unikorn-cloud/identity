@@ -21,7 +21,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -30,6 +29,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/jose"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +59,7 @@ func (*FakeCoordinationClientGetter) Client() (coordinationv1.CoordinationV1Inte
 	return coordination, nil
 }
 
-func GenerateSerial(t *testing.T) *big.Int {
+func generateSerial(t *testing.T) *big.Int {
 	t.Helper()
 
 	serial, err := rand.Int(rand.Reader, big.NewInt(0).Lsh(big.NewInt(1), 128))
@@ -66,7 +68,7 @@ func GenerateSerial(t *testing.T) *big.Int {
 	return serial
 }
 
-func RotateCertificate(t *testing.T, client client.Client, serial *big.Int) {
+func RotateCertificate(t *testing.T, client client.Client) []byte {
 	t.Helper()
 
 	pkey, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
@@ -79,7 +81,7 @@ func RotateCertificate(t *testing.T, client client.Client, serial *big.Int) {
 		Subject: pkix.Name{
 			CommonName: "my-signing-key",
 		},
-		SerialNumber: serial,
+		SerialNumber: generateSerial(t),
 		NotBefore:    time.Now(),
 		NotAfter:     time.Now().Add(time.Minute),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
@@ -121,32 +123,19 @@ func RotateCertificate(t *testing.T, client client.Client, serial *big.Int) {
 
 	_, err = controllerutil.CreateOrUpdate(context.Background(), client, secret, mutate)
 	require.NoError(t, err)
+
+	return key
 }
 
-func CheckCertificate(t *testing.T, cli client.Client, name string, serial *big.Int) {
+func CheckSigningKeys(t *testing.T, cli client.Client, keys ...[]byte) {
 	t.Helper()
 
-	var secret corev1.Secret
+	var signingKeys unikornv1.SigningKey
 
-	require.NoError(t, cli.Get(context.Background(), client.ObjectKey{Namespace: Namespace, Name: name}, &secret))
+	require.NoError(t, cli.Get(context.Background(), client.ObjectKey{Namespace: Namespace, Name: jose.SigningKeyName}, &signingKeys))
+	require.Len(t, signingKeys.Spec.PrivateKeys, len(keys))
 
-	require.Contains(t, secret.Data, corev1.TLSCertKey)
-	require.Contains(t, secret.Data, corev1.TLSPrivateKeyKey)
-
-	tlsCert, err := tls.X509KeyPair(secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey])
-	require.NoError(t, err)
-	require.Len(t, tlsCert.Certificate, 1)
-	require.NotEmpty(t, tlsCert.Certificate[0])
-
-	cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
-	require.NoError(t, err)
-	require.Equal(t, 0, cert.SerialNumber.Cmp(serial))
-}
-
-func CheckCertificateNotExist(t *testing.T, cli client.Client, name string) {
-	t.Helper()
-
-	var secret corev1.Secret
-
-	require.Error(t, cli.Get(context.Background(), client.ObjectKey{Namespace: Namespace, Name: name}, &secret))
+	for i, privateKey := range signingKeys.Spec.PrivateKeys {
+		require.Equal(t, privateKey.PEM, keys[i])
+	}
 }

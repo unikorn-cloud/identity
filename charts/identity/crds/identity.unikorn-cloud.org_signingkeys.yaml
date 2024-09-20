@@ -4,29 +4,24 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: groups.identity.unikorn-cloud.org
+  name: signingkeys.identity.unikorn-cloud.org
 spec:
   group: identity.unikorn-cloud.org
   names:
     categories:
     - unikorn
-    kind: Group
-    listKind: GroupList
-    plural: groups
-    singular: group
+    kind: SigningKey
+    listKind: SigningKeyList
+    plural: signingkeys
+    singular: signingkey
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
-      name: display name
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: age
-      type: date
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Group describes a binding between users and roles.
+        description: |-
+          SigningKey is a circular buffer of signing keys used to atomically process
+          key rotations, and ensure issued tokens can be verified even after a key rotation.
         properties:
           apiVersion:
             description: |-
@@ -47,33 +42,23 @@ spec:
             type: object
           spec:
             properties:
-              providerGroupNames:
+              privateKeys:
                 description: |-
-                  ProviderID is the name of the group as returned by the provider.
-                  For example a query of https://cloudidentity.googleapis.com/v1/groups/
-                  will return something like groups/01664s551ax43ok.
+                  PrivateKeys is an ordered list of private keys, the first is
+                  the most recent, so essentially a FIFO queue.
                 items:
-                  type: string
-                type: array
-              roleIDs:
-                description: RoleIDs are a list of roles users of the group inherit.
-                items:
-                  type: string
-                type: array
-              users:
-                description: Users are a list of user names that are members of the
-                  group.
-                items:
-                  type: string
+                  properties:
+                    pem:
+                      description: PEM is the PEM encded private key.
+                      format: byte
+                      type: string
+                  type: object
                 type: array
             type: object
           status:
-            description: GroupStatus defines the status of the group.
             type: object
         required:
         - spec
         type: object
     served: true
     storage: true
-    subresources:
-      status: {}

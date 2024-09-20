@@ -23,9 +23,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	josetesting "github.com/unikorn-cloud/identity/pkg/jose/testing"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -37,13 +41,22 @@ const (
 	refreshTokenDuration = 30 * time.Second
 )
 
+func getScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+
+	s := runtime.NewScheme()
+	require.NoError(t, scheme.AddToScheme(s))
+	require.NoError(t, unikornv1.AddToScheme(s))
+
+	return s
+}
+
 func TestTokens(t *testing.T) {
 	t.Parallel()
 
-	client := fake.NewFakeClient()
+	client := fake.NewClientBuilder().WithScheme(getScheme(t)).Build()
 
-	serial1 := josetesting.GenerateSerial(t)
-	josetesting.RotateCertificate(t, client, serial1)
+	josetesting.RotateCertificate(t, client)
 
 	joseOptions := &jose.Options{
 		IssuerSecretName: josetesting.KeySecretName,

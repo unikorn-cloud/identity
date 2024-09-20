@@ -28,12 +28,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
+	"slices"
 	"time"
 
 	jose "github.com/go-jose/go-jose/v3"
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/spf13/pflag"
+
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +47,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -194,25 +195,13 @@ func (i *JWTIssuer) Run(ctx context.Context, coordinationClientGetter Coordinati
 	return nil
 }
 
-func (i *JWTIssuer) GetPrimaryKeyName() string {
-	return i.options.IssuerSecretName + "-primary"
-}
-
-func (i *JWTIssuer) GetSecondaryKeyName() string {
-	return i.options.IssuerSecretName + "-secondary"
-}
-
-func (i *JWTIssuer) getKey(ctx context.Context, name string, secret *corev1.Secret) error {
-	if err := i.client.Get(ctx, client.ObjectKey{Namespace: i.namespace, Name: name}, secret); err != nil && !kerrors.IsNotFound(err) {
-		return err
-	}
-
-	return nil
-}
+const SigningKeyName = "unikorn-identity-jose"
 
 // StartLeading does certificate rotation handling.
 // NOTE: there is a startup penalty waiting for the first tick, but on the first
 // invocation it's expected there won't be any traffic immediately anyway.
+//
+//nolint:cyclop
 func (i *JWTIssuer) StartLeading(ctx context.Context) {
 	log := log.FromContext(ctx)
 
@@ -224,69 +213,68 @@ func (i *JWTIssuer) StartLeading(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// This is obviously Sweet Baby Ray's
-			var secretSource corev1.Secret
+			// Get the cert-manager secret and extract the private key.
+			var secret corev1.Secret
 
-			if err := i.getKey(ctx, i.options.IssuerSecretName, &secretSource); err != nil {
-				log.Error(err, "failed to get JOSE secret source")
+			if err := i.client.Get(ctx, client.ObjectKey{Namespace: i.namespace, Name: i.options.IssuerSecretName}, &secret); err != nil {
+				log.Error(err, "JOSE signing key secret not ready")
 				break
 			}
 
-			primaryKey := corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: i.namespace,
-					Name:      i.GetPrimaryKeyName(),
-				},
-			}
-
-			if err := i.getKey(ctx, i.GetPrimaryKeyName(), &primaryKey); err != nil {
-				log.Error(err, "failed to get JOSE primary key")
+			privateKey, ok := secret.Data[corev1.TLSPrivateKeyKey]
+			if !ok {
+				log.Info("JOSE signing key secret doesn't contain a private key")
 				break
 			}
 
-			// Check if the soure has been rotated, this will be true of the primary
-			// doesn't exist yet as its data will be nil.
-			sourceRotated := !reflect.DeepEqual(secretSource.Data, primaryKey.Data)
+			var signingKeys unikornv1.SigningKey
 
-			// If the key pair has been rotated, and the primary actually exists,
-			// then we need to copy it to the secondary to keep that alive for
-			// verification of currently issued tokens.
-			if sourceRotated && primaryKey.ResourceVersion != "" {
-				secondaryKey := corev1.Secret{
+			if err := i.client.Get(ctx, client.ObjectKey{Namespace: i.namespace, Name: SigningKeyName}, &signingKeys); err != nil {
+				if !kerrors.IsNotFound(err) {
+					log.Error(err, "unable to get JOSE signing keys")
+					break
+				}
+
+				signingKeys := &unikornv1.SigningKey{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: i.namespace,
-						Name:      i.GetSecondaryKeyName(),
+						Name:      SigningKeyName,
+					},
+					Spec: unikornv1.SigningKeySpec{
+						PrivateKeys: []unikornv1.PrivateKey{
+							{
+								PEM: privateKey,
+							},
+						},
 					},
 				}
 
-				mutate := func() error {
-					secondaryKey.Type = corev1.SecretTypeTLS
-					secondaryKey.Data = primaryKey.Data
-
-					return nil
-				}
-
-				result, err := controllerutil.CreateOrUpdate(ctx, i.client, &secondaryKey, mutate)
-				log.Info("JOSE secondary key recociled", "action", result)
-
-				if err != nil {
-					log.Error(err, "failed to update JOSE secondary key")
+				if err := i.client.Create(ctx, signingKeys); err != nil {
+					log.Error(err, "failed to create signing keys")
 					break
 				}
+
+				break
 			}
 
-			// The primary is always a copy of the source.
-			mutate := func() error {
-				primaryKey.Type = corev1.SecretTypeTLS
-				primaryKey.Data = secretSource.Data
-
-				return nil
+			// Up to date.
+			if slices.Equal(signingKeys.Spec.PrivateKeys[0].PEM, privateKey) {
+				break
 			}
 
-			result, err := controllerutil.CreateOrUpdate(ctx, i.client, &primaryKey, mutate)
-			log.Info("JOSE primary key recociled", "action", result)
+			// The new private key becomes the primary at the head of the
+			// list, and is used to sign. The old primary is retained as it's
+			// used to verify existing issued tokens.
+			keys := []unikornv1.PrivateKey{
+				{
+					PEM: privateKey,
+				},
+				signingKeys.Spec.PrivateKeys[0],
+			}
 
-			if err != nil {
+			signingKeys.Spec.PrivateKeys = keys
+
+			if err := i.client.Update(ctx, &signingKeys); err != nil {
 				log.Error(err, "failed to update JOSE primary key")
 				break
 			}
@@ -332,14 +320,9 @@ type PublicKeyer interface {
 	Public() crypto.PublicKey
 }
 
-func getKeyID(key crypto.PrivateKey) (string, error) {
-	pkey, ok := key.(PublicKeyer)
-	if !ok {
-		return "", fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
-	}
-
+func getKeyID(key crypto.PublicKey) (string, error) {
 	// Use the public key, so you cannot (easily) get the private key.
-	serialized, err := json.Marshal(pkey.Public())
+	serialized, err := json.Marshal(key)
 	if err != nil {
 		return "", err
 	}
@@ -352,60 +335,107 @@ func getKeyID(key crypto.PrivateKey) (string, error) {
 }
 
 // GetJSONWebKey converts from a X.509 secret into a JWK.
-func (i *JWTIssuer) GetJSONWebKey(ctx context.Context, name string) (*jose.JSONWebKey, error) {
-	var secret corev1.Secret
-
-	if err := i.client.Get(ctx, client.ObjectKey{Namespace: i.namespace, Name: name}, &secret); err != nil {
-		return nil, err
+func (i *JWTIssuer) GetJSONWebKey(pem []byte) (*jose.JSONWebKey, *jose.JSONWebKey, error) {
+	privateKey, err := parsePrivatekey(pem)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	key, ok := secret.Data[corev1.TLSPrivateKeyKey]
+	pkey, ok := privateKey.(PublicKeyer)
 	if !ok {
-		return nil, fmt.Errorf("%w: JOSE secret does not contain tls.key", ErrMissingKey)
+		return nil, nil, fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
 	}
 
-	privateKey, err := parsePrivatekey(key)
+	publicKey := pkey.Public()
+
+	keyID, err := getKeyID(publicKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	keyID, err := getKeyID(privateKey)
-	if err != nil {
-		return nil, err
+	pub := &jose.JSONWebKey{
+		Key:       publicKey,
+		KeyID:     keyID,
+		Algorithm: "ES512",
+		Use:       "sig",
 	}
 
-	jwk := &jose.JSONWebKey{
+	priv := &jose.JSONWebKey{
 		Key:       privateKey,
 		KeyID:     keyID,
 		Algorithm: "ES512",
 		Use:       "sig",
 	}
 
-	return jwk, nil
+	return pub, priv, nil
 }
 
 // GetJSONWebKeySet returns all JSON web keys.
-func (i *JWTIssuer) GetJSONWebKeySet(ctx context.Context) *jose.JSONWebKeySet {
-	jwks := &jose.JSONWebKeySet{}
+func (i *JWTIssuer) GetJSONWebKeySet(ctx context.Context) (*jose.JSONWebKeySet, *jose.JSONWebKeySet, error) {
+	var signingKeys unikornv1.SigningKey
 
-	for _, name := range []string{i.GetPrimaryKeyName(), i.GetSecondaryKeyName()} {
-		if jwk, err := i.GetJSONWebKey(ctx, name); err == nil {
-			jwks.Keys = append(jwks.Keys, *jwk)
-		}
+	if err := i.client.Get(ctx, client.ObjectKey{Namespace: i.namespace, Name: SigningKeyName}, &signingKeys); err != nil {
+		return nil, nil, err
 	}
 
-	return jwks
+	pubJWKS := &jose.JSONWebKeySet{}
+	privJWKS := &jose.JSONWebKeySet{}
+
+	for _, privateKey := range signingKeys.Spec.PrivateKeys {
+		pub, priv, err := i.GetJSONWebKey(privateKey.PEM)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		pubJWKS.Keys = append(pubJWKS.Keys, *pub)
+		privJWKS.Keys = append(privJWKS.Keys, *priv)
+	}
+
+	return pubJWKS, privJWKS, nil
+}
+
+// GetPrimaryKey is the JWK used to sign and encrypt new tokens.
+func (i *JWTIssuer) GetPrimaryKey(ctx context.Context) (*jose.JSONWebKey, *jose.JSONWebKey, error) {
+	pub, priv, err := i.GetJSONWebKeySet(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(pub.Keys) == 0 {
+		return nil, nil, fmt.Errorf("%w: no signing keys found", ErrMissingKey)
+	}
+
+	return &pub.Keys[0], &priv.Keys[0], nil
+}
+
+func (i *JWTIssuer) GetKeyByID(ctx context.Context, keyID string) (*jose.JSONWebKey, *jose.JSONWebKey, error) {
+	pubJWKS, privJWKS, err := i.GetJSONWebKeySet(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pubMatches := pubJWKS.Key(keyID)
+	if len(pubMatches) != 1 {
+		return nil, nil, fmt.Errorf("%w: jwks key lookup failed", ErrJOSE)
+	}
+
+	privMatches := privJWKS.Key(keyID)
+	if len(privMatches) != 1 {
+		return nil, nil, fmt.Errorf("%w: jwks key lookup failed", ErrJOSE)
+	}
+
+	return &pubMatches[0], &privMatches[0], nil
 }
 
 func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims interface{}) (string, error) {
-	key, err := i.GetJSONWebKey(ctx, i.GetPrimaryKeyName())
+	_, priv, err := i.GetPrimaryKey(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get key pair: %w", err)
 	}
 
 	signingKey := jose.SigningKey{
 		Algorithm: jose.ES512,
-		Key:       key,
+		Key:       priv,
 	}
 
 	signer, err := jose.NewSigner(signingKey, nil)
@@ -431,20 +461,13 @@ func (i *JWTIssuer) DecodeJWT(ctx context.Context, tokenString string, claims in
 		return fmt.Errorf("%w: jwt doesn't have a kid set", ErrJOSE)
 	}
 
-	jwks := i.GetJSONWebKeySet(ctx).Key(keyID)
-	if len(jwks) != 1 {
-		return fmt.Errorf("%w: jwks key lookup failed", ErrJOSE)
-	}
-
-	jwk := jwks[0]
-
-	key, ok := jwk.Key.(PublicKeyer)
-	if !ok {
-		return fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
+	pub, _, err := i.GetKeyByID(ctx, keyID)
+	if err != nil {
+		return err
 	}
 
 	// Annoyingly this cannot extract the public key from the private one...
-	if err := token.Claims(key.Public(), claims); err != nil {
+	if err := token.Claims(pub, claims); err != nil {
 		return err
 	}
 
@@ -476,14 +499,14 @@ const (
 func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims interface{}, tokenType TokenType) (string, error) {
 	// TODO: according to the spec we MUST support RS256, but we do both
 	// issue and verification, so not strictly necessary.
-	key, err := i.GetJSONWebKey(ctx, i.GetPrimaryKeyName())
+	pub, priv, err := i.GetPrimaryKey(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get key pair: %w", err)
 	}
 
 	signingKey := jose.SigningKey{
 		Algorithm: jose.ES512,
-		Key:       key,
+		Key:       priv,
 	}
 
 	signer, err := jose.NewSigner(signingKey, nil)
@@ -491,15 +514,10 @@ func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims interface{}, toke
 		return "", fmt.Errorf("failed to create signer: %w", err)
 	}
 
-	pkey, ok := key.Key.(PublicKeyer)
-	if !ok {
-		return "", fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
-	}
-
 	recipient := jose.Recipient{
 		Algorithm: jose.ECDH_ES,
-		Key:       pkey.Public(),
-		KeyID:     key.KeyID,
+		Key:       pub,
+		KeyID:     pub.KeyID,
 	}
 
 	encrypterOptions := &jose.EncrypterOptions{}
@@ -544,25 +562,18 @@ func (i *JWTIssuer) DecodeJWEToken(ctx context.Context, tokenString string, clai
 		return fmt.Errorf("%w: jwt doesn't have a kid set", ErrJOSE)
 	}
 
-	jwks := i.GetJSONWebKeySet(ctx).Key(keyID)
-	if len(jwks) != 1 {
-		return fmt.Errorf("%w: jwks key lookup failed", ErrJOSE)
+	pub, priv, err := i.GetKeyByID(ctx, keyID)
+	if err != nil {
+		return err
 	}
 
-	jwk := jwks[0]
-
-	token, err := nestedToken.Decrypt(jwk.Key)
+	token, err := nestedToken.Decrypt(priv)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt token: %w", err)
 	}
 
-	key, ok := jwk.Key.(PublicKeyer)
-	if !ok {
-		return fmt.Errorf("%w: failed to cast private key", ErrKeyFormat)
-	}
-
 	// Annoyingly this cannot extract the public key from the private one...
-	if err := token.Claims(key.Public(), claims); err != nil {
+	if err := token.Claims(pub, claims); err != nil {
 		return fmt.Errorf("failed to extract claims: %w", err)
 	}
 
