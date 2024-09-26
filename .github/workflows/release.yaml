@@ -53,10 +53,9 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         name: Release ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
-        with:
-          files: |
-            kubectl-unikorn-amd64-linux
-            kubectl-unikorn-arm64-linux
-            kubectl-unikorn-arm64-darwin
-            cmd/kubectl-unikorn/kubectl_complete-unikorn.bash
-            cmd/kubectl-unikorn/kubectl_complete-unikorn.zsh
+        files: |
+          kubectl-unikorn-amd64-linux
+          kubectl-unikorn-arm64-linux
+          kubectl-unikorn-arm64-darwin
+          cmd/kubectl-unikorn/kubectl_complete-unikorn.bash
+          cmd/kubectl-unikorn/kubectl_complete-unikorn.zsh
