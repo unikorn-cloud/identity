@@ -18,12 +18,12 @@ spec:
       - name: unikorn-identity
         image: {{ include "unikorn.image" . }}
         args:
-        - --namespace={{ .Release.Namespace }}
+        {{- include "unikorn.core.flags" . | nindent 8 }}
+        {{- include "unikorn.cors.flags" . | nindent 8 }}
+        {{- include "unikorn.otlp.flags" . | nindent 8 }}
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
-        {{- include "unikorn.cors.flags" . | nindent 8 }}
-        {{- include "unikorn.otlp.flags" . | nindent 8 }}
         ports:
         - name: http
           containerPort: 6080

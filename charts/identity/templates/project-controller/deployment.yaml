@@ -18,6 +18,7 @@ spec:
       - name: unikorn-project-controller
         image: {{ include "unikorn.projectControllerImage" . }}
         args:
+        {{- include "unikorn.core.flags" . | nindent 8 }}
         {{- include "unikorn.otlp.flags" . | nindent 8 }}
         resources:
           requests:
