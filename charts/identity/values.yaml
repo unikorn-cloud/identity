@@ -88,6 +88,8 @@ roles:
         physicalnetworks: [create,read,update,delete]
         kubernetesclustermanagers: [create,read,update,delete]
         kubernetesclusters: [create,read,update,delete]
+        applications: [create,read,update,delete]
+        applicationsets: [create,read,update,delete]
   # An infrastructure manager service is a role primarily for Kubernetes like
   # services that can manage identities and physical networks on behalf of a cluster.
   infra-manager-service:
@@ -98,6 +100,14 @@ roles:
         identities: [read,delete]
         physicalnetworks: [read,delete]
         quotas: [read,update]
+  # An application manager is a role primarily for the application service that
+  # needs to be able to see the Kubernetes clusters it's deploying applications
+  # on to.
+  application-manager-service:
+    description: Application manager service
+    scopes:
+      global:
+        kubernetesclusters: [read]
   # An administrator can do anything within an organization.
   administrator:
     description: Organization administrator
@@ -113,6 +123,8 @@ roles:
         physicalnetworks: [create]
         kubernetesclustermanagers: [create,read,update,delete]
         kubernetesclusters: [create,read,update,delete]
+        applications: [read]
+        applicationsets: [create,read,update,delete]
   # A user can view projects they are a member of and
   # provision kubernetes clusters.
   user:
@@ -126,6 +138,8 @@ roles:
         physicalnetworks: [create]
         kubernetesclustermanagers: [read]
         kubernetesclusters: [create,read,update,delete]
+        applications: [read]
+        applicationsets: [create,read,update,delete]
   # A reader can view projects they are a member of and view
   # kubernetes clusters.
   reader:
@@ -137,6 +151,8 @@ roles:
         projects: [read]
         kubernetesclustermanagers: [read]
         kubernetesclusters: [read]
+        applications: [read]
+        applicationsets: [read]
 
 ingress:
   # Sets the ingress class to use.
