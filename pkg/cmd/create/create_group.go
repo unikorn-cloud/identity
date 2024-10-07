@@ -216,6 +216,16 @@ func (o *createGroupOptions) execute(ctx context.Context, cli client.Client) err
 		},
 	}
 
+	annotations := map[string]string{}
+
+	if o.description != "" {
+		annotations[constants.DescriptionAnnotation] = o.description
+	}
+
+	if len(annotations) > 0 {
+		group.Annotations = annotations
+	}
+
 	if err := cli.Create(ctx, group); err != nil {
 		return err
 	}
