@@ -90,6 +90,9 @@ roles:
         kubernetesclusters: [create,read,update,delete]
         applications: [create,read,update,delete]
         applicationsets: [create,read,update,delete]
+        computeclusters: [create,read,update,delete]
+        servers: [create,read,update,delete]
+        securitygroups: [create,read,update,delete]
   # An infrastructure manager service is a role primarily for Kubernetes like
   # services that can manage identities and physical networks on behalf of a cluster.
   infra-manager-service:
@@ -125,6 +128,9 @@ roles:
         kubernetesclusters: [create,read,update,delete]
         applications: [read]
         applicationsets: [create,read,update,delete]
+        computeclusters: [create,read,update,delete]
+        servers: [create,read,update,delete]
+        securitygroups: [create,read,update,delete]
   # A user can view projects they are a member of and
   # provision kubernetes clusters.
   user:
@@ -140,6 +146,9 @@ roles:
         kubernetesclusters: [create,read,update,delete]
         applications: [read]
         applicationsets: [create,read,update,delete]
+        computeclusters: [create,read,update,delete]
+        servers: [create,read,update,delete]
+        securitygroups: [create,read,update,delete]
   # A reader can view projects they are a member of and view
   # kubernetes clusters.
   reader:
@@ -153,6 +162,9 @@ roles:
         kubernetesclusters: [read]
         applications: [read]
         applicationsets: [read]
+        computeclusters: [read]
+        servers: [read]
+        securitygroups: [read]
 
 ingress:
   # Sets the ingress class to use.
