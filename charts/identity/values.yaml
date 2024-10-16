@@ -147,8 +147,6 @@ roles:
         applications: [read]
         applicationsets: [create,read,update,delete]
         computeclusters: [create,read,update,delete]
-        servers: [create,read,update,delete]
-        securitygroups: [create,read,update,delete]
   # A reader can view projects they are a member of and view
   # kubernetes clusters.
   reader:
@@ -163,8 +161,6 @@ roles:
         applications: [read]
         applicationsets: [read]
         computeclusters: [read]
-        servers: [read]
-        securitygroups: [read]
 
 ingress:
   # Sets the ingress class to use.
