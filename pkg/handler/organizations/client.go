@@ -25,13 +25,13 @@ import (
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -100,7 +100,7 @@ func convert(in *unikornv1.Organization) *openapi.OrganizationRead {
 
 	if in.Spec.Domain != nil {
 		out.Spec.Domain = in.Spec.Domain
-		out.Spec.ProviderScope = util.ToPointer(openapi.ProviderScope(*in.Spec.ProviderScope))
+		out.Spec.ProviderScope = ptr.To(openapi.ProviderScope(*in.Spec.ProviderScope))
 		out.Spec.ProviderID = in.Spec.ProviderID
 	}
 
@@ -202,7 +202,7 @@ func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) (*
 	if in.Spec.OrganizationType == openapi.Domain {
 		// TODO: Validate the providerID exists.
 		out.Spec.Domain = in.Spec.Domain
-		out.Spec.ProviderScope = util.ToPointer(unikornv1.ProviderScope(*in.Spec.ProviderScope))
+		out.Spec.ProviderScope = ptr.To(unikornv1.ProviderScope(*in.Spec.ProviderScope))
 		out.Spec.ProviderID = in.Spec.ProviderID
 
 		// TODO: we should cross reference with the provider type and do only
