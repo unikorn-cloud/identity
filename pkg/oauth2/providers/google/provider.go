@@ -24,10 +24,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/errors"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/types"
+
+	"k8s.io/utils/ptr"
 )
 
 type Provider struct{}
@@ -139,7 +140,7 @@ func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organizat
 	for _, group := range groups.Groups {
 		result = append(result, types.Group{
 			Name:        group.Name,
-			DisplayName: util.ToPointer(group.DisplayName),
+			DisplayName: ptr.To(group.DisplayName),
 		})
 	}
 
