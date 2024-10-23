@@ -275,11 +275,11 @@ Then create groups to link services to roles:
 kubectl unikorn create group \
     --namespace unikorn-identity \
     --organization system \
-    --name region-managers \
-    --description "Services that can operate on compute regions" \
+    --name region-services \
+    --description "Services that require access to regions for infrastructure provisioning." \
     --role infra-manager-service \
     --user unikorn-kubernetes \
-    --user unikorn-baremetal 
+    --user unikorn-compute
 ```
 
 > [!NOTE]
