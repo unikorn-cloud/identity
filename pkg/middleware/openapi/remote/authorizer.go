@@ -32,6 +32,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/middleware/openapi"
+	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/accesstoken"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -147,8 +148,11 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 		return "", nil, err
 	}
 
+	// NOTE: The mutation is required to do trace context propagation.
 	mutator := func(req *http.Request) error {
-		return identityclient.RequestMutator(ctx, req)
+		mutator := identityclient.RequestMutator(nil)
+
+		return mutator(ctx, req)
 	}
 
 	// But it doesn't do request mutation, so we have to slightly hack it by
@@ -206,7 +210,12 @@ func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInpu
 // GetACL retrieves access control information from the subject identified
 // by the Authorize call.
 func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string) (*identityapi.Acl, error) {
-	client, err := identityclient.New(a.client, a.options, a.clientOptions).Client(ctx)
+	accessToken, err := accesstoken.NewGetter(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := identityclient.New(a.client, a.options, a.clientOptions).Client(ctx, accessToken)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to create identity client").WithError(err)
 	}

@@ -77,32 +77,42 @@ roles:
     description: Platform administrator
     scopes:
       global:
-        organizations: [create,read,update,delete]
-        oauth2providers: [create,read,update,delete]
-        roles: [create,read,update,delete]
-        groups: [create,read,update,delete]
-        projects: [create,read,update,delete]
-        regions: [create,read,update,delete]
-        identities: [create,read,update,delete]
-        quotas: [create,read,update,delete]
-        physicalnetworks: [create,read,update,delete]
-        kubernetesclustermanagers: [create,read,update,delete]
-        kubernetesclusters: [create,read,update,delete]
-        applications: [create,read,update,delete]
-        applicationsets: [create,read,update,delete]
-        computeclusters: [create,read,update,delete]
-        servers: [create,read,update,delete]
-        securitygroups: [create,read,update,delete]
+        identity:organizations: [create,read,update,delete]
+        identity:oauth2providers: [create,read,update,delete]
+        identity:roles: [create,read,update,delete]
+        identity:groups: [create,read,update,delete]
+        identity:projects: [create,read,update,delete]
+        region:regions: [create,read,update,delete]
+        region:flavors: [create,read,update,delete]
+        region:images: [create,read,update,delete]
+        region:externalnetworks: [create,read,update,delete]
+        region:identities: [create,read,update,delete]
+        region:physicalnetworks: [create,read,update,delete]
+        region:securitygroups: [create,read,update,delete]
+        region:servers: [create,read,update,delete]
+        kubernetes:flavors: [create,read,update,delete]
+        kubernetes:images: [create,read,update,delete]
+        kubernetes:clustermanagers: [create,read,update,delete]
+        kubernetes:clusters: [create,read,update,delete]
+        compute:flavors: [create,read,update,delete]
+        compute:images: [create,read,update,delete]
+        compute:clusters: [create,read,update,delete]
+        application:applications: [create,read,update,delete]
+        application:applicationsets: [create,read,update,delete]
   # An infrastructure manager service is a role primarily for Kubernetes like
   # services that can manage identities and physical networks on behalf of a cluster.
   infra-manager-service:
     decription: Infrastructure manager service
     scopes:
       global:
-        regions: [read]
-        identities: [read,delete]
-        physicalnetworks: [read,delete]
-        quotas: [read,update]
+        region:identities: [create,read,delete]
+        region:regions: [read]
+        region:flavors: [read]
+        region:images: [read]
+        region:externalnetworks: [read]
+        region:physicalnetworks: [create,read,delete]
+        region:servers: [create,read,update,delete]
+        region:securitygroups: [create,read,update,delete]
   # An application manager is a role primarily for the application service that
   # needs to be able to see the Kubernetes clusters it's deploying applications
   # on to.
@@ -110,57 +120,60 @@ roles:
     description: Application manager service
     scopes:
       global:
-        kubernetesclusters: [read]
+        kubernetes:clusters: [read]
   # An administrator can do anything within an organization.
   administrator:
     description: Organization administrator
     scopes:
       organization:
-        organizations: [read,update]
-        oauth2providers: [create,read,update,delete]
-        roles: [create,read,update,delete]
-        groups: [create,read,update,delete]
-        projects: [create,read,update,delete]
-        regions: [read]
-        identities: [create]
-        physicalnetworks: [create]
-        kubernetesclustermanagers: [create,read,update,delete]
-        kubernetesclusters: [create,read,update,delete]
-        applications: [read]
-        applicationsets: [create,read,update,delete]
-        computeclusters: [create,read,update,delete]
-        servers: [create,read,update,delete]
-        securitygroups: [create,read,update,delete]
+        identity:organizations: [read,update]
+        identity:oauth2providers: [create,read,update,delete]
+        identity:roles: [create,read,update,delete]
+        identity:groups: [create,read,update,delete]
+        identity:projects: [create,read,update,delete]
+        region:regions: [read]
+        kubernetes:flavors: [read]
+        kubernetes:images: [read]
+        kubernetes:clusters: [create,read,update,delete]
+        compute:flavors: [read]
+        compute:images: [read]
+        compute:clusters: [create,read,update,delete]
+        application:applications: [read]
+        application:applicationsets: [create,read,update,delete]
   # A user can view projects they are a member of and
-  # provision kubernetes clusters.
+  # provision clusters.
   user:
     description: Project user
     scopes:
       organization:
-        regions: [read]
+        region:regions: [read]
+        kubernetes:flavors: [read]
+        kubernetes:images: [read]
+        compute:flavors: [read]
+        compute:images: [read]
       project:
-        projects: [read]
-        identities: [create]
-        physicalnetworks: [create]
-        kubernetesclustermanagers: [read]
-        kubernetesclusters: [create,read,update,delete]
-        applications: [read]
-        applicationsets: [create,read,update,delete]
-        computeclusters: [create,read,update,delete]
+        identity:projects: [read]
+        kubernetes:clusters: [create,read,update,delete]
+        compute:clusters: [create,read,update,delete]
+        application:applications: [read]
+        application:applicationsets: [create,read,update,delete]
   # A reader can view projects they are a member of and view
   # kubernetes clusters.
   reader:
     description: Project reader
     scopes:
       organization:
-        regions: [read]
+        region:regions: [read]
+        kubernetes:flavors: [read]
+        kubernetes:images: [read]
+        compute:flavors: [read]
+        compute:images: [read]
       project:
-        projects: [read]
-        kubernetesclustermanagers: [read]
-        kubernetesclusters: [read]
-        applications: [read]
-        applicationsets: [read]
-        computeclusters: [read]
+        identity:projects: [read]
+        kubernetes:clusters: [read]
+        compute:clusters: [read]
+        application:applications: [read]
+        application:applicationsets: [read]
 
 ingress:
   # Sets the ingress class to use.

@@ -40,3 +40,24 @@ func FromContext(ctx context.Context) (string, error) {
 
 	return "", errors.ErrInvalidContext
 }
+
+type Getter struct {
+	accessToken string
+}
+
+func NewGetter(ctx context.Context) (*Getter, error) {
+	accessToken, err := FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	getter := &Getter{
+		accessToken: accessToken,
+	}
+
+	return getter, nil
+}
+
+func (a *Getter) Get() string {
+	return a.accessToken
+}

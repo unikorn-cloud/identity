@@ -34,7 +34,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
-	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/accesstoken"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,8 +69,16 @@ func NewTokenIssuer(client client.Client, identityOptions *Options, clientOption
 	}
 }
 
-// Context issues an access token for the non-user client/service and injects it into the context.
-func (i *TokenIssuer) Context(ctx context.Context, traceName string) (context.Context, error) {
+type AccessTokenGetter struct {
+	accessToken string
+}
+
+func (a *AccessTokenGetter) Get() string {
+	return a.accessToken
+}
+
+// Issue issues an access token for the non-user client/service.
+func (i *TokenIssuer) Issue(ctx context.Context, traceName string) (*AccessTokenGetter, error) {
 	identityClient := New(i.client, i.identityOptions, i.clientOptions)
 
 	identityHTTPClient, err := identityClient.HTTPClient(ctx)
@@ -140,5 +147,9 @@ func (i *TokenIssuer) Context(ctx context.Context, traceName string) (context.Co
 		return nil, err
 	}
 
-	return accesstoken.NewContext(ctx, token.AccessToken), nil
+	getter := &AccessTokenGetter{
+		accessToken: token.AccessToken,
+	}
+
+	return getter, nil
 }

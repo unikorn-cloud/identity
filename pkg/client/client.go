@@ -25,7 +25,6 @@ import (
 
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
-	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/accesstoken"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,28 +77,30 @@ func (c *Client) HTTPClient(ctx context.Context) (*http.Client, error) {
 	return client, nil
 }
 
-// requestMutator implements OAuth2 bearer token authorization.
-func RequestMutator(ctx context.Context, req *http.Request) error {
-	// NOTE: this can legitimately not be set e.g. if we are actually getting
-	// an access token, which makes the error checking somewhat useless!
-	if accessToken, err := accesstoken.FromContext(ctx); err == nil {
-		req.Header.Set("Authorization", "bearer "+accessToken)
+// RequestMutator implements OAuth2 bearer token authorization.
+func RequestMutator(accessToken AccessTokener) func(context.Context, *http.Request) error {
+	return func(ctx context.Context, req *http.Request) error {
+		// NOTE: this can legitimately not be set e.g. if we are actually getting
+		// an access token, which makes the error checking somewhat useless!
+		if accessToken != nil {
+			req.Header.Set("Authorization", "bearer "+accessToken.Get())
+		}
+
+		otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+		authorization.InjectClientCert(ctx, req.Header)
+
+		return nil
 	}
-
-	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
-	authorization.InjectClientCert(ctx, req.Header)
-
-	return nil
 }
 
 // Client returns a new OpenAPI client that can be used to access the API.
-func (c *Client) Client(ctx context.Context) (*openapi.ClientWithResponses, error) {
+func (c *Client) Client(ctx context.Context, accessToken AccessTokener) (*openapi.ClientWithResponses, error) {
 	httpClient, err := c.HTTPClient(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := openapi.NewClientWithResponses(c.options.Host(), openapi.WithHTTPClient(httpClient), openapi.WithRequestEditorFn(RequestMutator))
+	client, err := openapi.NewClientWithResponses(c.options.Host(), openapi.WithHTTPClient(httpClient), openapi.WithRequestEditorFn(RequestMutator(accessToken)))
 	if err != nil {
 		return nil, err
 	}
