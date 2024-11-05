@@ -149,7 +149,7 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organ
 	// will have an unscoped ACL, so can check for global access to all organizations.
 	// If we don't have that then we need to use RBAC to get a list of organizations we are
 	// members of and return only them.
-	if err := rbac.AllowGlobalScope(ctx, "organizations", openapi.Read); err != nil {
+	if err := rbac.AllowGlobalScope(ctx, "identity:organizations", openapi.Read); err != nil {
 		userinfo, err := authorization.UserinfoFromContext(ctx)
 		if err != nil {
 			return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
