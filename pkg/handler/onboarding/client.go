@@ -2,18 +2,26 @@ package onboarding
 
 import (
 	"context"
-	"fmt"
-
-	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	// ErrAdminRoleNotFound is returned when the administrator role cannot be found.
+	ErrAdminRoleNotFound = errors.OAuth2ServerError("administrator role not found")
+	// ErrAdminRoleNotFoundInNamespace is returned when the administrator role cannot be found in a specific namespace.
+	ErrAdminRoleNotFoundInNamespace = errors.OAuth2ServerError("administrator role not found in namespace")
 )
 
 type Client struct {
@@ -31,13 +39,18 @@ func NewClient(client client.Client, namespace string) *Client {
 
 // CreateAccount creates a new account with all necessary resources.
 func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccountRequest) (*openapi.OrganizationRead, error) {
-	logger, _ := logr.FromContext(ctx)
-	logger.Info("creating new account via onboarding")
+	// Find and assign admin role first.
+	adminRole, err := c.getAdminRole(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if adminRole == nil {
+		return nil, ErrAdminRoleNotFound
+	}
 
 	// Generate a unique ID for the organization
 	organizationID := util.GenerateResourceID()
-
-	logger.Info("generated organization ID", "organizationID", organizationID)
 
 	// Create the organization object
 	org := &unikornv1.Organization{
@@ -48,29 +61,31 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 				constants.NameLabel: request.Organization.Metadata.Name,
 			},
 		},
-		Spec: unikornv1.OrganizationSpec{}, // Initialize empty spec
+		Spec: unikornv1.OrganizationSpec{},
 	}
-
-	logger.Info("creating organization", "organization", org)
 
 	if err := c.client.Create(ctx, org); err != nil {
-		return nil, fmt.Errorf("failed to create organization: %w", err)
+		return nil, errors.OAuth2ServerError("failed to create organization").WithError(err)
 	}
 
-	logger.Info("created organization", "organization", org)
+	// Wait for the organization to be provisioned and have a namespace.
+	if err := wait.PollUntilContextTimeout(ctx, time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+		if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: org.Name}, org); err != nil {
+			return false, err
+		}
 
-	// Find and assign admin role
-	adminRole, err := c.getAdminRole(ctx)
+		return org.Status.Namespace != "", nil
+	}); err != nil {
+		return nil, errors.OAuth2ServerError("timeout waiting for organization namespace").WithError(err)
+	}
 
-	logger.Info("found admin role", "adminRole", adminRole)
-
-	// Create the admin group
 	adminGroup := &unikornv1.Group{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: c.namespace,
+			Namespace: org.Status.Namespace,
+			Name:      util.GenerateResourceID(),
 			Labels: map[string]string{
-				"unikorn.cloud/organization": org.Name,
-				"unikorn.cloud/name":         "admin",
+				constants.OrganizationLabel: org.Name,
+				constants.NameLabel:         "admin",
 			},
 		},
 		Spec: unikornv1.GroupSpec{
@@ -79,38 +94,24 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 		},
 	}
 
-	logger.Info("creating admin group", "adminGroup", adminGroup)
-
 	if err := c.client.Create(ctx, adminGroup); err != nil {
-		// Cleanup organization if group creation fails
+		// Cleanup organization if group creation fails.
 		_ = c.client.Delete(ctx, org)
-		return nil, fmt.Errorf("failed to create admin group: %w", err)
+		return nil, errors.OAuth2ServerError("failed to create admin group").WithError(err)
 	}
 
-	logger.Info("created admin group", "adminGroup", adminGroup)
-	if err != nil {
-		// Cleanup created resources
-		_ = c.client.Delete(ctx, adminGroup)
-		_ = c.client.Delete(ctx, org)
-		return nil, fmt.Errorf("failed to get admin role: %w", err)
+	// Wait until the group is provisioned.
+	if err := wait.PollUntilContextTimeout(ctx, time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+		if err := c.client.Get(ctx, client.ObjectKey{Namespace: org.Status.Namespace, Name: adminGroup.Name}, adminGroup); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}); err != nil {
+		return nil, errors.OAuth2ServerError("timeout waiting for admin group").WithError(err)
 	}
 
-	adminGroup.Spec.RoleIDs = []string{adminRole.Name}
-
-	logger.Info("updating admin group with role", "adminGroup", adminGroup)
-
-	if err := c.client.Update(ctx, adminGroup); err != nil {
-		// Cleanup created resources
-		_ = c.client.Delete(ctx, adminGroup)
-		_ = c.client.Delete(ctx, org)
-		return nil, fmt.Errorf("failed to update admin group with role: %w", err)
-	}
-
-	logger.Info("updated admin group with role", "adminGroup", adminGroup)
-
-	out := organizations.Convert(org)
-
-	return out, nil
+	return organizations.Convert(org), nil
 }
 
 // getAdminRole retrieves the administrator role from the cluster.
@@ -119,14 +120,14 @@ func (c *Client) getAdminRole(ctx context.Context) (*unikornv1.Role, error) {
 	if err := c.client.List(ctx, &roleList, &client.ListOptions{
 		Namespace: c.namespace,
 	}); err != nil {
-		return nil, err
+		return nil, errors.OAuth2ServerError("failed to list roles").WithError(err)
 	}
 
 	for _, role := range roleList.Items {
-		if role.Labels["unikorn.cloud/name"] == "administrator" {
+		if role.Labels[constants.NameLabel] == "administrator" {
 			return &role, nil
 		}
 	}
 
-	return nil, errors.NewNotFound(unikornv1.Resource("role"), "administrator")
+	return nil, errors.OAuth2ServerError("administrator role not found in namespace")
 }

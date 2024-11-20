@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/go-logr/logr"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	util "github.com/unikorn-cloud/core/pkg/server/util"
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
@@ -37,6 +36,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -143,9 +143,6 @@ func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 	result, err := h.oauth2.Token(w, r)
-	logger, _ := logr.FromContext(r.Context())
-
-	logger.Info("PostOauth2V2Token", "result", result)
 
 	if err != nil {
 		errors.HandleError(w, r, err)

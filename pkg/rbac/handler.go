@@ -20,7 +20,6 @@ import (
 	"context"
 	"slices"
 
-	"github.com/go-logr/logr"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
@@ -58,36 +57,17 @@ func AllowGlobalScope(ctx context.Context, endpoint string, operation openapi.Ac
 // AllowOrganizationScope tries to allow the requested operation at the global scope, then
 // the organization scope.
 func AllowOrganizationScope(ctx context.Context, endpoint string, operation openapi.AclOperation, organizationID string) error {
-	logger := logr.FromContextOrDiscard(ctx)
-	logger.Info("ALLOW_ORGANIZATION_SCOPE: checking organization scope",
-		"endpoint", endpoint,
-		"operation", operation,
-		"organizationID", organizationID)
-
 	if AllowGlobalScope(ctx, endpoint, operation) == nil {
-		logger.Info("ALLOW_ORGANIZATION_SCOPE: global scope allowed")
 		return nil
 	}
 
 	acl := FromContext(ctx)
 
-	logger.Info("ALLOW_ORGANIZATION_SCOPE: ACL",
-		"acl", acl.Organization,
-		"organizationID", organizationID)
-
 	if acl.Organization == nil || acl.Organization.Id != organizationID {
 		return errors.HTTPForbidden("operation is not allowed by rbac (no matching organization endpoints)")
 	}
 
-	err := operationAllowedByEndpoints(acl.Organization.Endpoints, endpoint, operation)
-	if err != nil {
-		logger.Info("ALLOW_ORGANIZATION_SCOPE: operation not allowed",
-			"error", err)
-	} else {
-		logger.Info("ALLOW_ORGANIZATION_SCOPE: operation allowed")
-	}
-
-	return err
+	return operationAllowedByEndpoints(acl.Organization.Endpoints, endpoint, operation)
 }
 
 // AllowProjectScope tries to allow the requested operation at the global scope, then
@@ -120,17 +100,6 @@ func AllowProjectScope(ctx context.Context, endpoint string, operation openapi.A
 // the role, which is then used to determine role visibility and limit privilege
 // escalation.
 func AllowRole(ctx context.Context, role *unikornv1.Role, organizationID string) error {
-	// Get ACL from context
-	acl := FromContext(ctx)
-
-	// Check if this is the create-account-service role by checking global endpoints
-	for _, endpoint := range *acl.Global {
-		if endpoint.Name == "identity:onboarding" {
-			// create-account-service role should be allowed to assign any role
-			return nil
-		}
-	}
-
 	for _, endpoint := range role.Spec.Scopes.Global {
 		for _, operation := range endpoint.Operations {
 			if err := AllowGlobalScope(ctx, endpoint.Name, convertOperation(operation)); err != nil {

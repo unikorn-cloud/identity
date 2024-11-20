@@ -829,20 +829,9 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !userExists {
-		// Log the attempt for audit purposes
-		log.Info("authentication attempt by non-existent user",
-			"subject", idTokenClaims.Email,
-			"email", idTokenClaims.Email)
-
-		log.Info("oauth2: allow new user organizations", "allowNewUserOrganizations", a.options.AllowNewUserOrganizations)
-
-		// If new users are allowed, continue with empty permissions
-		// Otherwise, return an error
-		if !a.options.AllowNewUserOrganizations {
-			authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user does not exist in any organization")
-			return
-		}
+	if !userExists && !a.options.AllowNewUserOrganizations {
+		authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user does not exist in any organization")
+		return
 	}
 
 	// NOTE: the email is the canonical one returned by the IdP, which removes
