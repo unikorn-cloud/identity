@@ -77,6 +77,9 @@ type Options struct {
 	// TokenCacheSize is used to control the size of the LRU cache for token validation
 	// checks.  This bounds the memory use to prevent DoS attacks.
 	TokenCacheSize int
+
+	// Bool to indicate whether sign up is allowed
+	AllowNewUserOrganizations bool
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
@@ -85,6 +88,7 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.TokenVerificationLeeway, "token-verification-leeway", 0, "How mush leeway to permit for verification of token validity.")
 	f.DurationVar(&o.TokenLeewayDuration, "token-leeway", time.Minute, "How long to remove from the provider token expiry to account for network and processing latency.")
 	f.IntVar(&o.TokenCacheSize, "token-cache-size", 8192, "How many token cache entries to allow.")
+	f.BoolVar(&o.AllowNewUserOrganizations, "allow-new-user-organizations", false, "Allow new user organizations to be created.")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -826,8 +830,19 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !userExists {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user not found")
-		return
+		// Log the attempt for audit purposes
+		log.Info("authentication attempt by non-existent user",
+			"subject", idTokenClaims.Email,
+			"email", idTokenClaims.Email)
+
+		log.Info("oauth2: allow new user organizations", "allowNewUserOrganizations", a.options.AllowNewUserOrganizations)
+
+		// If new users are allowed, continue with empty permissions
+		// Otherwise, return an error
+		if !a.options.AllowNewUserOrganizations {
+			authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user does not exist in any organization")
+			return
+		}
 	}
 
 	// NOTE: the email is the canonical one returned by the IdP, which removes

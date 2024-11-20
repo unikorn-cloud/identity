@@ -24,6 +24,7 @@ spec:
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
+        - --allow-new-user-organizations={{ .Values.identity.allowNewUserOrganizations | default false }}
         ports:
         - name: http
           containerPort: 6080
