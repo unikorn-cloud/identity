@@ -247,3 +247,8 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 
 	return nil
 }
+
+// Special case for onboarding.
+func Convert(in *unikornv1.Organization) *openapi.OrganizationRead {
+	return convert(in)
+}

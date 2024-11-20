@@ -123,6 +123,12 @@ roles:
     scopes:
       global:
         kubernetes:clusters: [read]
+  # An onboarding service is a role that can create organizations.
+  create-account-service:
+    description: Create account service role
+    scopes:
+      global:
+        identity:onboarding: [create]
   # An administrator can do anything within an organization.
   administrator:
     description: Organization administrator

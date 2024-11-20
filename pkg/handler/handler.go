@@ -23,10 +23,12 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/go-logr/logr"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	"github.com/unikorn-cloud/core/pkg/server/util"
+	util "github.com/unikorn-cloud/core/pkg/server/util"
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
+	"github.com/unikorn-cloud/identity/pkg/handler/onboarding"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/handler/projects"
 	"github.com/unikorn-cloud/identity/pkg/handler/roles"
@@ -35,7 +37,6 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -142,6 +143,10 @@ func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 	result, err := h.oauth2.Token(w, r)
+	logger, _ := logr.FromContext(r.Context())
+
+	logger.Info("PostOauth2V2Token", "result", result)
+
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
@@ -533,4 +538,28 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectID(w http
 
 	h.setUncacheable(w)
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *Handler) PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request) {
+	if err := rbac.AllowGlobalScope(r.Context(), "identity:onboarding", openapi.Create); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &openapi.CreateAccountRequest{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := onboarding.NewClient(h.client, h.namespace).CreateAccount(r.Context(), request)
+
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusCreated, result)
 }

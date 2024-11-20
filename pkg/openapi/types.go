@@ -539,6 +539,15 @@ type TokenResponse = Token
 // UserinfoResponse Access token introspection data.
 type UserinfoResponse = Userinfo
 
+// CreateAccountRequest defines model for createAccountRequest.
+type CreateAccountRequest struct {
+	// AdminUser The email address of the initial admin user
+	AdminUser string `json:"adminUser"`
+
+	// Organization An organization when created or updated.
+	Organization OrganizationWrite `json:"organization"`
+}
+
 // CreateGroupRequest A group when created or updated.
 type CreateGroupRequest = GroupWrite
 
@@ -556,6 +565,15 @@ type UpdateOrganizationRequest = OrganizationWrite
 
 // UpdateProjectRequest A project when created or updated.
 type UpdateProjectRequest = ProjectWrite
+
+// PostApiV2CreateAccountJSONBody defines parameters for PostApiV2CreateAccount.
+type PostApiV2CreateAccountJSONBody struct {
+	// AdminUser The email address of the initial admin user
+	AdminUser string `json:"adminUser"`
+
+	// Organization An organization when created or updated.
+	Organization OrganizationWrite `json:"organization"`
+}
 
 // PutApiV1OrganizationsOrganizationIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDJSONRequestBody = OrganizationWrite
@@ -577,6 +595,9 @@ type PostApiV1OrganizationsOrganizationIDProjectsJSONRequestBody = ProjectWrite
 
 // PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDProjectsProjectID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody = ProjectWrite
+
+// PostApiV2CreateAccountJSONRequestBody defines body for PostApiV2CreateAccount for application/json ContentType.
+type PostApiV2CreateAccountJSONRequestBody PostApiV2CreateAccountJSONBody
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions

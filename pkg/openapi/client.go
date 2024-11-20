@@ -170,6 +170,11 @@ type ClientInterface interface {
 	// GetApiV1OrganizationsOrganizationIDRoles request
 	GetApiV1OrganizationsOrganizationIDRoles(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostApiV2CreateAccountWithBody request with any body
+	PostApiV2CreateAccountWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV2CreateAccount(ctx context.Context, body PostApiV2CreateAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOauth2V2Authorization request
 	GetOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -531,6 +536,30 @@ func (c *Client) PutApiV1OrganizationsOrganizationIDProjectsProjectID(ctx contex
 
 func (c *Client) GetApiV1OrganizationsOrganizationIDRoles(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiV1OrganizationsOrganizationIDRolesRequest(c.Server, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV2CreateAccountWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV2CreateAccountRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV2CreateAccount(ctx context.Context, body PostApiV2CreateAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV2CreateAccountRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1511,6 +1540,46 @@ func NewGetApiV1OrganizationsOrganizationIDRolesRequest(server string, organizat
 	return req, nil
 }
 
+// NewPostApiV2CreateAccountRequest calls the generic PostApiV2CreateAccount builder with application/json body
+func NewPostApiV2CreateAccountRequest(server string, body PostApiV2CreateAccountJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV2CreateAccountRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostApiV2CreateAccountRequestWithBody generates requests for PostApiV2CreateAccount with any type of body
+func NewPostApiV2CreateAccountRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v2/create-account")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetOauth2V2AuthorizationRequest generates requests for GetOauth2V2Authorization
 func NewGetOauth2V2AuthorizationRequest(server string) (*http.Request, error) {
 	var err error
@@ -1821,6 +1890,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiV1OrganizationsOrganizationIDRolesWithResponse request
 	GetApiV1OrganizationsOrganizationIDRolesWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDRolesResponse, error)
+
+	// PostApiV2CreateAccountWithBodyWithResponse request with any body
+	PostApiV2CreateAccountWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV2CreateAccountResponse, error)
+
+	PostApiV2CreateAccountWithResponse(ctx context.Context, body PostApiV2CreateAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV2CreateAccountResponse, error)
 
 	// GetOauth2V2AuthorizationWithResponse request
 	GetOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2AuthorizationResponse, error)
@@ -2398,6 +2472,32 @@ func (r GetApiV1OrganizationsOrganizationIDRolesResponse) StatusCode() int {
 	return 0
 }
 
+type PostApiV2CreateAccountResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *OrganizationResponse
+	JSON401      *externalRef0.UnauthorizedResponse
+	JSON403      *externalRef0.ForbiddenResponse
+	JSON409      *externalRef0.ConflictResponse
+	JSON500      *externalRef0.InternalServerErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV2CreateAccountResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV2CreateAccountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetOauth2V2AuthorizationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2785,6 +2885,23 @@ func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationIDRolesWithRespon
 		return nil, err
 	}
 	return ParseGetApiV1OrganizationsOrganizationIDRolesResponse(rsp)
+}
+
+// PostApiV2CreateAccountWithBodyWithResponse request with arbitrary body returning *PostApiV2CreateAccountResponse
+func (c *ClientWithResponses) PostApiV2CreateAccountWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV2CreateAccountResponse, error) {
+	rsp, err := c.PostApiV2CreateAccountWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV2CreateAccountResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV2CreateAccountWithResponse(ctx context.Context, body PostApiV2CreateAccountJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV2CreateAccountResponse, error) {
+	rsp, err := c.PostApiV2CreateAccount(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV2CreateAccountResponse(rsp)
 }
 
 // GetOauth2V2AuthorizationWithResponse request returning *GetOauth2V2AuthorizationResponse
@@ -3899,6 +4016,60 @@ func ParseGetApiV1OrganizationsOrganizationIDRolesResponse(rsp *http.Response) (
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.InternalServerErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV2CreateAccountResponse parses an HTTP response from a PostApiV2CreateAccountWithResponse call
+func ParsePostApiV2CreateAccountResponse(rsp *http.Response) (*PostApiV2CreateAccountResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV2CreateAccountResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest OrganizationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.ForbiddenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest externalRef0.ConflictResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.InternalServerErrorResponse

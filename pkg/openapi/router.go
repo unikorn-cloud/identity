@@ -81,6 +81,9 @@ type ServerInterface interface {
 	// (GET /api/v1/organizations/{organizationID}/roles)
 	GetApiV1OrganizationsOrganizationIDRoles(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
 
+	// (POST /api/v2/create-account)
+	PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request)
+
 	// (GET /oauth2/v2/authorization)
 	GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request)
 
@@ -211,6 +214,11 @@ func (_ Unimplemented) PutApiV1OrganizationsOrganizationIDProjectsProjectID(w ht
 
 // (GET /api/v1/organizations/{organizationID}/roles)
 func (_ Unimplemented) GetApiV1OrganizationsOrganizationIDRoles(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /api/v2/create-account)
+func (_ Unimplemented) PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -968,6 +976,26 @@ func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationIDRoles(w ht
 	handler.ServeHTTP(w, r)
 }
 
+// PostApiV2CreateAccount operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiV2CreateAccount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetOauth2V2Authorization operation middleware
 func (siw *ServerInterfaceWrapper) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
 
@@ -1236,6 +1264,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}/roles", wrapper.GetApiV1OrganizationsOrganizationIDRoles)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v2/create-account", wrapper.PostApiV2CreateAccount)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oauth2/v2/authorization", wrapper.GetOauth2V2Authorization)
