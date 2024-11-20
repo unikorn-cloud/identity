@@ -2,8 +2,8 @@ package onboarding
 
 import (
 	"context"
-	"fmt"
 
+	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/util"
@@ -12,7 +12,6 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/util/wait"
 
-	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,6 +69,7 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 		if cleanupErr := wait.NewResourceWaiter(c.client, c.namespace).CleanupOnFailure(ctx, org); cleanupErr != nil {
 			log.FromContext(ctx).Error(cleanupErr, "failed to cleanup organization after timeout")
 		}
+
 		return nil, errors.OAuth2ServerError("timeout waiting for organization namespace")
 	}
 
@@ -93,6 +93,7 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 		if cleanupErr := wait.NewResourceWaiter(c.client, c.namespace).CleanupOnFailure(ctx, org); cleanupErr != nil {
 			log.FromContext(ctx).Error(cleanupErr, "failed to cleanup organization after group creation failure")
 		}
+
 		return nil, errors.OAuth2ServerError("failed to create admin group").WithError(err)
 	}
 
@@ -120,10 +121,12 @@ func (c *Client) validateAndGetAdminRole(ctx context.Context) (*unikornv1.Role, 
 // waitForOrganizationProvisioning waits for the organization to be provisioned and has a namespace.
 func (c *Client) waitForOrganizationProvisioning(ctx context.Context, org *unikornv1.Organization) error {
 	waiter := wait.NewResourceWaiter(c.client, c.namespace)
+
 	return waiter.WaitForResource(ctx, org, func(obj client.Object) (bool, error) {
 		org, ok := obj.(*unikornv1.Organization)
+
 		if !ok {
-			return false, fmt.Errorf("expected Organization type, got %T", obj)
+			return false, errors.OAuth2ServerError("Invalid Organization type")
 		}
 
 		// Check if namespace is set.

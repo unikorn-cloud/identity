@@ -7,6 +7,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -34,7 +35,6 @@ func (w *ResourceWaiter) WaitForResource(ctx context.Context, obj client.Object,
 	return wait.PollUntilContextTimeout(ctx, w.Interval, w.Timeout, true, func(ctx context.Context) (bool, error) {
 		// Check context before making the call
 		if err := ctx.Err(); err != nil {
-
 			return false, err
 		}
 
