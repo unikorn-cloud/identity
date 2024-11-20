@@ -123,7 +123,7 @@ roles:
     scopes:
       global:
         kubernetes:clusters: [read]
-  # An onboarding service is a role that can create organizations.
+  # A create account service is a role that can create organizations.
   create-account-service:
     description: Create account service role
     scopes:
