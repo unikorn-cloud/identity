@@ -24,7 +24,7 @@ import (
 	"slices"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	util "github.com/unikorn-cloud/core/pkg/server/util"
+	"github.com/unikorn-cloud/core/pkg/server/util"
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
 	"github.com/unikorn-cloud/identity/pkg/handler/onboarding"
@@ -143,7 +143,6 @@ func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 	result, err := h.oauth2.Token(w, r)
-
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return

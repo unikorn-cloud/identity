@@ -2,7 +2,7 @@ package onboarding
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -10,11 +10,13 @@ import (
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/util/wait"
 
+	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -40,16 +42,12 @@ func NewClient(client client.Client, namespace string) *Client {
 // CreateAccount creates a new account with all necessary resources.
 func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccountRequest) (*openapi.OrganizationRead, error) {
 	// Find and assign admin role first.
-	adminRole, err := c.getAdminRole(ctx)
+	adminRole, err := c.validateAndGetAdminRole(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if adminRole == nil {
-		return nil, ErrAdminRoleNotFound
-	}
-
-	// Generate a unique ID for the organization
+	// Generate a unique ID for the organization.
 	organizationID := util.GenerateResourceID()
 
 	// Create the organization object
@@ -68,21 +66,18 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 		return nil, errors.OAuth2ServerError("failed to create organization").WithError(err)
 	}
 
-	// Wait for the organization to be provisioned and have a namespace.
-	if err := wait.PollUntilContextTimeout(ctx, time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
-		if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: org.Name}, org); err != nil {
-			return false, err
+	if err := c.waitForOrganizationProvisioning(ctx, org); err != nil {
+		if cleanupErr := wait.NewResourceWaiter(c.client, c.namespace).CleanupOnFailure(ctx, org); cleanupErr != nil {
+			log.FromContext(ctx).Error(cleanupErr, "failed to cleanup organization after timeout")
 		}
-
-		return org.Status.Namespace != "", nil
-	}); err != nil {
-		return nil, errors.OAuth2ServerError("timeout waiting for organization namespace").WithError(err)
+		return nil, errors.OAuth2ServerError("timeout waiting for organization namespace")
 	}
 
+	adminGroupID := util.GenerateResourceID()
 	adminGroup := &unikornv1.Group{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: org.Status.Namespace,
-			Name:      util.GenerateResourceID(),
+			Name:      adminGroupID,
 			Labels: map[string]string{
 				constants.OrganizationLabel: org.Name,
 				constants.NameLabel:         "admin",
@@ -95,27 +90,17 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 	}
 
 	if err := c.client.Create(ctx, adminGroup); err != nil {
-		// Cleanup organization if group creation fails.
-		_ = c.client.Delete(ctx, org)
-		return nil, errors.OAuth2ServerError("failed to create admin group").WithError(err)
-	}
-
-	// Wait until the group is provisioned.
-	if err := wait.PollUntilContextTimeout(ctx, time.Second, 10*time.Second, true, func(ctx context.Context) (bool, error) {
-		if err := c.client.Get(ctx, client.ObjectKey{Namespace: org.Status.Namespace, Name: adminGroup.Name}, adminGroup); err != nil {
-			return false, err
+		if cleanupErr := wait.NewResourceWaiter(c.client, c.namespace).CleanupOnFailure(ctx, org); cleanupErr != nil {
+			log.FromContext(ctx).Error(cleanupErr, "failed to cleanup organization after group creation failure")
 		}
-
-		return true, nil
-	}); err != nil {
-		return nil, errors.OAuth2ServerError("timeout waiting for admin group").WithError(err)
+		return nil, errors.OAuth2ServerError("failed to create admin group").WithError(err)
 	}
 
 	return organizations.Convert(org), nil
 }
 
-// getAdminRole retrieves the administrator role from the cluster.
-func (c *Client) getAdminRole(ctx context.Context) (*unikornv1.Role, error) {
+// validateAndGetAdminRole retrieves the administrator role from the cluster.
+func (c *Client) validateAndGetAdminRole(ctx context.Context) (*unikornv1.Role, error) {
 	var roleList unikornv1.RoleList
 	if err := c.client.List(ctx, &roleList, &client.ListOptions{
 		Namespace: c.namespace,
@@ -130,4 +115,36 @@ func (c *Client) getAdminRole(ctx context.Context) (*unikornv1.Role, error) {
 	}
 
 	return nil, errors.OAuth2ServerError("administrator role not found in namespace")
+}
+
+// waitForOrganizationProvisioning waits for the organization to be provisioned and has a namespace.
+func (c *Client) waitForOrganizationProvisioning(ctx context.Context, org *unikornv1.Organization) error {
+	waiter := wait.NewResourceWaiter(c.client, c.namespace)
+	return waiter.WaitForResource(ctx, org, func(obj client.Object) (bool, error) {
+		org, ok := obj.(*unikornv1.Organization)
+		if !ok {
+			return false, fmt.Errorf("expected Organization type, got %T", obj)
+		}
+
+		// Check if namespace is set.
+		if org.Status.Namespace == "" {
+			return false, nil
+		}
+
+		// Check Available condition status.
+		condition, err := org.StatusConditionRead(unikornv1core.ConditionAvailable)
+		if err != nil {
+			return false, err
+		}
+
+		if condition.Reason != unikornv1core.ConditionReasonProvisioned {
+			return false, nil
+		}
+
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+
+		return true, nil
+	})
 }
