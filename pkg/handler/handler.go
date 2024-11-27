@@ -538,7 +538,7 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectID(w http
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *Handler) PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request) {
 	if err := rbac.AllowGlobalScope(r.Context(), "identity:onboarding", openapi.Create); err != nil {
 		errors.HandleError(w, r, err)
 		return

@@ -566,14 +566,17 @@ type UpdateOrganizationRequest = OrganizationWrite
 // UpdateProjectRequest A project when created or updated.
 type UpdateProjectRequest = ProjectWrite
 
-// PostApiV2CreateAccountJSONBody defines parameters for PostApiV2CreateAccount.
-type PostApiV2CreateAccountJSONBody struct {
+// PostApiV1CreateAccountJSONBody defines parameters for PostApiV1CreateAccount.
+type PostApiV1CreateAccountJSONBody struct {
 	// AdminUser The email address of the initial admin user
 	AdminUser string `json:"adminUser"`
 
 	// OrganizationName The name of the organization
 	OrganizationName string `json:"organizationName"`
 }
+
+// PostApiV1CreateAccountJSONRequestBody defines body for PostApiV1CreateAccount for application/json ContentType.
+type PostApiV1CreateAccountJSONRequestBody PostApiV1CreateAccountJSONBody
 
 // PutApiV1OrganizationsOrganizationIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDJSONRequestBody = OrganizationWrite
@@ -595,9 +598,6 @@ type PostApiV1OrganizationsOrganizationIDProjectsJSONRequestBody = ProjectWrite
 
 // PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDProjectsProjectID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody = ProjectWrite
-
-// PostApiV2CreateAccountJSONRequestBody defines body for PostApiV2CreateAccount for application/json ContentType.
-type PostApiV2CreateAccountJSONRequestBody PostApiV2CreateAccountJSONBody
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions
