@@ -87,7 +87,7 @@ roles:
         region:images: [create,read,update,delete]
         region:externalnetworks: [create,read,update,delete]
         region:identities: [create,read,update,delete]
-        region:physicalnetworks: [create,read,update,delete]
+        region:networks: [create,read,update,delete]
         region:securitygroups: [create,read,update,delete]
         region:servers: [create,read,update,delete]
         kubernetes:flavors: [create,read,update,delete]
@@ -110,7 +110,7 @@ roles:
         region:flavors: [read]
         region:images: [read]
         region:externalnetworks: [read]
-        region:physicalnetworks: [create,read,delete]
+        region:networks: [create,read,delete]
         region:servers: [create,read,update,delete]
         region:securitygroups: [create,read,update,delete]
   # An application manager is a role primarily for the application service that
