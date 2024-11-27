@@ -44,7 +44,7 @@ func New(client client.Client, namespace string) *Client {
 
 func convert(in unikornv1.Role) openapi.RoleRead {
 	out := openapi.RoleRead{
-		Metadata: conversion.ResourceReadMetadata(&in, coreapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.ResourceReadMetadata(&in, in.Spec.Tags, coreapi.ResourceProvisioningStatusProvisioned),
 	}
 
 	return out

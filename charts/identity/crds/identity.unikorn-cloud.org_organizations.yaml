@@ -95,6 +95,22 @@ spec:
                   ProviderScope tells the controller when to find the provider
                   details.
                 type: string
+              tags:
+                description: Tags are aribrary user data.
+                items:
+                  description: Tag is an arbirary key/value.
+                  properties:
+                    name:
+                      description: Name of the tag.
+                      type: string
+                    value:
+                      description: Value of the tag.
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
             type: object
           status:
             description: OrganizationStatus defines the status of the server.

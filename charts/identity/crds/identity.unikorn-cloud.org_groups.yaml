@@ -60,6 +60,22 @@ spec:
                 items:
                   type: string
                 type: array
+              tags:
+                description: Tags are aribrary user data.
+                items:
+                  description: Tag is an arbirary key/value.
+                  properties:
+                    name:
+                      description: Name of the tag.
+                      type: string
+                    value:
+                      description: Value of the tag.
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
               users:
                 description: Users are a list of user names that are members of the
                   group.

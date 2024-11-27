@@ -49,9 +49,10 @@ type Project struct {
 
 // ProjectSpec defines project specific metadata.
 type ProjectSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// Pause, if true, will inhibit reconciliation.
 	Pause bool `json:"pause,omitempty"`
-
 	// GroupIDs is a list of groups that are allowed access to the project.
 	GroupIDs []string `json:"groupIDs,omitempty"`
 }

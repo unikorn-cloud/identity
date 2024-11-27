@@ -51,7 +51,7 @@ func New(client client.Client, namespace string) *Client {
 
 func convert(in *unikornv1.Group) *openapi.GroupRead {
 	out := &openapi.GroupRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.GroupSpec{
 			RoleIDs: in.Spec.RoleIDs,
 		},
@@ -159,6 +159,8 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 			RoleIDs: in.Spec.RoleIDs,
 		},
 	}
+
+	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
 
 	if in.Spec.Users != nil {
 		out.Spec.Users = *in.Spec.Users

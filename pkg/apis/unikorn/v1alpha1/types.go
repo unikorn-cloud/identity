@@ -18,6 +18,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -55,6 +57,8 @@ type OAuth2Client struct {
 
 // OAuth2ClientSpec defines the required configuration for the client.
 type OAuth2ClientSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// RedirectURI is the URI to pass control back to the client.
 	RedirectURI string `json:"redirectUri"`
 	// LoginURI is a URI to pass control to for login dialogs.
@@ -91,6 +95,8 @@ type OAuth2Provider struct {
 // OAuth2ProviderSpec defines the required configuration for an oauth2
 // provider.
 type OAuth2ProviderSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// Type defines the interface to use with the provider, specifically
 	// how to retrieve group information for fine-grained RBAC.  For certain
 	// global provider types e.g. Google or Microsoft, only a single instance
@@ -140,6 +146,8 @@ type Role struct {
 
 // RoleSpec defines the role's requested state.
 type RoleSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// Scopes are a list of uniquely named scopes for the role.
 	Scopes RoleScopes `json:"scopes,omitempty"`
 }
