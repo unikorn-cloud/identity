@@ -62,9 +62,6 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 		return nil, err
 	}
 
-	log.FromContext(ctx).Info("[ONBOARDING]: admin role", "name", adminRole.Name)
-	log.FromContext(ctx).Info("[ONBOARDING]: org name", "org name", request.OrganizationName)
-
 	// Generate a unique ID for the organization.
 	organizationID := util.GenerateResourceID()
 

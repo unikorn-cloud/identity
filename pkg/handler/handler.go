@@ -38,7 +38,6 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Handler struct {
@@ -546,14 +545,10 @@ func (h *Handler) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request)
 
 	request := &openapi.CreateAccountRequest{}
 
-	log.FromContext(r.Context()).Info("[ONBOARDING]: create account request", "request", request)
-
 	if err := util.ReadJSONBody(r, request); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
-
-	log.FromContext(r.Context()).Info("[ONBOARDING]: create account request", "request", request)
 
 	result, err := onboarding.NewClient(h.client, h.namespace).CreateAccount(r.Context(), request)
 
@@ -561,8 +556,6 @@ func (h *Handler) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request)
 		errors.HandleError(w, r, err)
 		return
 	}
-
-	log.FromContext(r.Context()).Info("[ONBOARDING]: create account result", "result", result)
 
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusCreated, result)
