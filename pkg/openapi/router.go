@@ -18,6 +18,9 @@ type ServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request)
 
+	// (POST /api/v1/create-account)
+	PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request)
+
 	// (GET /api/v1/oauth2providers)
 	GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request)
 
@@ -81,9 +84,6 @@ type ServerInterface interface {
 	// (GET /api/v1/organizations/{organizationID}/roles)
 	GetApiV1OrganizationsOrganizationIDRoles(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
 
-	// (POST /api/v2/create-account)
-	PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request)
-
 	// (GET /oauth2/v2/authorization)
 	GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request)
 
@@ -109,6 +109,11 @@ type Unimplemented struct{}
 
 // (GET /.well-known/openid-configuration)
 func (_ Unimplemented) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /api/v1/create-account)
+func (_ Unimplemented) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -217,11 +222,6 @@ func (_ Unimplemented) GetApiV1OrganizationsOrganizationIDRoles(w http.ResponseW
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (POST /api/v2/create-account)
-func (_ Unimplemented) PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // (GET /oauth2/v2/authorization)
 func (_ Unimplemented) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -266,6 +266,26 @@ func (siw *ServerInterfaceWrapper) GetWellKnownOpenidConfiguration(w http.Respon
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetWellKnownOpenidConfiguration(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostApiV1CreateAccount operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiV1CreateAccount(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -976,26 +996,6 @@ func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationIDRoles(w ht
 	handler.ServeHTTP(w, r)
 }
 
-// PostApiV2CreateAccount operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV2CreateAccount(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV2CreateAccount(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // GetOauth2V2Authorization operation middleware
 func (siw *ServerInterfaceWrapper) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
 
@@ -1203,6 +1203,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetWellKnownOpenidConfiguration)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/create-account", wrapper.PostApiV1CreateAccount)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/oauth2providers", wrapper.GetApiV1Oauth2providers)
 	})
 	r.Group(func(r chi.Router) {
@@ -1264,9 +1267,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}/roles", wrapper.GetApiV1OrganizationsOrganizationIDRoles)
-	})
-	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v2/create-account", wrapper.PostApiV2CreateAccount)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oauth2/v2/authorization", wrapper.GetOauth2V2Authorization)

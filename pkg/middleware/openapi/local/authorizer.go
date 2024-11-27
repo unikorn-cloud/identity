@@ -30,6 +30,8 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	"github.com/unikorn-cloud/identity/pkg/util"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Authorizer provides OpenAPI based authorization middleware.
@@ -50,9 +52,14 @@ func NewAuthorizer(authenticator *oauth2.Authenticator, rbac *rbac.RBAC) *Author
 // Authorization header.
 func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 	header := r.Header.Get("Authorization")
+
+	log.FromContext(r.Context()).Info("[OAUTH2] authorization header", "header", header)
+
 	if header == "" {
 		return "", "", errors.OAuth2InvalidRequest("authorization header missing")
 	}
+
+	log.FromContext(r.Context()).Info("[OAUTH2] authorization header", "header", header)
 
 	parts := strings.Split(header, " ")
 	if len(parts) != 2 {

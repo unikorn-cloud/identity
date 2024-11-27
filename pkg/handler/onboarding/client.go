@@ -46,6 +46,9 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 		return nil, err
 	}
 
+	log.FromContext(ctx).Info("[ONBOARDING]: admin role", "name", adminRole.Name)
+	log.FromContext(ctx).Info("[ONBOARDING]: org name", "org name", request.OrganizationName)
+
 	// Generate a unique ID for the organization.
 	organizationID := util.GenerateResourceID()
 
@@ -55,7 +58,7 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 			Namespace: c.namespace,
 			Name:      organizationID,
 			Labels: map[string]string{
-				constants.NameLabel: request.Organization.Metadata.Name,
+				constants.NameLabel: request.OrganizationName,
 			},
 		},
 		Spec: unikornv1.OrganizationSpec{},

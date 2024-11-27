@@ -32,7 +32,7 @@ projectController:
 identity:
   host: identity.acme.org
   # Allow new users to authenticate without being part of an organization
-  allowNewUserOrganizations: false
+  authenticateUnknownUsers: false
 
 # Issuer related configuration.
 issuer:

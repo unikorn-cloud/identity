@@ -297,7 +297,7 @@ However, for some deployments you may want to allow users to self-register. To e
 
 ```yaml
 identity:
-  allowNewUserOrganizations: true
+  authenticateUnknownUsers: true
 ```
 
 2. Create a client certificate using the unikorn-client-ca:
@@ -307,11 +307,11 @@ kubectl create -n unikorn-identity -f - <<EOF
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: unikorn-ui
+  name: onboarding-service
   namespace: unikorn-identity
 spec:
-  commonName: unikorn-ui
-  secretName: unikorn-ui-tls
+  commonName: onboarding-service
+  secretName: onboarding-service-tls
   issuerRef:
     name: unikorn-client-ca
     kind: ClusterIssuer
@@ -332,7 +332,7 @@ kubectl unikorn create group \
     --name account-services \
     --description "Services that can create new organizations" \
     --role create-account-service \
-    --user unikorn-ui
+    --user onboarding-service
 ```
 
 > [!NOTE]

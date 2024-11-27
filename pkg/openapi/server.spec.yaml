@@ -60,10 +60,10 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v2/create-account:
+  /api/v1/create-account:
     post:
       description: |-
-        Allows creation of a new account. This is only available when allowNewUserOrganizations is true.
+        Allows creation of a new account. This is only available when authenticateUnknownUsers is true.
       security:
       - oauth2Authentication: []
       requestBody:
@@ -1202,23 +1202,17 @@ components:
             type: object
             required:
               - adminUser
-              - organization
+              - organizationName
             properties:
               adminUser:
                 type: string
                 description: The email address of the initial admin user
-              organization:
-                $ref: '#/components/schemas/organizationWrite'
+              organizationName:
+                type: string
+                description: The name of the organization
           example:
             adminUser: "admin@acme.com"
-            organization:
-              metadata:
-                name: acme-corp
-              spec:
-                organizationType: domain
-                domain: acme.com
-                providerScope: global
-                providerID: google
+            organizationName: "acme-corp"
     tokenRequest:
       description: OAuth2 token request, consult the relevant OAuth2 and OIDC specifications for further details.
       required: true

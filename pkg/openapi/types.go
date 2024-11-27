@@ -544,8 +544,8 @@ type CreateAccountRequest struct {
 	// AdminUser The email address of the initial admin user
 	AdminUser string `json:"adminUser"`
 
-	// Organization An organization when created or updated.
-	Organization OrganizationWrite `json:"organization"`
+	// OrganizationName The name of the organization
+	OrganizationName string `json:"organizationName"`
 }
 
 // CreateGroupRequest A group when created or updated.
@@ -571,8 +571,8 @@ type PostApiV2CreateAccountJSONBody struct {
 	// AdminUser The email address of the initial admin user
 	AdminUser string `json:"adminUser"`
 
-	// Organization An organization when created or updated.
-	Organization OrganizationWrite `json:"organization"`
+	// OrganizationName The name of the organization
+	OrganizationName string `json:"organizationName"`
 }
 
 // PutApiV1OrganizationsOrganizationIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationID for application/json ContentType.

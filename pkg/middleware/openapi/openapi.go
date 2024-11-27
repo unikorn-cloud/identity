@@ -22,6 +22,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
@@ -35,6 +36,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// RouteConfig is used to configure routes that should be skipped for ACL checks.
+type RouteConfig struct {
+	Path   string
+	Method string
+}
 
 // Validator provides Schema validation of request and response codes,
 // media, and schema validation of payloads to ensure we are meeting the
@@ -57,17 +64,21 @@ type Validator struct {
 
 	// err is used to indicate the actual openapi error.
 	err error
+
+	// skipACLRoutes is a list of routes that should be skipped for ACL checks.
+	skipACLRoutes []RouteConfig
 }
 
 // Ensure this implements the required interfaces.
 var _ http.Handler = &Validator{}
 
 // NewValidator returns an initialized validator middleware.
-func NewValidator(authorizer Authorizer, next http.Handler, openapi *openapi.Schema) *Validator {
+func NewValidator(authorizer Authorizer, next http.Handler, openapi *openapi.Schema, skipACLRoutes ...RouteConfig) *Validator {
 	return &Validator{
-		authorizer: authorizer,
-		next:       next,
-		openapi:    openapi,
+		authorizer:    authorizer,
+		next:          next,
+		openapi:       openapi,
+		skipACLRoutes: skipACLRoutes,
 	}
 }
 
@@ -161,6 +172,17 @@ func (v *Validator) validateResponse(w *bufferingResponseWriter, r *http.Request
 	}
 }
 
+// canSkipACLCheck returns true if the request should be skipped for ACL checks.
+func canSkipACLCheck(r *http.Request, skipACLRoutes []RouteConfig) bool {
+	for _, route := range skipACLRoutes {
+		if r.Method == route.Method && strings.HasPrefix(r.URL.Path, route.Path) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // ServeHTTP implements the http.Handler interface.
 func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route, params, err := v.openapi.FindRoute(r)
@@ -201,14 +223,17 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = authorization.NewContextWithUserinfo(ctx, v.userinfo)
 
 	if v.userinfo != nil {
-		// The organizationID parameter is standardized across all services.
-		acl, err := v.authorizer.GetACL(ctx, params["organizationID"], v.userinfo.Sub)
-		if err != nil {
-			errors.HandleError(w, r, err)
-			return
-		}
+		orgID := params["organizationID"]
+		if orgID != "" || !canSkipACLCheck(r, v.skipACLRoutes) {
+			// The organizationID parameter is standardized across all services.
+			acl, err := v.authorizer.GetACL(ctx, orgID, v.userinfo.Sub)
+			if err != nil {
+				errors.HandleError(w, r, err)
+				return
+			}
 
-		ctx = rbac.NewContext(ctx, acl)
+			ctx = rbac.NewContext(ctx, acl)
+		}
 	}
 
 	r = r.WithContext(ctx)
@@ -225,8 +250,8 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Middleware returns a function that generates per-request
 // middleware functions.
-func Middleware(authorizer Authorizer, openapi *openapi.Schema) func(http.Handler) http.Handler {
+func Middleware(authorizer Authorizer, openapi *openapi.Schema, skipACLRoutes ...RouteConfig) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return NewValidator(authorizer, next, openapi)
+		return NewValidator(authorizer, next, openapi, skipACLRoutes...)
 	}
 }
