@@ -30,9 +30,9 @@ The identity service provides some generic providers, Google, and Microsoft, whi
 
 You can _bring your own_ by providing:
 
-- And OIDC compliant issuer endpoint
-- A client ID
-- A client secret
+* And OIDC compliant issuer endpoint
+* A client ID
+* A client secret
 
 Providers may have a supported driver build into the identity service that allows groups to be read from the identity provider for use in group mapping.
 
@@ -42,7 +42,7 @@ Every organization SHOULD have some groups, as it's useless without them.
 Groups define a set of users that belong to them, and a set of roles associated with that group.
 
 Users can be included explicitly, implicitly, or a mixture of both.
-Explicit users are simply added to a list within the group, the user name MUST be the user's canonical name (as returned by the _id_token_ after authentication), and not an alias.
+Explicit users are simply added to a list within the group, the user name MUST be the user's canonical name (as returned by the _id\_token_ after authentication), and not an alias.
 Implicit users are defined by an identity provider group, and are generally easier to govern for large organization.
 
 There are no constraints on which users can belong to any group, thus enabling - for example - an external contractor to be added, or a user to be a member of multiple organizations.
@@ -97,8 +97,8 @@ An ACL is a list of all projects that the user if a member of within that organi
 
 The ACL can be used to:
 
-- Control API access to endpoint resources.
-- Drive UI views tailored to what actions the user can actually perform.
+* Control API access to endpoint resources.
+* Drive UI views tailored to what actions the user can actually perform.
 
 There is a special shortcut for a "super admin" user, who as a platform administrator can see and do anything.
 
@@ -135,10 +135,10 @@ Identity is the first thing you should install, as it provides authentication se
 
 ### Prerequisites
 
-- A domain name (`acme.com` for this tutorial)
-- [external-dns](https://github.com/kubernetes-sigs/external-dns) configured on your Kubernetes cluster to listen to `Ingress` resources.
-- [cert-manager](https://cert-manager.io/) configured on your Kubernetes cluster
-- A cert-manager `ClusterIssuer` configured for use, typically Let's Encrypt, but you can use a self signed CA.
+* A domain name (`acme.com` for this tutorial)
+* [external-dns](https://github.com/kubernetes-sigs/external-dns) configured on your Kubernetes cluster to listen to `Ingress` resources.
+* [cert-manager](https://cert-manager.io/) configured on your Kubernetes cluster
+* A cert-manager `ClusterIssuer` configured for use, typically Let's Encrypt, but you can use a self signed CA.
 
 ```shell
 DOMAIN=acme.com
@@ -183,7 +183,7 @@ Create a basic `values.yaml` file:
 host: ${IDENTITY_HOST}
 cors:
   allowOrigin:
-    - ${UI_ORIGIN}
+  - ${UI_ORIGIN}
 ingress:
   clusterIssuer: letsencrypt-production
   externalDns: true
@@ -216,8 +216,8 @@ helm update --install --namespace unikorn-identity unikorn-identity/unikorn-iden
 
 Download the following artefacts an install them in your path:
 
-- `kubectl-unikorn`
-- `kubectl_complete-unikorn`
+* `kubectl-unikorn`
+* `kubectl_complete-unikorn`
 
 ### Creating an Organization
 
@@ -341,6 +341,7 @@ kubectl unikorn create group \
 > [!IMPORTANT]
 > Enabling user sign-ups reduces security as it allows unauthenticated access to parts of the API. Only enable this if your use case requires it.
 > Consider implementing additional security controls like approval workflows in your organization.
+
 
 ## What Next?
 

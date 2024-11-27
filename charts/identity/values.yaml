@@ -129,20 +129,6 @@ roles:
     scopes:
       global:
         identity:onboarding: [create]
-  public-user:
-    description: Public user
-    scopes:
-      organization:
-        identity:organizations: [read,update]
-        region:regions: [read]
-        kubernetes:flavors: [read]
-        kubernetes:images: [read]
-        kubernetes:clusters: [create,read,update,delete]
-        compute:flavors: [read]
-        compute:images: [read]
-        compute:clusters: [create,read,update,delete]
-        application:applications: [read]
-        application:applicationsets: [create,read,update,delete]
   # An administrator can do anything within an organization.
   administrator:
     description: Organization administrator
