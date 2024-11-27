@@ -62,6 +62,8 @@ const (
 
 // OrganizationSpec defines the required configuration for the server.
 type OrganizationSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// Pause, if true, will inhibit reconciliation.
 	Pause bool `json:"pause,omitempty"`
 	// Domain is used by unikorn-identity to map an end-user provided

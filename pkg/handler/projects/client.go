@@ -61,7 +61,7 @@ func convert(in *unikornv1.Project) *openapi.ProjectRead {
 	}
 
 	out := &openapi.ProjectRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, provisioningStatus),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, provisioningStatus),
 	}
 
 	if in.Spec.GroupIDs != nil {
@@ -137,6 +137,8 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 	out := &unikornv1.Project{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
 	}
+
+	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
 
 	if in.Spec.GroupIDs != nil {
 		for _, groupID := range *in.Spec.GroupIDs {

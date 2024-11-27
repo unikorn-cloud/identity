@@ -92,7 +92,7 @@ func convert(in *unikornv1.Organization) *openapi.OrganizationRead {
 	}
 
 	out := &openapi.OrganizationRead{
-		Metadata: conversion.ResourceReadMetadata(in, provisioningStatus),
+		Metadata: conversion.ResourceReadMetadata(in, in.Spec.Tags, provisioningStatus),
 		Spec: openapi.OrganizationSpec{
 			OrganizationType: convertOrganizationType(in),
 		},
@@ -198,6 +198,8 @@ func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) (*
 	out := &unikornv1.Organization{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace, userinfo.Sub).Get(),
 	}
+
+	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
 
 	if in.Spec.OrganizationType == openapi.Domain {
 		// TODO: Validate the providerID exists.

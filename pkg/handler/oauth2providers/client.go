@@ -63,7 +63,7 @@ func (c *Client) get(ctx context.Context, organization *organizations.Meta, prov
 
 func convert(in *unikornv1.OAuth2Provider) *openapi.Oauth2ProviderRead {
 	out := &openapi.Oauth2ProviderRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.Oauth2ProviderSpec{
 			ClientID: in.Spec.ClientID,
 		},
@@ -141,6 +141,8 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 			ClientSecret: in.Spec.ClientSecret,
 		},
 	}
+
+	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
 
 	return out, nil
 }

@@ -68,6 +68,22 @@ spec:
                   OIDC discovery endpoint e.g. https://accounts.google.com.
                   This will be used to verify issued JWTs have the same "iss" claim.
                 type: string
+              tags:
+                description: Tags are aribrary user data.
+                items:
+                  description: Tag is an arbirary key/value.
+                  properties:
+                    name:
+                      description: Name of the tag.
+                      type: string
+                    value:
+                      description: Value of the tag.
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
               type:
                 description: |-
                   Type defines the interface to use with the provider, specifically
