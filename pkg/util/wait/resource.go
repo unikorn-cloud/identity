@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ResourceWaiter struct {
@@ -66,7 +67,7 @@ func NewAvailableConditionValidator() *AvailableConditionValidator {
 func (v *AvailableConditionValidator) Valid(resource unikornv1core.ManagableResourceInterface) error {
 	condition, err := resource.StatusConditionRead(unikornv1core.ConditionAvailable)
 	if err != nil {
-		return fmt.Errorf("failed to read available condition: %w", err)
+		return err
 	}
 
 	if condition.Status != corev1.ConditionTrue {
@@ -91,7 +92,7 @@ func (w *ResourceWaiter) WaitForResource(ctx context.Context, obj unikornv1core.
 		}, obj)
 
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if errors.IsNotFound(err) {
 				return false, nil
 			}
 
@@ -99,6 +100,7 @@ func (w *ResourceWaiter) WaitForResource(ctx context.Context, obj unikornv1core.
 		}
 
 		met, err := condition(obj)
+
 		if err != nil {
 			return false, err
 		}
@@ -113,10 +115,13 @@ func (w *ResourceWaiter) WaitForResource(ctx context.Context, obj unikornv1core.
 
 // WaitForResourceWithValidators waits for a resource to pass all validators.
 func (w *ResourceWaiter) WaitForResourceWithValidators(ctx context.Context, resource unikornv1core.ManagableResourceInterface, validators ...Validator) error {
+	logger := log.FromContext(ctx)
+
 	return w.WaitForResource(ctx, resource, func(resource unikornv1core.ManagableResourceInterface) (bool, error) {
 		for _, validator := range validators {
 			if err := validator.Valid(resource); err != nil {
-				return false, err
+				logger.Error(err, "resource is not valid")
+				return false, nil
 			}
 		}
 
