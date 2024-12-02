@@ -58,16 +58,20 @@ type Handler struct {
 
 	// options allows behaviour to be defined on the CLI.
 	options *Options
+
+	// onboarding gives access to onboarding functionality.
+	onboarding *onboarding.Options
 }
 
-func New(client client.Client, namespace string, issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator, rbac *rbac.RBAC, options *Options) (*Handler, error) {
+func New(client client.Client, namespace string, issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator, rbac *rbac.RBAC, options *Options, onboarding *onboarding.Options) (*Handler, error) {
 	h := &Handler{
-		client:    client,
-		namespace: namespace,
-		issuer:    issuer,
-		oauth2:    oauth2,
-		rbac:      rbac,
-		options:   options,
+		client:     client,
+		namespace:  namespace,
+		issuer:     issuer,
+		oauth2:     oauth2,
+		rbac:       rbac,
+		options:    options,
+		onboarding: onboarding,
 	}
 
 	return h, nil
@@ -550,7 +554,7 @@ func (h *Handler) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	result, err := onboarding.NewClient(h.client, h.namespace).CreateAccount(r.Context(), request)
+	result, err := onboarding.NewClient(h.client, h.namespace, h.onboarding).CreateAccount(r.Context(), request)
 
 	if err != nil {
 		errors.HandleError(w, r, err)

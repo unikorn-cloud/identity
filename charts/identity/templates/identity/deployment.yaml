@@ -21,10 +21,10 @@ spec:
         {{- include "unikorn.core.flags" . | nindent 8 }}
         {{- include "unikorn.cors.flags" . | nindent 8 }}
         {{- include "unikorn.otlp.flags" . | nindent 8 }}
+        {{- include "unikorn.onboarding.flags" . | nindent 8 }}
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
-        - --authenticate-unknown-users={{ .Values.identity.authenticateUnknownUsers }}
         ports:
         - name: http
           containerPort: 6080

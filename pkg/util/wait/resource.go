@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ResourceWaiter struct {
@@ -44,69 +46,80 @@ func NewResourceWaiter(client client.Client, namespace string) *ResourceWaiter {
 	}
 }
 
-// WaitForResource waits for a resource to meet certain conditions.
-func (w *ResourceWaiter) WaitForResource(ctx context.Context, obj client.Object, condition func(obj client.Object) (bool, error)) error {
-	logger := log.FromContext(ctx)
+// Validator interface defines the contract for resource validation.
+type Validator interface {
+	Valid(resource unikornv1core.ManagableResourceInterface) error
+}
 
+// AvailableConditionValidator validates if a resource is in Available condition.
+type AvailableConditionValidator struct{}
+
+var (
+	// ErrResourceNotAvailable is returned when a resource is not in the Available condition.
+	ErrResourceNotAvailable = fmt.Errorf("resource not available")
+)
+
+func NewAvailableConditionValidator() *AvailableConditionValidator {
+	return &AvailableConditionValidator{}
+}
+
+func (v *AvailableConditionValidator) Valid(resource unikornv1core.ManagableResourceInterface) error {
+	condition, err := resource.StatusConditionRead(unikornv1core.ConditionAvailable)
+	if err != nil {
+		return fmt.Errorf("failed to read available condition: %w", err)
+	}
+
+	if condition.Status != corev1.ConditionTrue {
+		return fmt.Errorf("%w: status=%v, message=%q, lastTransitionTime=%v",
+			ErrResourceNotAvailable, condition.Status, condition.Message, condition.LastTransitionTime)
+	}
+
+	return nil
+}
+
+// WaitForResource waits for a resource to meet certain conditions.
+func (w *ResourceWaiter) WaitForResource(ctx context.Context, obj unikornv1core.ManagableResourceInterface, condition func(obj unikornv1core.ManagableResourceInterface) (bool, error)) error {
 	return wait.PollUntilContextTimeout(ctx, w.Interval, w.Timeout, true, func(ctx context.Context) (bool, error) {
-		// Check context before making the call
+		// Check context before making the call.
 		if err := ctx.Err(); err != nil {
 			return false, err
 		}
 
-		if err := w.Client.Get(ctx, client.ObjectKey{
+		err := w.Client.Get(ctx, client.ObjectKey{
 			Namespace: w.Namespace,
 			Name:      obj.GetName(),
-		}, obj); err != nil {
-			// Handle different types of errors appropriately
-			if apierrors.IsNotFound(err) {
-				logger.V(1).Info("resource not found, waiting",
-					"namespace", w.Namespace,
-					"name", obj.GetName())
+		}, obj)
 
+		if err != nil {
+			if !errors.IsNotFound(err) {
 				return false, nil
 			}
-			// For other errors, log and return the error to stop polling
-			logger.Error(err, "failed to get resource",
-				"namespace", w.Namespace,
-				"name", obj.GetName())
 
 			return false, err
 		}
 
-		// Run the condition check
 		met, err := condition(obj)
 		if err != nil {
-			logger.Error(err, "condition check failed",
-				"namespace", w.Namespace,
-				"name", obj.GetName())
-
 			return false, err
 		}
 
 		if !met {
-			logger.V(1).Info("condition not met, waiting",
-				"namespace", w.Namespace,
-				"name", obj.GetName())
+			return false, nil
 		}
 
-		return met, nil
+		return true, nil
 	})
 }
 
-// CleanupOnFailure handles cleanup of the resource if waiting fails.
-func (w *ResourceWaiter) CleanupOnFailure(ctx context.Context, obj client.Object) error {
-	logger := log.FromContext(ctx)
-
-	if err := w.Client.Delete(ctx, obj); err != nil {
-		if !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to cleanup resource",
-				"namespace", w.Namespace,
-				"name", obj.GetName())
-
-			return fmt.Errorf("failed to cleanup resource: %w", err)
+// WaitForResourceWithValidators waits for a resource to pass all validators.
+func (w *ResourceWaiter) WaitForResourceWithValidators(ctx context.Context, resource unikornv1core.ManagableResourceInterface, validators ...Validator) error {
+	return w.WaitForResource(ctx, resource, func(resource unikornv1core.ManagableResourceInterface) (bool, error) {
+		for _, validator := range validators {
+			if err := validator.Valid(resource); err != nil {
+				return false, err
+			}
 		}
-	}
 
-	return nil
+		return true, nil
+	})
 }

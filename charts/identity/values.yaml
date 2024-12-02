@@ -31,8 +31,12 @@ projectController:
 # oauth2 issuer etc.
 identity:
   host: identity.acme.org
+
+onboarding:
   # Allow new users to authenticate without being part of an organization
   authenticateUnknownUsers: false
+  # The role name to be assigned during onboarding,requires authenticateUnknownUsers to be true
+  initialAccountRole: "administrator"
 
 # Issuer related configuration.
 issuer:

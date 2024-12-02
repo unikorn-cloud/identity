@@ -19,7 +19,8 @@ package onboarding
 import (
 	"context"
 
-	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	"github.com/spf13/pflag"
+
 	"github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/util"
@@ -34,23 +35,36 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// Options defines configurable onboarding options.
+type Options struct {
+	// InitialAccountRole defines the role name to be used for onboarding administrators
+	InitialAccountRole string
+}
+
+// AddFlags adds the options flags to the given flag set.
+func (o *Options) AddFlags(f *pflag.FlagSet) {
+	f.StringVar(&o.InitialAccountRole, "initial-account-role", "administrator", "The role to assign to new accounts")
+}
+
 var (
-	// ErrAdminRoleNotFound is returned when the administrator role cannot be found.
-	ErrAdminRoleNotFound = errors.OAuth2ServerError("administrator role not found")
-	// ErrAdminRoleNotFoundInNamespace is returned when the administrator role cannot be found in a specific namespace.
-	ErrAdminRoleNotFoundInNamespace = errors.OAuth2ServerError("administrator role not found in namespace")
+	// ErrInitialAccountRoleNotFound is returned when the initial account role cannot be found.
+	ErrInitialAccountRoleNotFound = errors.OAuth2ServerError("initial-account-role not found")
+	// ErrInitialAccountRoleNotFoundInNamespace is returned when the initial account role cannot be found in a specific namespace.
+	ErrInitialAccountRoleNotFoundInNamespace = errors.OAuth2ServerError("initial-account-role not found in namespace")
 )
 
 type Client struct {
 	client    client.Client
 	namespace string
+	options   *Options
 }
 
 // New creates a new onboarding client.
-func NewClient(client client.Client, namespace string) *Client {
+func NewClient(client client.Client, namespace string, options *Options) *Client {
 	return &Client{
 		client:    client,
 		namespace: namespace,
+		options:   options,
 	}
 }
 
@@ -76,18 +90,20 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 		},
 		Spec: unikornv1.OrganizationSpec{},
 	}
-
 	if err := c.client.Create(ctx, org); err != nil {
 		return nil, errors.OAuth2ServerError("failed to create organization").WithError(err)
 	}
 
-	if err := c.waitForOrganizationProvisioning(ctx, org); err != nil {
-		if cleanupErr := wait.NewResourceWaiter(c.client, c.namespace).CleanupOnFailure(ctx, org); cleanupErr != nil {
-			log.FromContext(ctx).Error(cleanupErr, "failed to cleanup organization after timeout")
-		}
+	logger := log.FromContext(ctx)
+	logger.Info("waiting for organization namespace to be ready", "organization", org.Name)
 
-		return nil, errors.OAuth2ServerError("timeout waiting for organization namespace")
+	if err := wait.NewResourceWaiter(c.client, c.namespace).WaitForResourceWithValidators(ctx, org, wait.NewAvailableConditionValidator()); err != nil {
+		logger.Error(err, "failed to wait for organization namespace")
+
+		return nil, errors.OAuth2ServerError("timeout waiting for organization namespace").WithError(err)
 	}
+
+	logger.Info("organization namespace is ready", "organization", org.Name, "namespace", org.Status.Namespace)
 
 	adminGroupID := util.GenerateResourceID()
 	adminGroup := &unikornv1.Group{
@@ -106,12 +122,16 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 	}
 
 	if err := c.client.Create(ctx, adminGroup); err != nil {
-		if cleanupErr := wait.NewResourceWaiter(c.client, c.namespace).CleanupOnFailure(ctx, org); cleanupErr != nil {
-			log.FromContext(ctx).Error(cleanupErr, "failed to cleanup organization after group creation failure")
+		logger.Info("waiting for organization namespace after admin group creation failed", "organization", org.Name)
+
+		if err := wait.NewResourceWaiter(c.client, c.namespace).WaitForResourceWithValidators(ctx, org, wait.NewAvailableConditionValidator()); err != nil {
+			logger.Error(err, "failed to wait for organization namespace")
 		}
 
 		return nil, errors.OAuth2ServerError("failed to create admin group").WithError(err)
 	}
+
+	logger.Info("admin group created successfully", "organization", org.Name, "group", adminGroupID)
 
 	return organizations.Convert(org), nil
 }
@@ -119,51 +139,22 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 // validateAndGetAdminRole retrieves the administrator role from the cluster.
 func (c *Client) validateAndGetAdminRole(ctx context.Context) (*unikornv1.Role, error) {
 	var roleList unikornv1.RoleList
+
 	if err := c.client.List(ctx, &roleList, &client.ListOptions{
 		Namespace: c.namespace,
 	}); err != nil {
 		return nil, errors.OAuth2ServerError("failed to list roles").WithError(err)
 	}
 
+	if c.options.InitialAccountRole == "" {
+		return nil, errors.OAuth2ServerError("initial account role not configured")
+	}
+
 	for _, role := range roleList.Items {
-		if role.Labels[constants.NameLabel] == "administrator" {
+		if role.Labels[constants.NameLabel] == c.options.InitialAccountRole {
 			return &role, nil
 		}
 	}
 
-	return nil, errors.OAuth2ServerError("administrator role not found in namespace")
-}
-
-// waitForOrganizationProvisioning waits for the organization to be provisioned and has a namespace.
-func (c *Client) waitForOrganizationProvisioning(ctx context.Context, org *unikornv1.Organization) error {
-	waiter := wait.NewResourceWaiter(c.client, c.namespace)
-
-	return waiter.WaitForResource(ctx, org, func(obj client.Object) (bool, error) {
-		org, ok := obj.(*unikornv1.Organization)
-
-		if !ok {
-			return false, errors.OAuth2ServerError("Invalid Organization type")
-		}
-
-		// Check if namespace is set.
-		if org.Status.Namespace == "" {
-			return false, nil
-		}
-
-		// Check Available condition status.
-		condition, err := org.StatusConditionRead(unikornv1core.ConditionAvailable)
-		if err != nil {
-			return false, err
-		}
-
-		if condition.Reason != unikornv1core.ConditionReasonProvisioned {
-			return false, nil
-		}
-
-		if err := ctx.Err(); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	})
+	return nil, errors.OAuth2ServerError("initial account role not found in namespace")
 }

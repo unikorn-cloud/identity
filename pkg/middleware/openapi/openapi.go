@@ -217,13 +217,12 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Propagate authentication/authorization info to the handlers
-	// and the ACL layer to use.
 	ctx = accesstoken.NewContext(ctx, v.accessToken)
 	ctx = authorization.NewContextWithUserinfo(ctx, v.userinfo)
 
 	if v.userinfo != nil {
 		orgID := params["organizationID"]
+
 		if orgID != "" || !canSkipACLCheck(r, v.skipACLRoutes) {
 			// The organizationID parameter is standardized across all services.
 			acl, err := v.authorizer.GetACL(ctx, orgID, v.userinfo.Sub)
