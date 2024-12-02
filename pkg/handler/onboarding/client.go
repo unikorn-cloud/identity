@@ -95,15 +95,11 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 	}
 
 	logger := log.FromContext(ctx)
-	logger.Info("waiting for organization namespace to be ready", "organization", org.Name)
 
 	if err := wait.NewResourceWaiter(c.client, c.namespace).WaitForResourceWithValidators(ctx, org, wait.NewAvailableConditionValidator()); err != nil {
-		logger.Error(err, "failed to wait for organization namespace")
-
+		logger.Error(err, "timeout waiting for organization namespace")
 		return nil, errors.OAuth2ServerError("timeout waiting for organization namespace").WithError(err)
 	}
-
-	logger.Info("organization namespace is ready", "organization", org.Name, "namespace", org.Status.Namespace)
 
 	adminGroupID := util.GenerateResourceID()
 	adminGroup := &unikornv1.Group{
@@ -112,7 +108,7 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 			Name:      adminGroupID,
 			Labels: map[string]string{
 				constants.OrganizationLabel: org.Name,
-				constants.NameLabel:         "admin",
+				constants.NameLabel:         "administrators",
 			},
 		},
 		Spec: unikornv1.GroupSpec{
@@ -122,16 +118,12 @@ func (c *Client) CreateAccount(ctx context.Context, request *openapi.CreateAccou
 	}
 
 	if err := c.client.Create(ctx, adminGroup); err != nil {
-		logger.Info("waiting for organization namespace after admin group creation failed", "organization", org.Name)
-
 		if err := wait.NewResourceWaiter(c.client, c.namespace).WaitForResourceWithValidators(ctx, org, wait.NewAvailableConditionValidator()); err != nil {
-			logger.Error(err, "failed to wait for organization namespace")
+			logger.Error(err, "timeout waiting for organization namespace")
 		}
 
 		return nil, errors.OAuth2ServerError("failed to create admin group").WithError(err)
 	}
-
-	logger.Info("admin group created successfully", "organization", org.Name, "group", adminGroupID)
 
 	return organizations.Convert(org), nil
 }

@@ -1562,4 +1562,3 @@ components:
           authorizationUrl: https://identity.unikorn-cloud.org/oauth2/v2/authorization
           tokenUrl: https://identity.unikorn-cloud.org/oauth2/v2/token
           scopes: {}
-
