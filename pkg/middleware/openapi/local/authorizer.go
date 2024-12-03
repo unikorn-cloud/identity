@@ -50,7 +50,6 @@ func NewAuthorizer(authenticator *oauth2.Authenticator, rbac *rbac.RBAC) *Author
 // Authorization header.
 func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 	header := r.Header.Get("Authorization")
-
 	if header == "" {
 		return "", "", errors.OAuth2InvalidRequest("authorization header missing")
 	}

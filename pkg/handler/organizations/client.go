@@ -84,7 +84,7 @@ func convertOrganizationType(in *unikornv1.Organization) openapi.OrganizationTyp
 	return openapi.Adhoc
 }
 
-func Convert(in *unikornv1.Organization) *openapi.OrganizationRead {
+func convert(in *unikornv1.Organization) *openapi.OrganizationRead {
 	provisioningStatus := coreopenapi.ResourceProvisioningStatusUnknown
 
 	if condition, err := in.StatusConditionRead(unikornv1core.ConditionAvailable); err == nil {
@@ -123,7 +123,7 @@ func convertList(in *unikornv1.OrganizationList) openapi.Organizations {
 	out := make(openapi.Organizations, len(in.Items))
 
 	for i := range in.Items {
-		out[i] = *Convert(&in.Items[i])
+		out[i] = *convert(&in.Items[i])
 	}
 
 	return out
@@ -186,7 +186,7 @@ func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.Organ
 		return nil, err
 	}
 
-	return Convert(result), nil
+	return convert(result), nil
 }
 
 func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) (*unikornv1.Organization, error) {
@@ -258,5 +258,5 @@ func (c *Client) Create(ctx context.Context, request *openapi.OrganizationWrite)
 		return nil, errors.OAuth2ServerError("failed to create organization").WithError(err)
 	}
 
-	return Convert(org), nil
+	return convert(org), nil
 }

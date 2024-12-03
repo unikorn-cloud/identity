@@ -293,7 +293,7 @@ By default, users must be part of an organization to authenticate. This is the m
 
 However, for some deployments you may want to allow users to self-register. To enable this, follow these steps:
 
-1. Enable new user organizations in values.yaml:
+1. Enable unknown user authentication in values.yaml:
 
 ```yaml
 identity:

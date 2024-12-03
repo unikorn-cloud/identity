@@ -1218,26 +1218,6 @@ components:
           example:
             state: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
             email: joe.bloggs@acme.com
-    createAccountRequest:
-      description: Body required to create a group.
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-              - adminUser
-              - organizationName
-            properties:
-              adminUser:
-                type: string
-                description: The email address of the initial admin user
-              organizationName:
-                type: string
-                description: The name of the organization
-          example:
-            adminUser: "admin@acme.com"
-            organizationName: "acme-corp"
     tokenRequest:
       description: OAuth2 token request, consult the relevant OAuth2 and OIDC specifications for further details.
       required: true
