@@ -35,8 +35,6 @@ identity:
 onboarding:
   # Allow new users to authenticate without being part of an organization
   authenticateUnknownUsers: false
-  # The role name to be assigned during onboarding,requires authenticateUnknownUsers to be true
-  initialAccountRole: "administrator"
 
 # Issuer related configuration.
 issuer:
@@ -132,7 +130,9 @@ roles:
     description: Create account service role
     scopes:
       global:
-        identity:onboarding: [create]
+        identity:organizations: [read,create,update]
+        identity:groups: [read,create,update]
+        identity:roles: [read,create,update]
   # An administrator can do anything within an organization.
   administrator:
     description: Organization administrator

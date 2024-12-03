@@ -27,7 +27,6 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/util"
 	"github.com/unikorn-cloud/identity/pkg/handler/groups"
 	"github.com/unikorn-cloud/identity/pkg/handler/oauth2providers"
-	"github.com/unikorn-cloud/identity/pkg/handler/onboarding"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/handler/projects"
 	"github.com/unikorn-cloud/identity/pkg/handler/roles"
@@ -58,20 +57,16 @@ type Handler struct {
 
 	// options allows behaviour to be defined on the CLI.
 	options *Options
-
-	// onboarding gives access to onboarding functionality.
-	onboarding *onboarding.Options
 }
 
-func New(client client.Client, namespace string, issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator, rbac *rbac.RBAC, options *Options, onboarding *onboarding.Options) (*Handler, error) {
+func New(client client.Client, namespace string, issuer *jose.JWTIssuer, oauth2 *oauth2.Authenticator, rbac *rbac.RBAC, options *Options) (*Handler, error) {
 	h := &Handler{
-		client:     client,
-		namespace:  namespace,
-		issuer:     issuer,
-		oauth2:     oauth2,
-		rbac:       rbac,
-		options:    options,
-		onboarding: onboarding,
+		client:    client,
+		namespace: namespace,
+		issuer:    issuer,
+		oauth2:    oauth2,
+		rbac:      rbac,
+		options:   options,
 	}
 
 	return h, nil
@@ -301,6 +296,29 @@ func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) 
 
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	if err := rbac.AllowGlobalScope(r.Context(), "identity:organizations", openapi.Create); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &openapi.OrganizationWrite{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := organizations.New(h.client, h.namespace).Create(r.Context(), request)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusCreated, result)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
@@ -541,26 +559,13 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectID(w http
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *Handler) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request) {
-	if err := rbac.AllowGlobalScope(r.Context(), "identity:onboarding", openapi.Create); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	request := &openapi.CreateAccountRequest{}
-
-	if err := util.ReadJSONBody(r, request); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	result, err := onboarding.NewClient(h.client, h.namespace, h.onboarding).CreateAccount(r.Context(), request)
-
+func (h *Handler) GetApiV1Acl(w http.ResponseWriter, r *http.Request) {
+	result, err := h.rbac.GetACL(r.Context(), "", "")
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusCreated, result)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }

@@ -220,18 +220,42 @@ func addScopesToEndpointList(e *openapi.AclEndpoints, scopes []unikornv1.RoleSco
 func (r *RBAC) GetACL(ctx context.Context, organizationID, subject string) (*openapi.Acl, error) {
 	var globalACL openapi.AclEndpoints
 
-	organizationACL := openapi.AclScopedEndpoints{
-		Id: organizationID,
-	}
-
-	var projectACLs []openapi.AclScopedEndpoints
-
 	// A subject may be part of any organization's group, and may have global endpoints
 	// defined, if so add them.
 	memberships, err := r.GetOrganizationMemberships(ctx, subject)
 	if err != nil {
 		return nil, err
 	}
+
+	// If organizationID is empty, only collect global endpoints
+	if organizationID == "" {
+		for _, membership := range memberships {
+			for _, group := range membership.Groups.Items {
+				for _, roleID := range group.Spec.RoleIDs {
+					var role unikornv1.Role
+
+					if err := r.client.Get(ctx, client.ObjectKey{Namespace: r.namespace, Name: roleID}, &role); err != nil {
+						return nil, err
+					}
+
+					addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
+				}
+			}
+		}
+
+		acl := &openapi.Acl{}
+		if len(globalACL) != 0 {
+			acl.Global = &globalACL
+		}
+
+		return acl, nil
+	}
+
+	organizationACL := openapi.AclScopedEndpoints{
+		Id: organizationID,
+	}
+
+	var projectACLs []openapi.AclScopedEndpoints
 
 	for _, membership := range memberships {
 		for _, group := range membership.Groups.Items {

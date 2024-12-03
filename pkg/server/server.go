@@ -33,7 +33,6 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/middleware/timeout"
 	"github.com/unikorn-cloud/identity/pkg/constants"
 	"github.com/unikorn-cloud/identity/pkg/handler"
-	"github.com/unikorn-cloud/identity/pkg/handler/onboarding"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/middleware/audit"
 	openapimiddleware "github.com/unikorn-cloud/identity/pkg/middleware/openapi"
@@ -70,9 +69,6 @@ type Server struct {
 
 	// OTelOptions are for tracing.
 	OTelOptions otel.Options
-
-	// OnboardingOptions are for onboarding.
-	OnboardingOptions onboarding.Options
 }
 
 func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
@@ -84,7 +80,6 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.OAuth2Options.AddFlags(flags)
 	s.CORSOptions.AddFlags(flags)
 	s.OTelOptions.AddFlags(flags)
-	s.OnboardingOptions.AddFlags(flags)
 }
 
 func (s *Server) SetupLogging() {
@@ -135,7 +130,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		},
 	}
 
-	handlerInterface, err := handler.New(client, s.Options.Namespace, issuer, oauth2, rbac, &s.HandlerOptions, &s.OnboardingOptions)
+	handlerInterface, err := handler.New(client, s.Options.Namespace, issuer, oauth2, rbac, &s.HandlerOptions)
 	if err != nil {
 		return nil, err
 	}

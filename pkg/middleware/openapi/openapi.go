@@ -22,7 +22,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
@@ -172,23 +171,11 @@ func (v *Validator) validateResponse(w *bufferingResponseWriter, r *http.Request
 	}
 }
 
-// canSkipACLCheck returns true if the request should be skipped for ACL checks.
-func canSkipACLCheck(r *http.Request, skipACLRoutes []RouteConfig) bool {
-	for _, route := range skipACLRoutes {
-		if r.Method == route.Method && strings.HasPrefix(r.URL.Path, route.Path) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // ServeHTTP implements the http.Handler interface.
 func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route, params, err := v.openapi.FindRoute(r)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("route lookup failure").WithError(err))
-
 		return
 	}
 
@@ -223,16 +210,14 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if v.userinfo != nil {
 		orgID := params["organizationID"]
 
-		if orgID != "" || !canSkipACLCheck(r, v.skipACLRoutes) {
-			// The organizationID parameter is standardized across all services.
-			acl, err := v.authorizer.GetACL(ctx, orgID, v.userinfo.Sub)
-			if err != nil {
-				errors.HandleError(w, r, err)
-				return
-			}
-
-			ctx = rbac.NewContext(ctx, acl)
+		// The organizationID parameter is standardized across all services.
+		acl, err := v.authorizer.GetACL(ctx, orgID, v.userinfo.Sub)
+		if err != nil {
+			errors.HandleError(w, r, err)
+			return
 		}
+
+		ctx = rbac.NewContext(ctx, acl)
 	}
 
 	r = r.WithContext(ctx)

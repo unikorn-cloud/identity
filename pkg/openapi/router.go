@@ -18,14 +18,17 @@ type ServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request)
 
-	// (POST /api/v1/create-account)
-	PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request)
+	// (GET /api/v1/acl)
+	GetApiV1Acl(w http.ResponseWriter, r *http.Request)
 
 	// (GET /api/v1/oauth2providers)
 	GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request)
 
 	// (GET /api/v1/organizations)
 	GetApiV1Organizations(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/v1/organizations)
+	PostApiV1Organizations(w http.ResponseWriter, r *http.Request)
 
 	// (GET /api/v1/organizations/{organizationID})
 	GetApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
@@ -112,8 +115,8 @@ func (_ Unimplemented) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (POST /api/v1/create-account)
-func (_ Unimplemented) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request) {
+// (GET /api/v1/acl)
+func (_ Unimplemented) GetApiV1Acl(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -124,6 +127,11 @@ func (_ Unimplemented) GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Re
 
 // (GET /api/v1/organizations)
 func (_ Unimplemented) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /api/v1/organizations)
+func (_ Unimplemented) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -275,8 +283,8 @@ func (siw *ServerInterfaceWrapper) GetWellKnownOpenidConfiguration(w http.Respon
 	handler.ServeHTTP(w, r)
 }
 
-// PostApiV1CreateAccount operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1CreateAccount(w http.ResponseWriter, r *http.Request) {
+// GetApiV1Acl operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1Acl(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
@@ -285,7 +293,7 @@ func (siw *ServerInterfaceWrapper) PostApiV1CreateAccount(w http.ResponseWriter,
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1CreateAccount(w, r)
+		siw.Handler.GetApiV1Acl(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -326,6 +334,26 @@ func (siw *ServerInterfaceWrapper) GetApiV1Organizations(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetApiV1Organizations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostApiV1Organizations operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiV1Organizations(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1203,13 +1231,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetWellKnownOpenidConfiguration)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/create-account", wrapper.PostApiV1CreateAccount)
+		r.Get(options.BaseURL+"/api/v1/acl", wrapper.GetApiV1Acl)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/oauth2providers", wrapper.GetApiV1Oauth2providers)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations", wrapper.GetApiV1Organizations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/organizations", wrapper.PostApiV1Organizations)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}", wrapper.GetApiV1OrganizationsOrganizationID)

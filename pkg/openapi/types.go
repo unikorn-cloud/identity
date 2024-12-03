@@ -539,15 +539,6 @@ type TokenResponse = Token
 // UserinfoResponse Access token introspection data.
 type UserinfoResponse = Userinfo
 
-// CreateAccountRequest defines model for createAccountRequest.
-type CreateAccountRequest struct {
-	// AdminUser The email address of the initial admin user
-	AdminUser string `json:"adminUser"`
-
-	// OrganizationName The name of the organization
-	OrganizationName string `json:"organizationName"`
-}
-
 // CreateGroupRequest A group when created or updated.
 type CreateGroupRequest = GroupWrite
 
@@ -566,17 +557,8 @@ type UpdateOrganizationRequest = OrganizationWrite
 // UpdateProjectRequest A project when created or updated.
 type UpdateProjectRequest = ProjectWrite
 
-// PostApiV1CreateAccountJSONBody defines parameters for PostApiV1CreateAccount.
-type PostApiV1CreateAccountJSONBody struct {
-	// AdminUser The email address of the initial admin user
-	AdminUser string `json:"adminUser"`
-
-	// OrganizationName The name of the organization
-	OrganizationName string `json:"organizationName"`
-}
-
-// PostApiV1CreateAccountJSONRequestBody defines body for PostApiV1CreateAccount for application/json ContentType.
-type PostApiV1CreateAccountJSONRequestBody PostApiV1CreateAccountJSONBody
+// PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
+type PostApiV1OrganizationsJSONRequestBody = OrganizationWrite
 
 // PutApiV1OrganizationsOrganizationIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDJSONRequestBody = OrganizationWrite
