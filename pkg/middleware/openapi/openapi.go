@@ -36,12 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// RouteConfig is used to configure routes that should be skipped for ACL checks.
-type RouteConfig struct {
-	Path   string
-	Method string
-}
-
 // Validator provides Schema validation of request and response codes,
 // media, and schema validation of payloads to ensure we are meeting the
 // specification.
@@ -208,10 +202,8 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = authorization.NewContextWithUserinfo(ctx, v.userinfo)
 
 	if v.userinfo != nil && !v.skipACLCheck {
-		orgID := params["organizationID"]
-
 		// The organizationID parameter is standardized across all services.
-		acl, err := v.authorizer.GetACL(ctx, orgID, v.userinfo.Sub)
+		acl, err := v.authorizer.GetACL(ctx, params["organizationID"], v.userinfo.Sub)
 		if err != nil {
 			errors.HandleError(w, r, err)
 			return
