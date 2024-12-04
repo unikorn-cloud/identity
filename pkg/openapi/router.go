@@ -18,9 +18,6 @@ type ServerInterface interface {
 	// (GET /.well-known/openid-configuration)
 	GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request)
 
-	// (GET /api/v1/acl)
-	GetApiV1Acl(w http.ResponseWriter, r *http.Request)
-
 	// (GET /api/v1/oauth2providers)
 	GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request)
 
@@ -112,11 +109,6 @@ type Unimplemented struct{}
 
 // (GET /.well-known/openid-configuration)
 func (_ Unimplemented) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (GET /api/v1/acl)
-func (_ Unimplemented) GetApiV1Acl(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -274,26 +266,6 @@ func (siw *ServerInterfaceWrapper) GetWellKnownOpenidConfiguration(w http.Respon
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetWellKnownOpenidConfiguration(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetApiV1Acl operation middleware
-func (siw *ServerInterfaceWrapper) GetApiV1Acl(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
-
-	r = r.WithContext(ctx)
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV1Acl(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1229,9 +1201,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/.well-known/openid-configuration", wrapper.GetWellKnownOpenidConfiguration)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v1/acl", wrapper.GetApiV1Acl)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/oauth2providers", wrapper.GetApiV1Oauth2providers)

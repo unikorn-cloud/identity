@@ -93,9 +93,6 @@ type ClientInterface interface {
 	// GetWellKnownOpenidConfiguration request
 	GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetApiV1Acl request
-	GetApiV1Acl(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetApiV1Oauth2providers request
 	GetApiV1Oauth2providers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -203,18 +200,6 @@ type ClientInterface interface {
 
 func (c *Client) GetWellKnownOpenidConfiguration(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetWellKnownOpenidConfigurationRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetApiV1Acl(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1AclRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -691,33 +676,6 @@ func NewGetWellKnownOpenidConfigurationRequest(server string) (*http.Request, er
 	}
 
 	operationPath := fmt.Sprintf("/.well-known/openid-configuration")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewGetApiV1AclRequest generates requests for GetApiV1Acl
-func NewGetApiV1AclRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/v1/acl")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1856,9 +1814,6 @@ type ClientWithResponsesInterface interface {
 	// GetWellKnownOpenidConfigurationWithResponse request
 	GetWellKnownOpenidConfigurationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWellKnownOpenidConfigurationResponse, error)
 
-	// GetApiV1AclWithResponse request
-	GetApiV1AclWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1AclResponse, error)
-
 	// GetApiV1Oauth2providersWithResponse request
 	GetApiV1Oauth2providersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1Oauth2providersResponse, error)
 
@@ -1986,31 +1941,6 @@ func (r GetWellKnownOpenidConfigurationResponse) StatusCode() int {
 	return 0
 }
 
-type GetApiV1AclResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *Acl
-	JSON401      *externalRef0.UnauthorizedResponse
-	JSON403      *externalRef0.ForbiddenResponse
-	JSON500      *externalRef0.InternalServerErrorResponse
-}
-
-// Status returns HTTPResponse.Status
-func (r GetApiV1AclResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetApiV1AclResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type GetApiV1Oauth2providersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2063,7 +1993,7 @@ func (r GetApiV1OrganizationsResponse) StatusCode() int {
 type PostApiV1OrganizationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *OrganizationRead
+	JSON202      *OrganizationRead
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON500      *externalRef0.InternalServerErrorResponse
@@ -2711,15 +2641,6 @@ func (c *ClientWithResponses) GetWellKnownOpenidConfigurationWithResponse(ctx co
 	return ParseGetWellKnownOpenidConfigurationResponse(rsp)
 }
 
-// GetApiV1AclWithResponse request returning *GetApiV1AclResponse
-func (c *ClientWithResponses) GetApiV1AclWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1AclResponse, error) {
-	rsp, err := c.GetApiV1Acl(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetApiV1AclResponse(rsp)
-}
-
 // GetApiV1Oauth2providersWithResponse request returning *GetApiV1Oauth2providersResponse
 func (c *ClientWithResponses) GetApiV1Oauth2providersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1Oauth2providersResponse, error) {
 	rsp, err := c.GetApiV1Oauth2providers(ctx, reqEditors...)
@@ -3078,53 +2999,6 @@ func ParseGetWellKnownOpenidConfigurationResponse(rsp *http.Response) (*GetWellK
 	return response, nil
 }
 
-// ParseGetApiV1AclResponse parses an HTTP response from a GetApiV1AclWithResponse call
-func ParseGetApiV1AclResponse(rsp *http.Response) (*GetApiV1AclResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetApiV1AclResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest Acl
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest externalRef0.UnauthorizedResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest externalRef0.ForbiddenResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest externalRef0.InternalServerErrorResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseGetApiV1Oauth2providersResponse parses an HTTP response from a GetApiV1Oauth2providersWithResponse call
 func ParseGetApiV1Oauth2providersResponse(rsp *http.Response) (*GetApiV1Oauth2providersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -3226,12 +3100,12 @@ func ParsePostApiV1OrganizationsResponse(rsp *http.Response) (*PostApiV1Organiza
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
 		var dest OrganizationRead
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON201 = &dest
+		response.JSON202 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest externalRef0.BadRequestResponse

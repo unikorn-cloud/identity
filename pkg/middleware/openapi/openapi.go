@@ -64,20 +64,20 @@ type Validator struct {
 	// err is used to indicate the actual openapi error.
 	err error
 
-	// skipACLRoutes is a list of routes that should be skipped for ACL checks.
-	skipACLRoutes []RouteConfig
+	// skipACLCheck is a flag to skip ACL checks.
+	skipACLCheck bool
 }
 
 // Ensure this implements the required interfaces.
 var _ http.Handler = &Validator{}
 
 // NewValidator returns an initialized validator middleware.
-func NewValidator(authorizer Authorizer, next http.Handler, openapi *openapi.Schema, skipACLRoutes ...RouteConfig) *Validator {
+func NewValidator(authorizer Authorizer, next http.Handler, openapi *openapi.Schema, skipACLCheck bool) *Validator {
 	return &Validator{
-		authorizer:    authorizer,
-		next:          next,
-		openapi:       openapi,
-		skipACLRoutes: skipACLRoutes,
+		authorizer:   authorizer,
+		next:         next,
+		openapi:      openapi,
+		skipACLCheck: skipACLCheck,
 	}
 }
 
@@ -207,7 +207,7 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx = accesstoken.NewContext(ctx, v.accessToken)
 	ctx = authorization.NewContextWithUserinfo(ctx, v.userinfo)
 
-	if v.userinfo != nil {
+	if v.userinfo != nil && !v.skipACLCheck {
 		orgID := params["organizationID"]
 
 		// The organizationID parameter is standardized across all services.
@@ -234,8 +234,8 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // Middleware returns a function that generates per-request
 // middleware functions.
-func Middleware(authorizer Authorizer, openapi *openapi.Schema, skipACLRoutes ...RouteConfig) func(http.Handler) http.Handler {
+func Middleware(authorizer Authorizer, openapi *openapi.Schema, skipACLCheck bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		return NewValidator(authorizer, next, openapi, skipACLRoutes...)
+		return NewValidator(authorizer, next, openapi, skipACLCheck)
 	}
 }

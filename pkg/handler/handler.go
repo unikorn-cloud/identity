@@ -318,7 +318,7 @@ func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request)
 	}
 
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusCreated, result)
+	util.WriteJSONResponse(w, r, http.StatusAccepted, result)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
@@ -557,15 +557,4 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectID(w http
 
 	h.setUncacheable(w)
 	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *Handler) GetApiV1Acl(w http.ResponseWriter, r *http.Request) {
-	result, err := h.rbac.GetACL(r.Context(), "", "")
-	if err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
