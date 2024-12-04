@@ -155,6 +155,7 @@ func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 	userinfo, err := authorization.UserinfoFromContext(r.Context())
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("userinfo is not set").WithError(err))
+		return
 	}
 
 	h.setUncacheable(w)
@@ -182,6 +183,16 @@ func (h *Handler) GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request
 		errors.HandleError(w, r, err)
 		return
 	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) GetApiV1Acl(w http.ResponseWriter, r *http.Request) {
+	// The middleware will populate this from the URL, and thus not have access to any
+	// scoping information, so just return anything at the global scope.
+	// TODO: we may want to consider just returning everything across all organizations.
+	result := rbac.FromContext(r.Context())
 
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
@@ -295,6 +306,29 @@ func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) 
 
 	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	if err := rbac.AllowGlobalScope(r.Context(), "identity:organizations", openapi.Create); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &openapi.OrganizationWrite{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := organizations.New(h.client, h.namespace).Create(r.Context(), request)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusAccepted, result)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {

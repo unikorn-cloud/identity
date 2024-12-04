@@ -247,3 +247,16 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 
 	return nil
 }
+
+func (c *Client) Create(ctx context.Context, request *openapi.OrganizationWrite) (*openapi.OrganizationRead, error) {
+	org, err := c.generate(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.client.Create(ctx, org); err != nil {
+		return nil, errors.OAuth2ServerError("failed to create organization").WithError(err)
+	}
+
+	return convert(org), nil
+}

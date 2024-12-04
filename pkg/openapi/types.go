@@ -557,6 +557,9 @@ type UpdateOrganizationRequest = OrganizationWrite
 // UpdateProjectRequest A project when created or updated.
 type UpdateProjectRequest = ProjectWrite
 
+// PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
+type PostApiV1OrganizationsJSONRequestBody = OrganizationWrite
+
 // PutApiV1OrganizationsOrganizationIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDJSONRequestBody = OrganizationWrite
 

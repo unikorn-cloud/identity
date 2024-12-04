@@ -220,6 +220,19 @@ func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string)
 		return nil, errors.OAuth2ServerError("failed to create identity client").WithError(err)
 	}
 
+	if organizationID == "" {
+		response, err := client.GetApiV1AclWithResponse(ctx)
+		if err != nil {
+			return nil, errors.OAuth2ServerError("failed to perform ACL get call").WithError(err)
+		}
+
+		if response.StatusCode() != http.StatusOK {
+			return nil, errors.OAuth2ServerError("ACL get call didn't succeed")
+		}
+
+		return response.JSON200, nil
+	}
+
 	response, err := client.GetApiV1OrganizationsOrganizationIDAclWithResponse(ctx, organizationID)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to perform ACL get call").WithError(err)

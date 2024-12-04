@@ -24,3 +24,12 @@ Create image pull secrets
 - name: docker-config
 {{- end }}
 {{- end }}
+
+{{/*
+Onboarding flags
+*/}}
+{{- define "unikorn.onboarding.flags" -}}
+{{- if .Values.onboarding.authenticateUnknownUsers }}
+- --authenticate-unknown-users={{ .Values.onboarding.authenticateUnknownUsers }}
+{{- end }}
+{{- end }}

@@ -32,6 +32,10 @@ projectController:
 identity:
   host: identity.acme.org
 
+onboarding:
+  # Allow new users to authenticate without being part of an organization
+  authenticateUnknownUsers: false
+
 # Issuer related configuration.
 issuer:
   # maxTokenDurationDays defines the maximum length of time an issued JWT

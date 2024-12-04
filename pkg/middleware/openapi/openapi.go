@@ -166,7 +166,6 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route, params, err := v.openapi.FindRoute(r)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("route lookup failure").WithError(err))
-
 		return
 	}
 
@@ -175,6 +174,7 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, err := authorization.ExtractClientCert(r.Context(), r.Header)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2InvalidRequest("certificate propagation failure").WithError(err))
+
 		return
 	}
 

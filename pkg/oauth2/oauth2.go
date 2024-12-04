@@ -77,6 +77,9 @@ type Options struct {
 	// TokenCacheSize is used to control the size of the LRU cache for token validation
 	// checks.  This bounds the memory use to prevent DoS attacks.
 	TokenCacheSize int
+
+	// Bool to indicate whether sign up is allowed
+	AuthenticateUnknownUsers bool
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
@@ -85,6 +88,7 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.TokenVerificationLeeway, "token-verification-leeway", 0, "How mush leeway to permit for verification of token validity.")
 	f.DurationVar(&o.TokenLeewayDuration, "token-leeway", time.Minute, "How long to remove from the provider token expiry to account for network and processing latency.")
 	f.IntVar(&o.TokenCacheSize, "token-cache-size", 8192, "How many token cache entries to allow.")
+	f.BoolVar(&o.AuthenticateUnknownUsers, "authenticate-unknown-users", false, "Authenticate unknown users, allow new user organizations to be created.")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -819,15 +823,19 @@ func (a *Authenticator) OIDCCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userExists, err := a.rbac.UserExists(r.Context(), idTokenClaims.Email)
-	if err != nil {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to perform RBAC user lookup: "+err.Error())
-		return
-	}
+	// Only check rbac if we are not allowing unknown users.
+	if !a.options.AuthenticateUnknownUsers {
+		userExists, err := a.rbac.UserExists(r.Context(), idTokenClaims.Email)
 
-	if !userExists {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user not found")
-		return
+		if err != nil {
+			authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to perform RBAC user lookup: "+err.Error())
+			return
+		}
+
+		if !userExists {
+			authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user does not exist in any organization")
+			return
+		}
 	}
 
 	// NOTE: the email is the canonical one returned by the IdP, which removes
