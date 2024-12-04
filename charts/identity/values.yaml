@@ -125,14 +125,6 @@ roles:
     scopes:
       global:
         kubernetes:clusters: [read]
-  # A create account service is a role that can create organizations.
-  create-account-service:
-    description: Create account service role
-    scopes:
-      global:
-        identity:organizations: [read,create,update]
-        identity:groups: [read,create,update]
-        identity:roles: [read,create,update]
   # An administrator can do anything within an organization.
   administrator:
     description: Organization administrator

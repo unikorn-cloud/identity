@@ -287,62 +287,6 @@ kubectl unikorn create group \
 > Individual services will document their CN and role requirements.
 > All official Unikorn Cloud services will have their roles pre-defined by this repository.
 
-### Enabling User Sign-ups
-
-By default, users must be part of an organization to authenticate. This is the most secure configuration as it requires explicit approval for users to join the system.
-
-However, for some deployments you may want to allow users to self-register. To enable this, follow these steps:
-
-1. Enable unknown user authentication in values.yaml:
-
-```yaml
-identity:
-  authenticateUnknownUsers: true
-```
-
-2. Create a client certificate using the unikorn-client-ca:
-
-```bash
-kubectl create -n unikorn-identity -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: onboarding-service
-  namespace: unikorn-identity
-spec:
-  commonName: onboarding-service
-  secretName: onboarding-service-tls
-  issuerRef:
-    name: unikorn-client-ca
-    kind: ClusterIssuer
-EOF
-```
-
-3. Create a service organization and group for the UI:
-
-```bash
-kubectl unikorn create organization \
-    --namespace unikorn-identity \
-    --name system \
-    --description "System service accounts"
-
-kubectl unikorn create group \
-    --namespace unikorn-identity \
-    --organization system \
-    --name account-services \
-    --description "Services that can create new organizations" \
-    --role create-account-service \
-    --user onboarding-service
-```
-
-> [!NOTE]
-> Client certificates rotate periodically. You will need to renew the UI certificate before expiry to maintain service.
-
-> [!IMPORTANT]
-> Enabling user sign-ups reduces security as it allows unauthenticated access to parts of the API. Only enable this if your use case requires it.
-> Consider implementing additional security controls like approval workflows in your organization.
-
-
 ## What Next?
 
 As you've noted, objects are named based on UUIDs, therefore administration is somewhat counterintuitive, but it does allow names to be mutable.

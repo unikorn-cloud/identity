@@ -126,7 +126,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		ErrorHandlerFunc: handler.HandleError,
 		Middlewares: []openapi.MiddlewareFunc{
 			audit.Middleware(schema, constants.Application, constants.Version),
-			openapimiddleware.Middleware(authorizer, schema, false),
+			openapimiddleware.Middleware(authorizer, schema),
 		},
 	}
 
