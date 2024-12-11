@@ -224,3 +224,37 @@ type PrivateKey struct {
 
 type SigningKeyStatus struct {
 }
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ServiceAccountList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ServiceAccount `json:"items"`
+}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:subresource:status
+type ServiceAccount struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ServiceAccountSpec   `json:"spec"`
+	Status            ServiceAccountStatus `json:"status,omitempty"`
+}
+
+type ServiceAccountSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
+	// AccessToken is the encrypted access token that is valid for this
+	// service acocunt.
+	AccessToken string `json:"accessToken"`
+	// Expiry is a hint as to when the issued token will exipre.
+	// The access token itself is the source of truth, provided the private key is
+	// still around, so this is a fallback, as well as a cache to improve API read
+	// performance by avoiding the decryption.
+	Expiry *metav1.Time `json:"expiry"`
+}
+
+type ServiceAccountStatus struct {
+}

@@ -30,6 +30,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/handler/projects"
 	"github.com/unikorn-cloud/identity/pkg/handler/roles"
+	"github.com/unikorn-cloud/identity/pkg/handler/serviceaccounts"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
@@ -567,4 +568,96 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectID(w http
 
 	h.setUncacheable(w)
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *Handler) serviceAccountsClient(r *http.Request) *serviceaccounts.Client {
+	return serviceaccounts.New(h.client, h.namespace, r.Host, h.oauth2, &h.options.ServiceAccounts)
+}
+
+func (h *Handler) GetApiV1OrganizationsOrganizationIDServiceaccounts(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
+	result, err := h.serviceAccountsClient(r).List(r.Context(), organizationID)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV1OrganizationsOrganizationIDServiceaccounts(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
+	if err := rbac.AllowOrganizationScope(r.Context(), "identity:serviceaccounts", openapi.Create, organizationID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &openapi.ServiceAccountWrite{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.serviceAccountsClient(r).Create(r.Context(), organizationID, request)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusCreated, result)
+}
+
+func (h *Handler) PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, serviceAccountID openapi.ServiceAccountIDParameter) {
+	if err := rbac.AllowOrganizationScope(r.Context(), "identity:serviceaccounts", openapi.Update, organizationID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	request := &openapi.ServiceAccountWrite{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.serviceAccountsClient(r).Update(r.Context(), organizationID, serviceAccountID, request)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) DeleteApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, serviceAccountID openapi.ServiceAccountIDParameter) {
+	if err := rbac.AllowOrganizationScope(r.Context(), "identity:serviceaccounts", openapi.Delete, organizationID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := h.serviceAccountsClient(r).Delete(r.Context(), organizationID, serviceAccountID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *Handler) PostApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountIDRotate(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, serviceAccountID openapi.ServiceAccountIDParameter) {
+	if err := rbac.AllowOrganizationScope(r.Context(), "identity:serviceaccounts", openapi.Update, organizationID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.serviceAccountsClient(r).Rotate(r.Context(), organizationID, serviceAccountID)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }

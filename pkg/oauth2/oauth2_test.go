@@ -87,7 +87,7 @@ func TestTokens(t *testing.T) {
 		Issuer:   "https://foo.com",
 		Audience: "foo.com",
 		Subject:  "barry@foo.com",
-		Tokens: &oauth2.Tokens{
+		Federated: &oauth2.Federated{
 			AccessToken:  "foo",
 			RefreshToken: &refreshToken,
 			Expiry:       time.Now().Add(2 * accessTokenDuration),
