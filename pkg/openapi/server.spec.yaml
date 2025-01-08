@@ -252,6 +252,100 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/serviceaccounts:
+    description: |-
+      Allows creation and management of service accounts.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    get:
+      description: |-
+        Lists all service accounts.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/serviceAccountsResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    post:
+      description: |-
+        Creates a new service account and returns an access token,
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/serviceAccountCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/serviceAccountCreateResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/serviceaccounts/{serviceAccountID}:
+    description: |-
+      Allows creation and management of service accounts.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/serviceAccountIDParameter'
+    put:
+      description: |-
+        Updates a service account.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/serviceAccountCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/serviceAccountResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    delete:
+      description: |-
+        Removes a service account and revokes an access token.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          description: Service account removed and access token revoked.
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/serviceaccounts/{serviceAccountID}/rotate:
+    description: |-
+      Allows creation and management of service accounts.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/serviceAccountIDParameter'
+    post:
+      x-no-body: true
+      description: |-
+        Rotates a service account's access token.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/serviceAccountCreateResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/roles:
     description: |-
       Allows management of roles that define access control permissions for
@@ -587,6 +681,13 @@ components:
       name: organizationID
       in: path
       description: An organization ID.
+      required: true
+      schema:
+        type: string
+    serviceAccountIDParameter:
+      name: serviceAccountID
+      in: path
+      description: A service account ID.
       required: true
       schema:
         type: string
@@ -1206,6 +1307,63 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/projectRead'
+    serviceAccountSpec:
+      description: A service account specification.
+      type: object
+      required:
+      - expiry
+      properties:
+        expiry:
+          description: When the service token is due to expire.
+          type: string
+          format: date-time
+    serviceAccountStatus:
+      description: A service account status.
+      type: object
+      required:
+      - accessToken
+      properties:
+        accessToken:
+          description: A long lived acccess token that can be exchanged for an API access token.
+          type: string
+    serviceAccountCreate:
+      description: A new service account.
+      type: object
+      required:
+      - metadata
+      - spec
+      - status
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/organizationScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/serviceAccountSpec'
+        status:
+          $ref: '#/components/schemas/serviceAccountStatus'
+    serviceAccountRead:
+      description: A service account.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/organizationScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/serviceAccountSpec'
+    serviceAccounts:
+      description: A list of service accounts.
+      type: array
+      items:
+        $ref: '#/components/schemas/serviceAccountRead'
+    serviceAccountWrite:
+      description: A service account creation request.
+      type: object
+      required:
+      - metadata
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -1237,6 +1395,17 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/oauth2ProviderWrite'
+    serviceAccountCreateRequest:
+      description: Body required to create a service account.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/serviceAccountWrite'
+          example:
+            metadata:
+              name: my-service-account
+              description: A service account for doing stuff.
     createOrganizationRequest:
       description: Body required to create an organization.
       required: true
@@ -1557,6 +1726,53 @@ components:
             spec:
               groups:
               - ef509cd1-c7e6-42f8-aae7-a01164dc60dc
+    serviceAccountResponse:
+      description: A service accounts.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/serviceAccountRead'
+          example:
+            metadata:
+              id: ee45f34b-9685-40d8-8724-23c31252ca46
+              name: my-service-account
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              expiry: 2025-03-14T16:10:00Z
+    serviceAccountsResponse:
+      description: A list of service accounts.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/serviceAccounts'
+          example:
+          - metadata:
+              id: ee45f34b-9685-40d8-8724-23c31252ca46
+              name: my-service-account
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              expiry: 2025-03-14T16:10:00Z
+    serviceAccountCreateResponse:
+      description: A service account creation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/serviceAccountCreate'
+          example:
+            metadata:
+              id: ee45f34b-9685-40d8-8724-23c31252ca46
+              name: my-service-account
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              expiry: 2025-03-14T16:10:00Z
+            status:
+              accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.

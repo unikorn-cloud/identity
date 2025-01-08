@@ -4,6 +4,8 @@
 package openapi
 
 import (
+	"time"
+
 	externalRef0 "github.com/unikorn-cloud/core/pkg/openapi"
 )
 
@@ -403,6 +405,46 @@ type Roles = []RoleRead
 // Scope Supported scopes.
 type Scope string
 
+// ServiceAccountCreate A new service account.
+type ServiceAccountCreate struct {
+	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
+
+	// Spec A service account specification.
+	Spec ServiceAccountSpec `json:"spec"`
+
+	// Status A service account status.
+	Status ServiceAccountStatus `json:"status"`
+}
+
+// ServiceAccountRead A service account.
+type ServiceAccountRead struct {
+	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
+
+	// Spec A service account specification.
+	Spec ServiceAccountSpec `json:"spec"`
+}
+
+// ServiceAccountSpec A service account specification.
+type ServiceAccountSpec struct {
+	// Expiry When the service token is due to expire.
+	Expiry time.Time `json:"expiry"`
+}
+
+// ServiceAccountStatus A service account status.
+type ServiceAccountStatus struct {
+	// AccessToken A long lived acccess token that can be exchanged for an API access token.
+	AccessToken string `json:"accessToken"`
+}
+
+// ServiceAccountWrite A service account creation request.
+type ServiceAccountWrite struct {
+	// Metadata Resource metadata valid for all API resource reads and writes.
+	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+}
+
+// ServiceAccounts A list of service accounts.
+type ServiceAccounts = []ServiceAccountRead
+
 // SigningAlgorithm Supported signing algorithms.
 type SigningAlgorithm string
 
@@ -490,6 +532,9 @@ type OrganizationIDParameter = string
 // ProjectIDParameter defines model for projectIDParameter.
 type ProjectIDParameter = string
 
+// ServiceAccountIDParameter defines model for serviceAccountIDParameter.
+type ServiceAccountIDParameter = string
+
 // AclResponse A list of access control scopes and permissions.
 type AclResponse = Acl
 
@@ -530,6 +575,15 @@ type ProjectsResponse = Projects
 // RolesResponse A list of roles.
 type RolesResponse = Roles
 
+// ServiceAccountCreateResponse A new service account.
+type ServiceAccountCreateResponse = ServiceAccountCreate
+
+// ServiceAccountResponse A service account.
+type ServiceAccountResponse = ServiceAccountRead
+
+// ServiceAccountsResponse A list of service accounts.
+type ServiceAccountsResponse = ServiceAccounts
+
 // SystemOauth2ProvidersResponse A list of oauth2 providers.
 type SystemOauth2ProvidersResponse = Oauth2Providers
 
@@ -547,6 +601,9 @@ type CreateProjectRequest = ProjectWrite
 
 // Oauth2ProviderRequest An OAuth2 provider when created or updated.
 type Oauth2ProviderRequest = Oauth2ProviderWrite
+
+// ServiceAccountCreateRequest A service account creation request.
+type ServiceAccountCreateRequest = ServiceAccountWrite
 
 // UpdateGroupRequest A group when created or updated.
 type UpdateGroupRequest = GroupWrite
@@ -580,6 +637,12 @@ type PostApiV1OrganizationsOrganizationIDProjectsJSONRequestBody = ProjectWrite
 
 // PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDProjectsProjectID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody = ProjectWrite
+
+// PostApiV1OrganizationsOrganizationIDServiceaccountsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDServiceaccounts for application/json ContentType.
+type PostApiV1OrganizationsOrganizationIDServiceaccountsJSONRequestBody = ServiceAccountWrite
+
+// PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountID for application/json ContentType.
+type PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountIDJSONRequestBody = ServiceAccountWrite
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions

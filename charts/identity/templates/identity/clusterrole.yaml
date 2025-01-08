@@ -10,8 +10,9 @@ rules:
   resources:
   - oauth2clients
   - oauth2providers
-  - roles
   - organizations
+  - serviceaccounts
+  - roles
   - groups
   - projects
   verbs:

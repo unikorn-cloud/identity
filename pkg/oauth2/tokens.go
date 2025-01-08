@@ -26,7 +26,14 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 
+	"github.com/unikorn-cloud/core/pkg/constants"
+	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -38,13 +45,25 @@ var (
 	ErrTokenVerification = errors.New("failed to verify token")
 )
 
+type AccessTokenType string
+
+const (
+	AccessTokenTypeFederated AccessTokenType = "fed"
+
+	AccessTokenTypeServiceAccount AccessTokenType = "sa"
+)
+
 // CustomAccessTokenClaims contains all application specific claims in a single
 // top-level claim that won't clash with the ones defined by IETF.
 type CustomAccessTokenClaims struct {
-	// Provider is the provider name for the token.
-	Provider string
-	// AccessToken as defined for the IdP.
+	// Type is the type of access token this is.
+	Type AccessTokenType `json:"typ"`
+	// Provider is the provider name for the token (federated tokens only).
+	Provider string `json:"pr"`
+	// AccessToken as defined for the IdP (federated tokens only).
 	AccessToken string `json:"at"`
+	// OrganizationID is the identifier of the organization (service accounts only).
+	OrganizationID string `json:"oid"`
 }
 
 // AccessTokenClaims is an application specific set of claims.
@@ -82,38 +101,96 @@ type RefreshTokenClaims struct {
 	Custom *CustomRefreshTokenClaims `json:"crt,omitempty"`
 }
 
+// Tokens is the set of tokens and metadata returned by a token issue.
 type Tokens struct {
+	Expiry       time.Time
+	AccessToken  string
+	RefreshToken *string
+}
+
+// Federated is any information required to issue a federated access token.
+type Federated struct {
 	Provider     string
 	Expiry       time.Time
 	AccessToken  string
 	RefreshToken *string
 }
 
+// ServiceAccount is any information required to issue a service account access token.
+type ServiceAccount struct {
+	// OrganizationID is the organization ID used to verify the subject exists
+	// and the token is still valid.
+	OrganizationID string
+	// Duration is the token lifetime.  Please note this should only be used for
+	// service account tokens that by definition need to be long lived.
+	Duration *time.Duration
+}
+
+// IssueInfo controls how the access token is encoded.
 type IssueInfo struct {
-	Issuer         string
-	Audience       string
-	Subject        string
-	Tokens         *Tokens
+	// Issuer should be from the HTTP Host header, as requested by the client.
+	Issuer string
+	// Audience should be from the HTTP Host header, as only we can decipher the token.
+	Audience string
+	// Subject is the user, or service account, the token is valid for.  This is used
+	// for RBAC.
+	Subject string
+	// Federated is a set of tokens, if defined, for a federated OIDC server.
+	Federated *Federated
+	// ServiceAccount indicates this is issued for a service account.
+	ServiceAccount *ServiceAccount
+	// X509Thumbprint is a certificate thumbprint for X.509 based passwordless authentication.
 	X509Thumbprint string
+}
+
+// expiry calculates when the token should expire.  By default we use the duration
+// defined by the authenticator.  If the token is federated, we pick the lower of
+// the default, and the expiry time of the federated acces token.  If the token
+// is for a service account, these need to be long lived for automation, so we can
+// override the default for this only.
+func (a *Authenticator) expiry(now time.Time, info *IssueInfo) time.Time {
+	if info.ServiceAccount != nil && info.ServiceAccount.Duration != nil {
+		return now.Add(*info.ServiceAccount.Duration)
+	}
+
+	expiry := now.Add(a.options.AccessTokenDuration)
+
+	if info.Federated != nil && info.Federated.Expiry.Before(expiry) {
+		expiry = info.Federated.Expiry
+	}
+
+	return expiry
+}
+
+// applyCustomClaims adds any custom claims to the access token based on the
+// issuer information.
+func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *IssueInfo) {
+	switch {
+	case info.Federated != nil:
+		claims.Custom = &CustomAccessTokenClaims{
+			Type:        AccessTokenTypeFederated,
+			Provider:    info.Federated.Provider,
+			AccessToken: info.Federated.AccessToken,
+		}
+
+	case info.ServiceAccount != nil:
+		claims.Custom = &CustomAccessTokenClaims{
+			Type:           AccessTokenTypeServiceAccount,
+			OrganizationID: info.ServiceAccount.OrganizationID,
+		}
+
+	case info.X509Thumbprint != "":
+		claims.Config = &AccessTokenConfigClaims{
+			X509Thumbprint: &info.X509Thumbprint,
+		}
+	}
 }
 
 // Issue issues a new JWT access token.
 func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, error) {
 	now := time.Now()
 
-	expiry := now.Add(a.options.AccessTokenDuration)
-
-	if info.Tokens != nil {
-		// We don't control the expiry of the provider's access token, but we can cap it,
-		// so we use the smallest of these two figures.  To make the experience more
-		// resilient, we remove a "fudge factor" from the provider's token so we don't
-		// accidentally try to use it when it's already expired, e.g. time has expired
-		// since provider issue and when we wrap it up here.
-		expiry = info.Tokens.Expiry.Add(-a.options.TokenLeewayDuration)
-		if limit := now.Add(a.options.AccessTokenDuration); limit.Before(expiry) {
-			expiry = limit
-		}
-	}
+	expiry := a.expiry(now, info)
 
 	nowRFC7519 := jwt.NewNumericDate(now)
 	atExpiresAtRFC7519 := jwt.NewNumericDate(expiry)
@@ -133,22 +210,7 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 		},
 	}
 
-	// If we have a provider, then wrap up their access token so we can use
-	// it to access their APIs.
-	if info.Tokens != nil {
-		atClaims.Custom = &CustomAccessTokenClaims{
-			Provider:    info.Tokens.Provider,
-			AccessToken: info.Tokens.AccessToken,
-		}
-	}
-
-	// An X509 thumbprint means we bind the token to the client certificate
-	// and only accept it when presented with the client cerficate also.
-	if info.X509Thumbprint != "" {
-		atClaims.Config = &AccessTokenConfigClaims{
-			X509Thumbprint: &info.X509Thumbprint,
-		}
-	}
+	a.applyCustomClaims(atClaims, info)
 
 	at, err := a.issuer.EncodeJWEToken(ctx, atClaims, jose.TokenTypeAccessToken)
 	if err != nil {
@@ -160,7 +222,7 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 		Expiry:      expiry,
 	}
 
-	if info.Tokens != nil && info.Tokens.RefreshToken != nil {
+	if info.Federated != nil && info.Federated.RefreshToken != nil {
 		rtClaims := &RefreshTokenClaims{
 			Claims: jwt.Claims{
 				ID:      uuid.New().String(),
@@ -174,8 +236,8 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 				Expiry:    rtExpiresAtRFC7519,
 			},
 			Custom: &CustomRefreshTokenClaims{
-				Provider:     info.Tokens.Provider,
-				RefreshToken: *info.Tokens.RefreshToken,
+				Provider:     info.Federated.Provider,
+				RefreshToken: *info.Federated.RefreshToken,
 			},
 		}
 
@@ -231,7 +293,77 @@ func (a *Authenticator) Verify(ctx context.Context, info *VerifyInfo) (*AccessTo
 		return nil, fmt.Errorf("failed to validate claims: %w", err)
 	}
 
-	a.tokenCache.Add(info.Token, claims, time.Until(claims.Expiry.Time()))
+	if err := a.verifyCustomClaims(ctx, info, claims); err != nil {
+		return nil, err
+	}
+
+	// The cache entry needs a timeout as a federated user may have had their rights
+	// recinded and we don't know about it, and long lived tokens e.g. service accounts,
+	// could still be valid for months...
+	timeout := time.Hour
+
+	if tokenExpiresIn := time.Until(claims.Expiry.Time()); tokenExpiresIn < timeout {
+		timeout = tokenExpiresIn
+	}
+
+	a.tokenCache.Add(info.Token, claims, timeout)
 
 	return claims, nil
+}
+
+// serviceAccountSelector returns a label selector to lookup the named service account
+// as defined by the access token.
+func serviceAccountSelector(claims *AccessTokenClaims) (labels.Selector, error) {
+	if claims.Custom.OrganizationID == "" {
+		return nil, fmt.Errorf("%w: service account token missing organization ID", ErrTokenVerification)
+	}
+
+	organizationReq, err := labels.NewRequirement(constants.OrganizationLabel, selection.Equals, []string{claims.Custom.OrganizationID})
+	if err != nil {
+		return nil, err
+	}
+
+	nameReq, err := labels.NewRequirement(constants.NameLabel, selection.Equals, []string{claims.Claims.Subject})
+	if err != nil {
+		return nil, err
+	}
+
+	return labels.NewSelector().Add(*organizationReq, *nameReq), nil
+}
+
+func (a *Authenticator) verifyCustomClaims(ctx context.Context, info *VerifyInfo, claims *AccessTokenClaims) error {
+	// If the token is for a service account, ensure that account exists and
+	// the token is still the correct one e.g. hasn't been reissued.
+	if claims.Custom == nil {
+		return nil
+	}
+
+	if claims.Custom.Type == AccessTokenTypeServiceAccount {
+		selector, err := serviceAccountSelector(claims)
+		if err != nil {
+			return err
+		}
+
+		serviceAccounts := &unikornv1.ServiceAccountList{}
+
+		if err := a.client.List(ctx, serviceAccounts, &client.ListOptions{LabelSelector: selector}); err != nil {
+			return err
+		}
+
+		if len(serviceAccounts.Items) != 1 {
+			return fmt.Errorf("%w: unable to find service account %s in organization %s", ErrTokenVerification, claims.Claims.Subject, claims.Custom.OrganizationID)
+		}
+
+		if info.Token != serviceAccounts.Items[0].Spec.AccessToken {
+			return fmt.Errorf("%w: service account token invalid", ErrTokenVerification)
+		}
+	}
+
+	return nil
+}
+
+// InvalidateToken immediately invalidates the token so it's unusable again.
+// TODO: this only considers caching in the identity service, it's still usable.
+func (a *Authenticator) InvalidateToken(ctx context.Context, token string) {
+	a.tokenCache.Remove(token)
 }

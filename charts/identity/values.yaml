@@ -84,6 +84,7 @@ roles:
         identity:organizations: [create,read,update,delete]
         identity:oauth2providers: [create,read,update,delete]
         identity:roles: [create,read,update,delete]
+        identity:serviceaccounts: [create,read,update,delete]
         identity:groups: [create,read,update,delete]
         identity:projects: [create,read,update,delete]
         region:regions: [create,read,update,delete]
@@ -132,6 +133,7 @@ roles:
       organization:
         identity:organizations: [read,update]
         identity:oauth2providers: [create,read,update,delete]
+        identity:serviceaccounts: [create,read,update,delete]
         identity:roles: [create,read,update,delete]
         identity:groups: [create,read,update,delete]
         identity:projects: [create,read,update,delete]

@@ -119,6 +119,8 @@ func (t *requestMutatingTransport) RoundTrip(req *http.Request) (*http.Response,
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
+//
+//nolint:cyclop
 func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.Userinfo, error) {
 	ctx := r.Context()
 
@@ -193,7 +195,16 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 		return "", nil, errors.OAuth2ServerError("failed to extrac user information").WithError(err)
 	}
 
-	a.tokenCache.Add(rawToken, claims, time.Until(time.Unix(int64(*claims.Exp), 0)))
+	// The cache entry needs a timeout as a federated user may have had their rights
+	// recinded and we don't know about it, and long lived tokens e.g. service accounts,
+	// could still be valid for months...
+	timeout := time.Hour
+
+	if tokenExpiresIn := time.Until(time.Unix(int64(*claims.Exp), 0)); tokenExpiresIn < timeout {
+		timeout = tokenExpiresIn
+	}
+
+	a.tokenCache.Add(rawToken, claims, timeout)
 
 	return rawToken, claims, nil
 }

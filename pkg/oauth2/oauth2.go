@@ -983,7 +983,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Subject:  code.IDToken.OIDCClaimsEmail.Email,
-		Tokens: &Tokens{
+		Federated: &Federated{
 			Provider:    code.OAuth2Provider,
 			Expiry:      code.AccessTokenExpiry,
 			AccessToken: code.AccessToken,
@@ -991,7 +991,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	}
 
 	if code.RefreshToken != "" {
-		info.Tokens.RefreshToken = &code.RefreshToken
+		info.Federated.RefreshToken = &code.RefreshToken
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -1077,7 +1077,7 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Subject:  claims.Claims.Subject,
-		Tokens: &Tokens{
+		Federated: &Federated{
 			Provider:    claims.Custom.Provider,
 			Expiry:      providerTokens.Expiry,
 			AccessToken: providerTokens.AccessToken,
@@ -1085,7 +1085,7 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 	}
 
 	if providerTokens.RefreshToken != "" {
-		info.Tokens.RefreshToken = &providerTokens.RefreshToken
+		info.Federated.RefreshToken = &providerTokens.RefreshToken
 	}
 
 	tokens, err := a.Issue(r.Context(), info)

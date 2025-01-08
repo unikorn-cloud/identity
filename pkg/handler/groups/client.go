@@ -156,11 +156,10 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 	out := &unikornv1.Group{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.GroupSpec{
+			Tags:    conversion.GenerateTagList(in.Metadata.Tags),
 			RoleIDs: in.Spec.RoleIDs,
 		},
 	}
-
-	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
 
 	if in.Spec.Users != nil {
 		out.Spec.Users = *in.Spec.Users
