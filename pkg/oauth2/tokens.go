@@ -26,12 +26,8 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 
-	"github.com/unikorn-cloud/core/pkg/constants"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
-
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -132,7 +128,7 @@ type IssueInfo struct {
 	Issuer string
 	// Audience should be from the HTTP Host header, as only we can decipher the token.
 	Audience string
-	// Subject is the user, or service account, the token is valid for.  This is used
+	// Subject is the user, or service account ID, the token is valid for.  This is used
 	// for RBAC.
 	Subject string
 	// Federated is a set of tokens, if defined, for a federated OIDC server.
@@ -311,26 +307,6 @@ func (a *Authenticator) Verify(ctx context.Context, info *VerifyInfo) (*AccessTo
 	return claims, nil
 }
 
-// serviceAccountSelector returns a label selector to lookup the named service account
-// as defined by the access token.
-func serviceAccountSelector(claims *AccessTokenClaims) (labels.Selector, error) {
-	if claims.Custom.OrganizationID == "" {
-		return nil, fmt.Errorf("%w: service account token missing organization ID", ErrTokenVerification)
-	}
-
-	organizationReq, err := labels.NewRequirement(constants.OrganizationLabel, selection.Equals, []string{claims.Custom.OrganizationID})
-	if err != nil {
-		return nil, err
-	}
-
-	nameReq, err := labels.NewRequirement(constants.NameLabel, selection.Equals, []string{claims.Claims.Subject})
-	if err != nil {
-		return nil, err
-	}
-
-	return labels.NewSelector().Add(*organizationReq, *nameReq), nil
-}
-
 func (a *Authenticator) verifyCustomClaims(ctx context.Context, info *VerifyInfo, claims *AccessTokenClaims) error {
 	// If the token is for a service account, ensure that account exists and
 	// the token is still the correct one e.g. hasn't been reissued.
@@ -339,22 +315,19 @@ func (a *Authenticator) verifyCustomClaims(ctx context.Context, info *VerifyInfo
 	}
 
 	if claims.Custom.Type == AccessTokenTypeServiceAccount {
-		selector, err := serviceAccountSelector(claims)
-		if err != nil {
+		organization := &unikornv1.Organization{}
+
+		if err := a.client.Get(ctx, client.ObjectKey{Namespace: a.namespace, Name: claims.Custom.OrganizationID}, organization); err != nil {
 			return err
 		}
 
-		serviceAccounts := &unikornv1.ServiceAccountList{}
+		serviceAccount := &unikornv1.ServiceAccount{}
 
-		if err := a.client.List(ctx, serviceAccounts, &client.ListOptions{LabelSelector: selector}); err != nil {
+		if err := a.client.Get(ctx, client.ObjectKey{Namespace: organization.Status.Namespace, Name: claims.Claims.Subject}, serviceAccount); err != nil {
 			return err
 		}
 
-		if len(serviceAccounts.Items) != 1 {
-			return fmt.Errorf("%w: unable to find service account %s in organization %s", ErrTokenVerification, claims.Claims.Subject, claims.Custom.OrganizationID)
-		}
-
-		if info.Token != serviceAccounts.Items[0].Spec.AccessToken {
+		if info.Token != serviceAccount.Spec.AccessToken {
 			return fmt.Errorf("%w: service account token invalid", ErrTokenVerification)
 		}
 	}

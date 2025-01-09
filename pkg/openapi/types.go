@@ -505,6 +505,15 @@ type TokenRequestOptions struct {
 	Username *string `json:"username"`
 }
 
+// User A user specification.
+type User struct {
+	// GroupIDs A list of group IDs.
+	GroupIDs GroupIDs `json:"groupIDs"`
+
+	// Name The uers's canonical name, usually an email address.
+	Name string `json:"name"`
+}
+
 // Userinfo Access token introspection data.
 type Userinfo struct {
 	// Aud The intended token audience.
@@ -529,6 +538,9 @@ type Userinfo struct {
 	Sub string `json:"sub"`
 }
 
+// Users A list of users.
+type Users = []User
+
 // GroupidParameter defines model for groupidParameter.
 type GroupidParameter = string
 
@@ -543,6 +555,9 @@ type ProjectIDParameter = string
 
 // ServiceAccountIDParameter defines model for serviceAccountIDParameter.
 type ServiceAccountIDParameter = string
+
+// UsernameParameter defines model for usernameParameter.
+type UsernameParameter = string
 
 // AclResponse A list of access control scopes and permissions.
 type AclResponse = Acl
@@ -599,8 +614,14 @@ type SystemOauth2ProvidersResponse = Oauth2Providers
 // TokenResponse Oauth2 token result.
 type TokenResponse = Token
 
+// UserResponse A user specification.
+type UserResponse = User
+
 // UserinfoResponse Access token introspection data.
 type UserinfoResponse = Userinfo
+
+// UsersResponse A list of users.
+type UsersResponse = Users
 
 // CreateGroupRequest A group when created or updated.
 type CreateGroupRequest = GroupWrite
@@ -622,6 +643,9 @@ type UpdateOrganizationRequest = OrganizationWrite
 
 // UpdateProjectRequest A project when created or updated.
 type UpdateProjectRequest = ProjectWrite
+
+// UserCreateRequest A user specification.
+type UserCreateRequest = User
 
 // PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
 type PostApiV1OrganizationsJSONRequestBody = OrganizationWrite
@@ -652,6 +676,12 @@ type PostApiV1OrganizationsOrganizationIDServiceaccountsJSONRequestBody = Servic
 
 // PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountIDJSONRequestBody = ServiceAccountWrite
+
+// PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDUsers for application/json ContentType.
+type PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody = User
+
+// PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDUsersUsername for application/json ContentType.
+type PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody = User
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions
