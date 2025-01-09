@@ -18,6 +18,7 @@ package serviceaccounts
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -305,6 +306,29 @@ func (c *Client) Delete(ctx context.Context, organizationID, serviceAccountID st
 		}
 
 		return errors.OAuth2ServerError("failed to get service account for delete").WithError(err)
+	}
+
+	// Unlink the service account from any groups that reference it.
+	groups := &unikornv1.GroupList{}
+
+	if err := c.client.List(ctx, groups, &client.ListOptions{Namespace: organization.Namespace}); err != nil {
+		return errors.OAuth2ServerError("failed to list organization groups").WithError(err)
+	}
+
+	groups.Items = slices.DeleteFunc(groups.Items, func(group unikornv1.Group) bool {
+		return !slices.Contains(group.Spec.Users, resource.Labels[constants.NameLabel])
+	})
+
+	for i := range groups.Items {
+		group := &groups.Items[i]
+
+		group.Spec.Users = slices.DeleteFunc(group.Spec.Users, func(name string) bool {
+			return name == resource.Labels[constants.NameLabel]
+		})
+
+		if err := c.client.Update(ctx, group); err != nil {
+			return errors.OAuth2ServerError("failed to remove service account from group").WithError(err)
+		}
 	}
 
 	if err := c.client.Delete(ctx, resource); err != nil {
