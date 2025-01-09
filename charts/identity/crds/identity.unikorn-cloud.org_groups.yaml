@@ -60,6 +60,13 @@ spec:
                 items:
                   type: string
                 type: array
+              serviceAccountIDs:
+                description: |-
+                  ServiceAccountIDs are a list of service accounts that are members of
+                  the group.
+                items:
+                  type: string
+                type: array
               tags:
                 description: Tags are aribrary user data.
                 items:

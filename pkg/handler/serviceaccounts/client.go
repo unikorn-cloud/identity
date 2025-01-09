@@ -88,7 +88,7 @@ func convert(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi
 	memberGroups := groups.DeepCopy()
 
 	memberGroups.Items = slices.DeleteFunc(memberGroups.Items, func(group unikornv1.Group) bool {
-		return !slices.Contains(group.Spec.Users, in.Labels[constants.NameLabel])
+		return !slices.Contains(group.Spec.ServiceAccountIDs, in.Labels[constants.NameLabel])
 	})
 
 	var memberGroupIDs openapi.GroupIDs
@@ -124,6 +124,7 @@ func convertCreate(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *o
 	return out
 }
 
+// convertList converts a list of Kubernetes objects into OpenAPI ones.
 func convertList(in *unikornv1.ServiceAccountList, groups *unikornv1.GroupList) openapi.ServiceAccounts {
 	out := make(openapi.ServiceAccounts, len(in.Items))
 
@@ -134,16 +135,12 @@ func convertList(in *unikornv1.ServiceAccountList, groups *unikornv1.GroupList) 
 	return out
 }
 
-func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.ServiceAccountWrite) (*unikornv1.ServiceAccount, error) {
-	userinfo, err := authorization.UserinfoFromContext(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
-	}
-
+// generateAccessToken generates a service account token for the given service account.
+func (c *Client) generateAccessToken(ctx context.Context, organization *organizations.Meta, serviceAccountID string) (*oauth2.Tokens, error) {
 	issueInfo := &oauth2.IssueInfo{
 		Issuer:   "https://" + c.host,
 		Audience: c.host,
-		Subject:  in.Metadata.Name,
+		Subject:  serviceAccountID,
 		ServiceAccount: &oauth2.ServiceAccount{
 			OrganizationID: organization.ID,
 			// TODO: allow the client to override this, but keep it capped to
@@ -157,16 +154,43 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 		return nil, errors.OAuth2ServerError("unable to issue access token").WithError(err)
 	}
 
+	return tokens, nil
+}
+
+// generate takes an API request and generates a new Kubernetes resource for it, including
+// a new access token.
+func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.ServiceAccountWrite) (*unikornv1.ServiceAccount, error) {
+	userinfo, err := authorization.UserinfoFromContext(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	}
+
 	out := &unikornv1.ServiceAccount{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.ServiceAccountSpec{
-			Tags:        conversion.GenerateTagList(in.Metadata.Tags),
-			AccessToken: tokens.AccessToken,
-			Expiry: &metav1.Time{
-				Time: tokens.Expiry,
-			},
+			Tags: conversion.GenerateTagList(in.Metadata.Tags),
 		},
 	}
+
+	issueInfo := &oauth2.IssueInfo{
+		Issuer:   "https://" + c.host,
+		Audience: c.host,
+		Subject:  out.Name,
+		ServiceAccount: &oauth2.ServiceAccount{
+			OrganizationID: organization.ID,
+			// TODO: allow the client to override this, but keep it capped to
+			// some server controlled value.
+			Duration: &c.options.defaultDuration,
+		},
+	}
+
+	tokens, err := c.oauth2.Issue(ctx, issueInfo)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("unable to issue access token").WithError(err)
+	}
+
+	out.Spec.Expiry = &metav1.Time{Time: tokens.Expiry}
+	out.Spec.AccessToken = tokens.AccessToken
 
 	return out, nil
 }
@@ -199,7 +223,7 @@ func (c *Client) listGroups(ctx context.Context, organization *organizations.Met
 
 // updateGroups takes a user name and a requested list of groups and adds to
 // the groups it should be a member of and removes itself from groups it shouldn't.
-func (c *Client) updateGroups(ctx context.Context, userName string, groupIDs *openapi.GroupIDs, groups *unikornv1.GroupList) error {
+func (c *Client) updateGroups(ctx context.Context, serviceAccountID string, groupIDs *openapi.GroupIDs, groups *unikornv1.GroupList) error {
 	for i := range groups.Items {
 		current := &groups.Items[i]
 
@@ -207,19 +231,19 @@ func (c *Client) updateGroups(ctx context.Context, userName string, groupIDs *op
 
 		if groupIDs != nil && slices.Contains(*groupIDs, current.Name) {
 			// Add to a group where it should be a member but isn't.
-			if slices.Contains(current.Spec.Users, userName) {
+			if slices.Contains(current.Spec.ServiceAccountIDs, serviceAccountID) {
 				continue
 			}
 
-			updated.Spec.Users = append(updated.Spec.Users, userName)
+			updated.Spec.ServiceAccountIDs = append(updated.Spec.ServiceAccountIDs, serviceAccountID)
 		} else {
 			// Remove from any groups its a member of but shouldn't be.
-			if !slices.Contains(current.Spec.Users, userName) {
+			if !slices.Contains(current.Spec.ServiceAccountIDs, serviceAccountID) {
 				continue
 			}
 
-			updated.Spec.Users = slices.DeleteFunc(updated.Spec.Users, func(name string) bool {
-				return name == userName
+			updated.Spec.ServiceAccountIDs = slices.DeleteFunc(updated.Spec.ServiceAccountIDs, func(id string) bool {
+				return id == serviceAccountID
 			})
 		}
 
@@ -252,7 +276,7 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, err
 	}
 
-	if err := c.updateGroups(ctx, request.Metadata.Name, request.Spec.GroupIDs, groups); err != nil {
+	if err := c.updateGroups(ctx, resource.Name, request.Spec.GroupIDs, groups); err != nil {
 		return nil, err
 	}
 
@@ -318,12 +342,6 @@ func (c *Client) Update(ctx context.Context, organizationID, serviceAccountID st
 		return nil, err
 	}
 
-	// Name must be immutable as it's referred to by the access token and
-	// the group linkage.
-	if current.Labels[constants.NameLabel] != required.Labels[constants.NameLabel] {
-		return nil, errors.OAuth2InvalidRequest("service account name is immutable")
-	}
-
 	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {
 		return nil, errors.OAuth2ServerError("failed to merge metadata").WithError(err)
 	}
@@ -331,9 +349,11 @@ func (c *Client) Update(ctx context.Context, organizationID, serviceAccountID st
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
 	updated.Annotations = required.Annotations
+	updated.Spec = required.Spec
 
 	// Preserve the access token etc. across metadata updates.
-	updated.Spec = current.Spec
+	updated.Spec.Expiry = current.Spec.Expiry
+	updated.Spec.AccessToken = current.Spec.AccessToken
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return nil, errors.OAuth2ServerError("failed to patch group").WithError(err)
@@ -344,7 +364,7 @@ func (c *Client) Update(ctx context.Context, organizationID, serviceAccountID st
 		return nil, err
 	}
 
-	if err := c.updateGroups(ctx, request.Metadata.Name, request.Spec.GroupIDs, groups); err != nil {
+	if err := c.updateGroups(ctx, current.Name, request.Spec.GroupIDs, groups); err != nil {
 		return nil, err
 	}
 
@@ -364,25 +384,14 @@ func (c *Client) Rotate(ctx context.Context, organizationID, serviceAccountID st
 		return nil, err
 	}
 
-	request := &openapi.ServiceAccountWrite{
-		Metadata: coreopenapi.ResourceWriteMetadata{
-			Name: current.Labels[constants.NameLabel],
-		},
-	}
-
-	required, err := c.generate(ctx, organization, request)
+	tokens, err := c.generateAccessToken(ctx, organization, serviceAccountID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {
-		return nil, errors.OAuth2ServerError("failed to merge metadata").WithError(err)
-	}
-
 	updated := current.DeepCopy()
-	updated.Labels = required.Labels
-	updated.Annotations = required.Annotations
-	updated.Spec = required.Spec
+	updated.Spec.Expiry = &metav1.Time{Time: tokens.Expiry}
+	updated.Spec.AccessToken = tokens.AccessToken
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return nil, errors.OAuth2ServerError("failed to patch group").WithError(err)
@@ -420,7 +429,7 @@ func (c *Client) Delete(ctx context.Context, organizationID, serviceAccountID st
 		return err
 	}
 
-	if err := c.updateGroups(ctx, resource.Labels[constants.NameLabel], nil, groups); err != nil {
+	if err := c.updateGroups(ctx, serviceAccountID, nil, groups); err != nil {
 		return err
 	}
 

@@ -58,6 +58,12 @@ func groupContainsUser(group *unikornv1.Group, subject string) bool {
 	return slices.Contains(group.Spec.Users, subject)
 }
 
+// groupContainsServiceAccount checks if the sobject is actuall a service acccount ID.
+// TODO: we should be able to derive what the subject is explicitly from the access token.
+func groupContainsServiceAccount(group *unikornv1.Group, subject string) bool {
+	return slices.Contains(group.Spec.ServiceAccountIDs, subject)
+}
+
 // getGroupsWithMembership grabs all groups for an organization that contain the subject.
 func (r *RBAC) getGroupsWithMembership(ctx context.Context, organization *unikornv1.Organization, subject string) (*unikornv1.GroupList, error) {
 	result := &unikornv1.GroupList{}
@@ -67,7 +73,7 @@ func (r *RBAC) getGroupsWithMembership(ctx context.Context, organization *unikor
 	}
 
 	result.Items = slices.DeleteFunc(result.Items, func(resource unikornv1.Group) bool {
-		return !groupContainsUser(&resource, subject)
+		return !groupContainsUser(&resource, subject) && !groupContainsServiceAccount(&resource, subject)
 	})
 
 	return result, nil

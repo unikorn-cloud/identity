@@ -346,6 +346,81 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/users:
+    description: |-
+      Allows management of federated users.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    get:
+      description: |-
+        Lists all users.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/usersResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    post:
+      description: |-
+        Creates a new user and associates with a set of groups.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/userCreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/userResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '409':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/users/{username}:
+    description: |-
+      Allows management of federated users.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/usernameParameter'
+    put:
+      description: |-
+        Updates a user.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/userCreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/userResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    delete:
+      description: |-
+        Deletes a user and disassociates them with all groups they are a member of.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          description: User removed and all groups disssociated with the user.
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/roles:
     description: |-
       Allows management of roles that define access control permissions for
@@ -688,6 +763,13 @@ components:
       name: serviceAccountID
       in: path
       description: A service account ID.
+      required: true
+      schema:
+        type: string
+    usernameParameter:
+      name: username
+      in: path
+      description: A user name.
       required: true
       schema:
         type: string
@@ -1367,6 +1449,23 @@ components:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
         spec:
           $ref: '#/components/schemas/serviceAccountSpec'
+    user:
+      description: A user specification.
+      type: object
+      required:
+      - name
+      - groupIDs
+      properties:
+        name:
+          description: The uers's canonical name, usually an email address.
+          type: string
+        groupIDs:
+          $ref: '#/components/schemas/groupIDs'
+    users:
+      description: A list of users.
+      type: array
+      items:
+        $ref: '#/components/schemas/user'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -1409,6 +1508,17 @@ components:
             metadata:
               name: my-service-account
               description: A service account for doing stuff.
+    userCreateRequest:
+      description: Body required to create a user.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/user'
+          example:
+            name: john.doe@acme.com
+            groupIDs:
+            - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
     createOrganizationRequest:
       description: Body required to create an organization.
       required: true
@@ -1775,6 +1885,26 @@ components:
             status:
               expiry: 2025-03-14T16:10:00Z
               accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+    usersResponse:
+      description: A list of users.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/users'
+          example:
+          - name: john.doe@acme.com
+            groupIDs:
+            - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
+    userResponse:
+      description: A user.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/user'
+          example:
+            name: john.doe@acme.com
+            groupIDs:
+            - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.
