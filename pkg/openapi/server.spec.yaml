@@ -1310,6 +1310,12 @@ components:
     serviceAccountSpec:
       description: A service account specification.
       type: object
+      properties:
+        groupIDs:
+          $ref: '#/components/schemas/groupIDs'
+    serviceAccountStatus:
+      description: A service account status.
+      type: object
       required:
       - expiry
       properties:
@@ -1317,12 +1323,6 @@ components:
           description: When the service token is due to expire.
           type: string
           format: date-time
-    serviceAccountStatus:
-      description: A service account status.
-      type: object
-      required:
-      - accessToken
-      properties:
         accessToken:
           description: A long lived acccess token that can be exchanged for an API access token.
           type: string
@@ -1331,7 +1331,6 @@ components:
       type: object
       required:
       - metadata
-      - spec
       - status
       properties:
         metadata:
@@ -1345,12 +1344,14 @@ components:
       type: object
       required:
       - metadata
-      - spec
+      - status
       properties:
         metadata:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/organizationScopedResourceReadMetadata'
         spec:
           $ref: '#/components/schemas/serviceAccountSpec'
+        status:
+          $ref: '#/components/schemas/serviceAccountStatus'
     serviceAccounts:
       description: A list of service accounts.
       type: array
@@ -1364,6 +1365,8 @@ components:
       properties:
         metadata:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/serviceAccountSpec'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -1739,7 +1742,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
-            spec:
+            status:
               expiry: 2025-03-14T16:10:00Z
     serviceAccountsResponse:
       description: A list of service accounts.
@@ -1754,7 +1757,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
-            spec:
+            status:
               expiry: 2025-03-14T16:10:00Z
     serviceAccountCreateResponse:
       description: A service account creation.
@@ -1769,9 +1772,8 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
-            spec:
-              expiry: 2025-03-14T16:10:00Z
             status:
+              expiry: 2025-03-14T16:10:00Z
               accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
   securitySchemes:
     oauth2Authentication:

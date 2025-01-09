@@ -75,12 +75,34 @@ func New(client client.Client, namespace, host string, oauth2 *oauth2.Authentica
 }
 
 // convert converts from Kubernetes into OpenAPI for normal read requests.
-func convert(in *unikornv1.ServiceAccount) *openapi.ServiceAccountRead {
+func convert(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi.ServiceAccountRead {
 	out := &openapi.ServiceAccountRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
-		Spec: openapi.ServiceAccountSpec{
+		Status: openapi.ServiceAccountStatus{
 			Expiry: in.Spec.Expiry.Time,
 		},
+	}
+
+	// NOTE: Deep copy as this may be reused and DeleteFunc will modify the underlying
+	// slice's array.
+	memberGroups := groups.DeepCopy()
+
+	memberGroups.Items = slices.DeleteFunc(memberGroups.Items, func(group unikornv1.Group) bool {
+		return !slices.Contains(group.Spec.Users, in.Labels[constants.NameLabel])
+	})
+
+	var memberGroupIDs openapi.GroupIDs
+
+	for _, group := range memberGroups.Items {
+		memberGroupIDs = append(memberGroupIDs, group.Name)
+	}
+
+	if len(memberGroupIDs) > 0 {
+		if out.Spec == nil {
+			out.Spec = &openapi.ServiceAccountSpec{}
+		}
+
+		out.Spec.GroupIDs = &memberGroupIDs
 	}
 
 	return out
@@ -88,25 +110,25 @@ func convert(in *unikornv1.ServiceAccount) *openapi.ServiceAccountRead {
 
 // convertCreate converts from Kubernetes into OpenAPi for create/update requests that
 // have extra information e.g. the access token.
-func convertCreate(in *unikornv1.ServiceAccount) *openapi.ServiceAccountCreate {
-	temp := convert(in)
+func convertCreate(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi.ServiceAccountCreate {
+	temp := convert(in, groups)
 
 	out := &openapi.ServiceAccountCreate{
 		Metadata: temp.Metadata,
 		Spec:     temp.Spec,
-		Status: openapi.ServiceAccountStatus{
-			AccessToken: in.Spec.AccessToken,
-		},
+		Status:   temp.Status,
 	}
+
+	out.Status.AccessToken = &in.Spec.AccessToken
 
 	return out
 }
 
-func convertList(in *unikornv1.ServiceAccountList) openapi.ServiceAccounts {
+func convertList(in *unikornv1.ServiceAccountList, groups *unikornv1.GroupList) openapi.ServiceAccounts {
 	out := make(openapi.ServiceAccounts, len(in.Items))
 
 	for i := range in.Items {
-		out[i] = *convert(&in.Items[i])
+		out[i] = *convert(&in.Items[i], groups)
 	}
 
 	return out
@@ -149,6 +171,66 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 	return out, nil
 }
 
+// get retrieves the service account.
+func (c *Client) get(ctx context.Context, organization *organizations.Meta, serviceAccountID string) (*unikornv1.ServiceAccount, error) {
+	result := &unikornv1.ServiceAccount{}
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: serviceAccountID}, result); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, errors.HTTPNotFound().WithError(err)
+		}
+
+		return nil, errors.OAuth2ServerError("failed to get service account").WithError(err)
+	}
+
+	return result, nil
+}
+
+// listGroups returns an exhaustive list of all groups a service account can be a member of.
+func (c *Client) listGroups(ctx context.Context, organization *organizations.Meta) (*unikornv1.GroupList, error) {
+	result := &unikornv1.GroupList{}
+
+	if err := c.client.List(ctx, result, &client.ListOptions{Namespace: organization.Namespace}); err != nil {
+		return nil, errors.OAuth2ServerError("failed to list groups").WithError(err)
+	}
+
+	return result, nil
+}
+
+// updateGroups takes a user name and a requested list of groups and adds to
+// the groups it should be a member of and removes itself from groups it shouldn't.
+func (c *Client) updateGroups(ctx context.Context, userName string, groupIDs *openapi.GroupIDs, groups *unikornv1.GroupList) error {
+	for i := range groups.Items {
+		current := &groups.Items[i]
+
+		updated := current.DeepCopy()
+
+		if groupIDs != nil && slices.Contains(*groupIDs, current.Name) {
+			// Add to a group where it should be a member but isn't.
+			if slices.Contains(current.Spec.Users, userName) {
+				continue
+			}
+
+			updated.Spec.Users = append(updated.Spec.Users, userName)
+		} else {
+			// Remove from any groups its a member of but shouldn't be.
+			if !slices.Contains(current.Spec.Users, userName) {
+				continue
+			}
+
+			updated.Spec.Users = slices.DeleteFunc(updated.Spec.Users, func(name string) bool {
+				return name == userName
+			})
+		}
+
+		if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
+			return errors.OAuth2ServerError("failed to patch group").WithError(err)
+		}
+	}
+
+	return nil
+}
+
 // Create makes a new service account and issues an access token.
 func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.ServiceAccountWrite) (*openapi.ServiceAccountCreate, error) {
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
@@ -165,22 +247,16 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, errors.OAuth2ServerError("failed to create service account").WithError(err)
 	}
 
-	return convertCreate(resource), nil
-}
-
-// get retrieves the service account.
-func (c *Client) get(ctx context.Context, organization *organizations.Meta, serviceAccountID string) (*unikornv1.ServiceAccount, error) {
-	result := &unikornv1.ServiceAccount{}
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: serviceAccountID}, result); err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, errors.HTTPNotFound().WithError(err)
-		}
-
-		return nil, errors.OAuth2ServerError("failed to get service account").WithError(err)
+	groups, err := c.listGroups(ctx, organization)
+	if err != nil {
+		return nil, err
 	}
 
-	return result, nil
+	if err := c.updateGroups(ctx, request.Metadata.Name, request.Spec.GroupIDs, groups); err != nil {
+		return nil, err
+	}
+
+	return convertCreate(resource, groups), nil
 }
 
 // Get retrieves information about a service account.
@@ -195,7 +271,12 @@ func (c *Client) Get(ctx context.Context, organizationID, serviceAccountID strin
 		return nil, err
 	}
 
-	return convert(result), nil
+	groups, err := c.listGroups(ctx, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	return convert(result, groups), nil
 }
 
 // List retrieves information about all service accounts in the organization.
@@ -211,7 +292,12 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Servi
 		return nil, errors.OAuth2ServerError("failed to list service accounts").WithError(err)
 	}
 
-	return convertList(result), nil
+	groups, err := c.listGroups(ctx, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertList(result, groups), nil
 }
 
 // Update modifies any metadata for the service account if it exists.  If a matching account
@@ -232,6 +318,12 @@ func (c *Client) Update(ctx context.Context, organizationID, serviceAccountID st
 		return nil, err
 	}
 
+	// Name must be immutable as it's referred to by the access token and
+	// the group linkage.
+	if current.Labels[constants.NameLabel] != required.Labels[constants.NameLabel] {
+		return nil, errors.OAuth2InvalidRequest("service account name is immutable")
+	}
+
 	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {
 		return nil, errors.OAuth2ServerError("failed to merge metadata").WithError(err)
 	}
@@ -247,7 +339,16 @@ func (c *Client) Update(ctx context.Context, organizationID, serviceAccountID st
 		return nil, errors.OAuth2ServerError("failed to patch group").WithError(err)
 	}
 
-	return convert(updated), nil
+	groups, err := c.listGroups(ctx, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.updateGroups(ctx, request.Metadata.Name, request.Spec.GroupIDs, groups); err != nil {
+		return nil, err
+	}
+
+	return convert(updated, groups), nil
 }
 
 // Rotate is a special version of Update where everything about the resource is preserved
@@ -289,7 +390,12 @@ func (c *Client) Rotate(ctx context.Context, organizationID, serviceAccountID st
 
 	c.oauth2.InvalidateToken(ctx, current.Spec.AccessToken)
 
-	return convertCreate(updated), nil
+	groups, err := c.listGroups(ctx, organization)
+	if err != nil {
+		return nil, err
+	}
+
+	return convertCreate(updated, groups), nil
 }
 
 // Delete removes the service account and revokes the access token.
@@ -309,26 +415,13 @@ func (c *Client) Delete(ctx context.Context, organizationID, serviceAccountID st
 	}
 
 	// Unlink the service account from any groups that reference it.
-	groups := &unikornv1.GroupList{}
-
-	if err := c.client.List(ctx, groups, &client.ListOptions{Namespace: organization.Namespace}); err != nil {
-		return errors.OAuth2ServerError("failed to list organization groups").WithError(err)
+	groups, err := c.listGroups(ctx, organization)
+	if err != nil {
+		return err
 	}
 
-	groups.Items = slices.DeleteFunc(groups.Items, func(group unikornv1.Group) bool {
-		return !slices.Contains(group.Spec.Users, resource.Labels[constants.NameLabel])
-	})
-
-	for i := range groups.Items {
-		group := &groups.Items[i]
-
-		group.Spec.Users = slices.DeleteFunc(group.Spec.Users, func(name string) bool {
-			return name == resource.Labels[constants.NameLabel]
-		})
-
-		if err := c.client.Update(ctx, group); err != nil {
-			return errors.OAuth2ServerError("failed to remove service account from group").WithError(err)
-		}
+	if err := c.updateGroups(ctx, resource.Labels[constants.NameLabel], nil, groups); err != nil {
+		return err
 	}
 
 	if err := c.client.Delete(ctx, resource); err != nil {
