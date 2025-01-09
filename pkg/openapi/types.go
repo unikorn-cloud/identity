@@ -410,7 +410,7 @@ type ServiceAccountCreate struct {
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A service account specification.
-	Spec ServiceAccountSpec `json:"spec"`
+	Spec *ServiceAccountSpec `json:"spec,omitempty"`
 
 	// Status A service account status.
 	Status ServiceAccountStatus `json:"status"`
@@ -421,25 +421,34 @@ type ServiceAccountRead struct {
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A service account specification.
-	Spec ServiceAccountSpec `json:"spec"`
+	Spec *ServiceAccountSpec `json:"spec,omitempty"`
+
+	// Status A service account status.
+	Status ServiceAccountStatus `json:"status"`
 }
 
 // ServiceAccountSpec A service account specification.
 type ServiceAccountSpec struct {
-	// Expiry When the service token is due to expire.
-	Expiry time.Time `json:"expiry"`
+	// GroupIDs A list of group IDs.
+	GroupIDs *GroupIDs `json:"groupIDs,omitempty"`
 }
 
 // ServiceAccountStatus A service account status.
 type ServiceAccountStatus struct {
 	// AccessToken A long lived acccess token that can be exchanged for an API access token.
-	AccessToken string `json:"accessToken"`
+	AccessToken *string `json:"accessToken,omitempty"`
+
+	// Expiry When the service token is due to expire.
+	Expiry time.Time `json:"expiry"`
 }
 
 // ServiceAccountWrite A service account creation request.
 type ServiceAccountWrite struct {
 	// Metadata Resource metadata valid for all API resource reads and writes.
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+
+	// Spec A service account specification.
+	Spec *ServiceAccountSpec `json:"spec,omitempty"`
 }
 
 // ServiceAccounts A list of service accounts.
