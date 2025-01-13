@@ -67,6 +67,41 @@ type Groups struct {
 	Groups []Group `json:"groups"`
 }
 
+/*
+SCOPES:
+
+* https://www.googleapis.com/auth/cloud-identity.groups.readonly
+* https://www.googleapis.com/auth/cloud-identity.groups
+* https://www.googleapis.com/auth/cloud-identity
+* https://www.googleapis.com/auth/cloud-platform
+
+or...
+
+GET https://admin.googleapis.com/admin/directory/v1/groups
+
+https://developers.google.com/admin-sdk/directory/reference/rest/v1/groups/list
+
+{
+  "kind": "admin#directory#groups",
+  "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/5dl-BOsz4lBOImoI3lLrwvGKy1Q\"",
+  "groups": [
+    {
+      "kind": "admin#directory#group",
+      "id": "01rvwp1q1gini8q",
+      "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/UQNupgFQfUCP_44mDaRNpM_vJqc\"",
+      "email": "all@nscale.com",
+      "name": "Everyone",
+      "directMembersCount": "3",
+      "description": "Everyone, use with extreme caution!",
+      "adminCreated": true,
+      "nonEditableAliases": [
+        "all@nscale.com.test-google-a.com"
+      ]
+    }
+  ],
+  "nextPageToken": "Q2ljd0xDSmhiR3hBYm5OallXeGxMbU52YlNJc01pd2lNREF3TURBd09ETTRNV1F4TVRabFlTSklCR0MwanJqaUFXb2hjM1Z3Y0c5eWRDMW9hV1JsTFhObGRIUnBibWN0Y205emRHVnlMWEYxWlhKNQ=="
+}
+*/
 //nolint:cyclop
 func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
 	if organization == nil || organization.Spec.ProviderOptions == nil || organization.Spec.ProviderOptions.Google == nil || organization.Spec.ProviderOptions.Google.CustomerID == nil {
@@ -107,11 +142,17 @@ func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organizat
 		return nil, err
 	}
 
-	// Google's default access token lifetime is 1h, whereas ours is configurable,
-	// and default to 24h, if we get a 401, assume we should resturn the same back to
-	// the client to reauthenticate.
+	// On success:
 	//
-	// FYI they error body looks like:
+	// {
+	//   "name": "groups/xzy", # This is the "group ID"
+	//   "groupKey": {
+	//     "id": "alias@org.com"
+	//   },
+	//   "displayName": "Human readable"
+	//  }
+	//
+	// On error:
 	//
 	// {
 	//   "error": {
@@ -146,3 +187,123 @@ func (p *Provider) Groups(ctx context.Context, organization *unikornv1.Organizat
 
 	return result, nil
 }
+
+/*
+SCOPES:
+
+* https://www.googleapis.com/auth/cloud-identity.groups.readonly
+* https://www.googleapis.com/auth/cloud-identity.groups
+* https://www.googleapis.com/auth/cloud-identity
+* https://www.googleapis.com/auth/cloud-platform
+
+GET https://cloudidentity.googleapis.com/vi/{groupID=groups/xyz}/memberships?view=BASIC&pageSize=X&pageToken=Y
+
+{
+  "memberships": [
+    {
+      "name": "groups/03mzq4wv10ygnsx/memberships/102914945678377600674",
+      "memberKey": {
+        "id": "drew@nscale.com"
+      },
+      "roles": [
+        {
+          "name": "MEMBER"
+        },
+        {
+          "name": "MANAGER"
+        }
+      ],
+      "preferredMemberKey": {
+        "id": "drew@nscale.com"
+      }
+    },
+  ],
+  "nextPageToken": "IhcKCQiHqemb0g4YARIHCInHkPzzFhjqBzANUAFYAQ=="
+}
+
+or:
+
+GET https://admin.googleapis.com/admin/directory/v1/groups/{groupKey}/members
+
+https://developers.google.com/admin-sdk/directory/reference/rest/v1/members/list
+o{
+  "kind": "admin#directory#members",
+  "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/fd_oBPHcqG8PHkO89QMmRe1FRrg\"",
+  "members": [
+    {
+      "kind": "admin#directory#member",
+      "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/4oZ4wB52slvqCl3BzI6_YMhHWZU\"",
+      "id": "112999204022039996338",
+      "email": "amin@nscale.com",
+      "role": "MEMBER",
+      "type": "USER",
+      "status": "ACTIVE"
+    }
+  ],
+  "nextPageToken": "CjBJaHdLR2dpbDJPbk1pQVFTRDJGdGFXNUFibk5qWVd4bExtTnZiUmdCWUx1TTNQY0QiHAoaCKXY6cyIBBIPYW1pbkBuc2NhbGUuY29tGAFgu4zc9wM="
+}
+
+{
+  "kind": "admin#directory#members",
+  "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/P0HWsUlPIjV7ernA3b4siONAxso\"",
+  "members": [
+    {
+      "kind": "admin#directory#member",
+      "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/m9JBs0_Rle6AWEKjmK2Ja-_fyPk\"",
+      "id": "C02qjd6lx",
+      "role": "MEMBER",
+      "type": "CUSTOMER"
+    }
+  ],
+  "nextPageToken": "CjhJaUlLSUFpdjhkUHI2d2dTRlM5b1pDOWtiMjFoYVc0dmJuTmpZV3hsTG1OdmJSZ0NZS0dIOExzRSIiCiAIr_HT6-sIEhUvaGQvZG9tYWluL25zY2FsZS5jb20YAmChh_C7BA=="
+}
+
+*/
+
+/*
+SCOPES:
+
+* https://www.googleapis.com/auth/admin.directory.user
+* https://www.googleapis.com/auth/admin.directory.user.readonly
+* https://www.googleapis.com/auth/cloud-platform
+
+GET https://admin.googleapis.com/admin/directory/v1/users&customer=C02qjd6lx&viewType=domain_public
+
+{
+  "kind": "admin#directory#users",
+  "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/FC9DvLkkCkbIoe2XckEJ45RuCpo\"",
+  "users": [
+    {
+      "kind": "admin#directory#user",
+      "id": "101500039720350465469",
+      "etag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/bELmHY5xsXf99Iq92-m4u-c6V_w\"",
+      "primaryEmail": "adam.flanagan@nscale.com",
+      "name": {
+        "givenName": "Adam",
+        "familyName": "Flanagan",
+        "fullName": "Adam Flanagan"
+      },
+      "emails": [
+        {
+          "address": "amfwebsolutions@gmail.com",
+          "type": "work"
+        },
+        {
+          "address": "adam.flanagan@nscale.com",
+          "primary": true
+        }
+      ],
+      "languages": [
+        {
+          "languageCode": "en-GB",
+          "preference": "preferred"
+        }
+      ],
+      "thumbnailPhotoUrl": "https://lh3.googleusercontent.com/a-/ALV-UjVUGgb3u3bMDo4-ccDZNj3dcz-A9Mto9RqbTJKBCNi2xry8-Hg=s96-c",
+      "thumbnailPhotoEtag": "\"g3-uukzdDYX7mcsQqDSmVT-0S6NlDP7HhGVb5s3jADM/Ye72DgwZGxjLkgOVJsG17bHB3Kc\""
+    }
+  ],
+  "nextPageToken": "Ci2qASoKKDAsImFkYW0uZmxhbmFnYW4iLDMyMjE3Mjk5NTc0NCxOVUxMLDEsIiI="
+}
+
+*/

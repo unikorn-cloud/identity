@@ -23,7 +23,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"github.com/unikorn-cloud/core/pkg/constants"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -88,7 +87,7 @@ func convert(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi
 	memberGroups := groups.DeepCopy()
 
 	memberGroups.Items = slices.DeleteFunc(memberGroups.Items, func(group unikornv1.Group) bool {
-		return !slices.Contains(group.Spec.ServiceAccountIDs, in.Labels[constants.NameLabel])
+		return !slices.Contains(group.Spec.ServiceAccountIDs, in.Name)
 	})
 
 	var memberGroupIDs openapi.GroupIDs
@@ -364,7 +363,7 @@ func (c *Client) Update(ctx context.Context, organizationID, serviceAccountID st
 		return nil, err
 	}
 
-	if err := c.updateGroups(ctx, current.Name, request.Spec.GroupIDs, groups); err != nil {
+	if err := c.updateGroups(ctx, serviceAccountID, request.Spec.GroupIDs, groups); err != nil {
 		return nil, err
 	}
 
