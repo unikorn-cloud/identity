@@ -530,25 +530,6 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/available-groups:
-    description: |-
-      Polls the identity provider for group information.
-    parameters:
-    - $ref: '#/components/parameters/organizationIDParameter'
-    get:
-      description: |-
-        Returns a list of groups that are defined for the organization in the domain provider.
-      security:
-      - oauth2Authentication: []
-      responses:
-        '200':
-          $ref: '#/components/responses/availableGroupsResponse'
-        '401':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
-        '403':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
-        '500':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/groups:
     description: |-
       Allows management of organization groups. Groups provide an identity
@@ -647,7 +628,6 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/projects:
-    x-documentation-group: main
     description: |-
       Implements project management services. Projects, as currently defined
       by the Kubernetes service, are implicitly scoped to the access token's
@@ -1288,29 +1268,6 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/roleRead'
-    availableGroup:
-      description: An IdP group
-      type: object
-      required:
-      - name
-      properties:
-        name:
-          description: The canonical group name.
-          type: string
-        displayName:
-          description: A human readable group name.
-          type: string
-    availableGroups:
-      description: A list of IdP groups.
-      type: array
-      items:
-        $ref: '#/components/schemas/availableGroup'
-    providerGroupList:
-      description: A list of provider groups.
-      type: array
-      items:
-        description: A provider group.
-        type: string
     groupSpec:
       description: A group.
       type: object
@@ -1321,8 +1278,6 @@ components:
           $ref: '#/components/schemas/stringList'
         roleIDs:
           $ref: '#/components/schemas/stringList'
-        providerGroups:
-          $ref: '#/components/schemas/providerGroupList'
     groupRead:
       description: A group when read.
       type: object
@@ -1759,16 +1714,6 @@ components:
               description: Platform administrators.
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
-    availableGroupsResponse:
-      description: |-
-        A provider group in the organization.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/availableGroups'
-          example:
-            - name: groups/omyocHoGreph6
-              displayName: Administrators
     groupResponse:
       description: |-
         A group in the organization.
