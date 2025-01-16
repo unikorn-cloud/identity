@@ -11,6 +11,7 @@ rules:
   - oauth2clients
   - oauth2providers
   - organizations
+  - users
   - serviceaccounts
   - roles
   - groups

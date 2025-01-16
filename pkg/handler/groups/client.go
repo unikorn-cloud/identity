@@ -57,8 +57,8 @@ func convert(in *unikornv1.Group) *openapi.GroupRead {
 		},
 	}
 
-	if len(in.Spec.Users) > 0 {
-		out.Spec.Users = &in.Spec.Users
+	if len(in.Spec.UserIDs) > 0 {
+		out.Spec.UserIDs = &in.Spec.UserIDs
 	}
 
 	return out
@@ -157,8 +157,8 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 		},
 	}
 
-	if in.Spec.Users != nil {
-		out.Spec.Users = *in.Spec.Users
+	if in.Spec.UserIDs != nil {
+		out.Spec.UserIDs = *in.Spec.UserIDs
 	}
 
 	return out, nil

@@ -133,7 +133,7 @@ generate:
 # Create container images.  Use buildkit here, as it's the future, and it does
 # good things, like per file .dockerignores and all that jazz.
 .PHONY: images
-images: $(CONTROLLER_BINARIES)
+images: $(CONTROLLER_BINARIES) ${CRDDIR}
 	if [ -n "$(RELEASE)" ]; then docker buildx create --name unikorn --use; fi
 	for image in ${CONTROLLERS}; do docker buildx build --platform $(BUILDX_PLATFORMS) $(BUILDX_OUTPUT) -f docker/$${image}/Dockerfile -t ${DOCKER_ORG}/$${image}:${VERSION} .; done;
 	if [ -n "$(RELEASE)" ]; then docker buildx rm unikorn; fi

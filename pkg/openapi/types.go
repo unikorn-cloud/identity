@@ -99,6 +99,13 @@ const (
 	ES512 SigningAlgorithm = "ES512"
 )
 
+// Defines values for UserState.
+const (
+	Active    UserState = "active"
+	Pending   UserState = "pending"
+	Suspended UserState = "suspended"
+)
+
 // Acl A list of access control scopes and permissions.
 type Acl struct {
 	// Global A list of access control scopes.
@@ -169,8 +176,8 @@ type GroupSpec struct {
 	// RoleIDs A list of strings.
 	RoleIDs StringList `json:"roleIDs"`
 
-	// Users A list of strings.
-	Users *StringList `json:"users,omitempty"`
+	// UserIDs A list of strings.
+	UserIDs *StringList `json:"userIDs,omitempty"`
 }
 
 // GroupWrite A group when created or updated.
@@ -487,13 +494,46 @@ type TokenRequestOptions struct {
 	Username *string `json:"username"`
 }
 
-// User A user specification.
-type User struct {
+// UserRead A user read object.
+type UserRead struct {
+	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
+
+	// Spec A user specification.
+	Spec UserSpec `json:"spec"`
+
+	// Status Additional user metadata.
+	Status UserStatus `json:"status"`
+}
+
+// UserSpec A user specification.
+type UserSpec struct {
 	// GroupIDs A list of group IDs.
 	GroupIDs GroupIDs `json:"groupIDs"`
 
-	// Name The uers's canonical name, usually an email address.
-	Name string `json:"name"`
+	// State The state a user is in.
+	State UserState `json:"state"`
+
+	// Subject The uers's canonical name, usually an email address.
+	Subject string `json:"subject"`
+}
+
+// UserState The state a user is in.
+type UserState string
+
+// UserStatus Additional user metadata.
+type UserStatus struct {
+	// LastActive The last time a user performed some action.  This is not guaranteed to
+	// be completely accurate depending on performance constraints.
+	LastActive *time.Time `json:"lastActive,omitempty"`
+}
+
+// UserWrite A user create/update object.
+type UserWrite struct {
+	// Metadata Resource metadata valid for all API resource reads and writes.
+	Metadata *externalRef0.ResourceWriteMetadata `json:"metadata,omitempty"`
+
+	// Spec A user specification.
+	Spec UserSpec `json:"spec"`
 }
 
 // Userinfo Access token introspection data.
@@ -521,7 +561,7 @@ type Userinfo struct {
 }
 
 // Users A list of users.
-type Users = []User
+type Users = []UserRead
 
 // GroupidParameter defines model for groupidParameter.
 type GroupidParameter = string
@@ -538,8 +578,8 @@ type ProjectIDParameter = string
 // ServiceAccountIDParameter defines model for serviceAccountIDParameter.
 type ServiceAccountIDParameter = string
 
-// UsernameParameter defines model for usernameParameter.
-type UsernameParameter = string
+// UserIDParameter defines model for userIDParameter.
+type UserIDParameter = string
 
 // AclResponse A list of access control scopes and permissions.
 type AclResponse = Acl
@@ -593,8 +633,8 @@ type SystemOauth2ProvidersResponse = Oauth2Providers
 // TokenResponse Oauth2 token result.
 type TokenResponse = Token
 
-// UserResponse A user specification.
-type UserResponse = User
+// UserResponse A user read object.
+type UserResponse = UserRead
 
 // UserinfoResponse Access token introspection data.
 type UserinfoResponse = Userinfo
@@ -623,8 +663,8 @@ type UpdateOrganizationRequest = OrganizationWrite
 // UpdateProjectRequest A project when created or updated.
 type UpdateProjectRequest = ProjectWrite
 
-// UserCreateRequest A user specification.
-type UserCreateRequest = User
+// UserCreateRequest A user create/update object.
+type UserCreateRequest = UserWrite
 
 // PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
 type PostApiV1OrganizationsJSONRequestBody = OrganizationWrite
@@ -657,10 +697,10 @@ type PostApiV1OrganizationsOrganizationIDServiceaccountsJSONRequestBody = Servic
 type PutApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountIDJSONRequestBody = ServiceAccountWrite
 
 // PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDUsers for application/json ContentType.
-type PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody = User
+type PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody = UserWrite
 
-// PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDUsersUsername for application/json ContentType.
-type PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody = User
+// PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDUsersUserID for application/json ContentType.
+type PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody = UserWrite
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions

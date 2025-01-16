@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/core/pkg/constants"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -144,37 +145,68 @@ func (c *Client) get(ctx context.Context, organizationID string) (*unikornv1.Org
 	return result, nil
 }
 
+func (c *Client) list(ctx context.Context) (map[string]*unikornv1.Organization, error) {
+	result := &unikornv1.OrganizationList{}
+
+	if err := c.client.List(ctx, result, &client.ListOptions{Namespace: c.namespace}); err != nil {
+		return nil, err
+	}
+
+	out := map[string]*unikornv1.Organization{}
+
+	for i := range result.Items {
+		out[result.Items[i].Name] = &result.Items[i]
+	}
+
+	return out, nil
+}
+
 func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organizations, error) {
 	// This is the only special case in the system.  When requesting organizations we
 	// will have an unscoped ACL, so can check for global access to all organizations.
 	// If we don't have that then we need to use RBAC to get a list of organizations we are
 	// members of and return only them.
-	if err := rbac.AllowGlobalScope(ctx, "identity:organizations", openapi.Read); err != nil {
-		userinfo, err := authorization.UserinfoFromContext(ctx)
-		if err != nil {
-			return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
-		}
+	if err := rbac.AllowGlobalScope(ctx, "identity:organizations", openapi.Read); err == nil {
+		var result unikornv1.OrganizationList
 
-		memberships, err := rbacClient.GetOrganizationMemberships(ctx, userinfo.Sub)
-		if err != nil {
+		if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
 			return nil, err
-		}
-
-		result := unikornv1.OrganizationList{
-			Items: make([]unikornv1.Organization, len(memberships)),
-		}
-
-		for i := range memberships {
-			result.Items[i] = *memberships[i].Organization
 		}
 
 		return convertList(&result), nil
 	}
 
-	var result unikornv1.OrganizationList
+	userinfo, err := authorization.UserinfoFromContext(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	}
 
-	if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
-		return nil, err
+	organizations, err := c.list(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to list organizations").WithError(err)
+	}
+
+	users, err := rbacClient.GetActiveSubjects(ctx, userinfo.Sub)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to list active subjects").WithError(err)
+	}
+
+	result := unikornv1.OrganizationList{
+		Items: make([]unikornv1.Organization, len(users.Items)),
+	}
+
+	for i := range users.Items {
+		organizationID, ok := users.Items[i].Labels[constants.OrganizationLabel]
+		if !ok {
+			return nil, errors.OAuth2ServerError("failed to get organization ID for user")
+		}
+
+		organization, ok := organizations[organizationID]
+		if !ok {
+			return nil, errors.OAuth2ServerError("failed to find organization for user")
+		}
+
+		result.Items[i] = *organization
 	}
 
 	return convertList(&result), nil

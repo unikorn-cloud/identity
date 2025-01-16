@@ -19,6 +19,7 @@ package serviceaccounts
 import (
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -125,6 +126,10 @@ func convertCreate(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *o
 
 // convertList converts a list of Kubernetes objects into OpenAPI ones.
 func convertList(in *unikornv1.ServiceAccountList, groups *unikornv1.GroupList) openapi.ServiceAccounts {
+	slices.SortStableFunc(in.Items, func(a, b unikornv1.ServiceAccount) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	out := make(openapi.ServiceAccounts, len(in.Items))
 
 	for i := range in.Items {

@@ -673,7 +673,7 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDUsers(w http.ResponseWrite
 		return
 	}
 
-	request := &openapi.User{}
+	request := &openapi.UserWrite{}
 
 	if err := util.ReadJSONBody(r, request); err != nil {
 		errors.HandleError(w, r, err)
@@ -690,13 +690,13 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDUsers(w http.ResponseWrite
 	util.WriteJSONResponse(w, r, http.StatusCreated, result)
 }
 
-func (h *Handler) DeleteApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, username openapi.UsernameParameter) {
+func (h *Handler) DeleteApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, userID openapi.UserIDParameter) {
 	if err := rbac.AllowOrganizationScope(r.Context(), "identity:users", openapi.Delete, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err := h.usersClient().Delete(r.Context(), organizationID, username); err != nil {
+	if err := h.usersClient().Delete(r.Context(), organizationID, userID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -705,20 +705,20 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDUsersUsername(w http.Res
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *Handler) PutApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, username openapi.UsernameParameter) {
+func (h *Handler) PutApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, userID openapi.UserIDParameter) {
 	if err := rbac.AllowOrganizationScope(r.Context(), "identity:users", openapi.Update, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	request := &openapi.User{}
+	request := &openapi.UserWrite{}
 
 	if err := util.ReadJSONBody(r, request); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	result, err := h.usersClient().Update(r.Context(), organizationID, username, request)
+	result, err := h.usersClient().Update(r.Context(), organizationID, userID, request)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return

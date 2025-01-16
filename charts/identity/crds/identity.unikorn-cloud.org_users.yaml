@@ -4,25 +4,33 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: serviceaccounts.identity.unikorn-cloud.org
+  name: users.identity.unikorn-cloud.org
 spec:
   group: identity.unikorn-cloud.org
   names:
     categories:
     - unikorn
-    kind: ServiceAccount
-    listKind: ServiceAccountList
-    plural: serviceaccounts
-    singular: serviceaccount
+    kind: User
+    listKind: UserList
+    plural: users
+    singular: user
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
-      name: display name
+    - jsonPath: .spec.subject
+      name: subject
+      type: string
+    - jsonPath: .spec.state
+      name: state
       type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: |-
+          User represents an entity with a federated login credential.  Users are
+          scoped to an organization, and may exist in multiple organizations
+          at once.  At least one user must be in the "active" state to allow
+          authentication.
         properties:
           apiVersion:
             description: |-
@@ -43,18 +51,19 @@ spec:
             type: object
           spec:
             properties:
-              accessToken:
-                description: |-
-                  AccessToken is the encrypted access token that is valid for this
-                  service acocunt.
-                type: string
-              expiry:
-                description: |-
-                  Expiry is a hint as to when the issued token will exipre.
-                  The access token itself is the source of truth, provided the private key is
-                  still around, so this is a fallback, as well as a cache to improve API read
-                  performance by avoiding the decryption.
+              lastActive:
+                description: LastActive is updated when the user last requested an
+                  access token.
                 format: date-time
+                type: string
+              state:
+                description: State controls what the user is allowed to do.
+                type: string
+              subject:
+                description: |-
+                  Subject is usually and email address, sadly this cannot be made
+                  a label for selection that way.  This will map to the subject in
+                  a JWT.
                 type: string
               tags:
                 description: Tags are aribrary user data.
@@ -73,8 +82,8 @@ spec:
                   type: object
                 type: array
             required:
-            - accessToken
-            - expiry
+            - state
+            - subject
             type: object
           status:
             type: object

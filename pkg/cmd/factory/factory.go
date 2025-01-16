@@ -70,10 +70,18 @@ func (f *Factory) Client() (client.Client, error) {
 	return client.New(config, client.Options{})
 }
 
-func (f *Factory) ResourceNameCompletionFunc(resourceType string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+func (f *Factory) ResourceNameCompletionFunc(resourceType, namespace string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		template := fmt.Sprintf(`{{ range .items }}{{ index .metadata.labels "%s" }} {{ end }}`, constants.NameLabel)
 
-		return utilcomp.CompGetFromTemplate(&template, f.factory, "", []string{resourceType}, toComplete), cobra.ShellCompDirectiveNoFileComp
+		return utilcomp.CompGetFromTemplate(&template, f.factory, namespace, []string{resourceType}, toComplete), cobra.ShellCompDirectiveNoFileComp
+	}
+}
+
+func (f *Factory) UserSubjectCompletionFunc(resourceType, namespace string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		template := `{{ range .items }}{{ .spec.subjtect }} {{ end }}`
+
+		return utilcomp.CompGetFromTemplate(&template, f.factory, namespace, []string{resourceType}, toComplete), cobra.ShellCompDirectiveNoFileComp
 	}
 }
