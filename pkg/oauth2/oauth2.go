@@ -44,9 +44,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/util/retry"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
-	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
-	providererrors "github.com/unikorn-cloud/identity/pkg/oauth2/providers/errors"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	"github.com/unikorn-cloud/identity/pkg/util"
@@ -1145,7 +1143,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 		return nil, errors.OAuth2InvalidRequest("failed to parse form data: " + err.Error())
 	}
 
-	// We sup"ort 3 garnt types:
+	// We support 3 garnt types:
 	// * "authorization_code" is used by all humans in the system
 	// * "refresh_token" is used by anyone to get a new access token
 	// * "client_credentials" is used by other services for IPC
@@ -1159,63 +1157,4 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 	}
 
 	return nil, errors.OAuth2InvalidRequest("token grant type is not supported")
-}
-
-func (a *Authenticator) Groups(w http.ResponseWriter, r *http.Request) (openapi.AvailableGroups, error) {
-	userinfo, err := authorization.UserinfoFromContext(r.Context())
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to get userinfo").WithError(err)
-	}
-
-	organization, err := a.lookupOrganization(r.Context(), userinfo.Sub)
-	if err != nil {
-		if goerrors.Is(err, ErrUserNotDomainMapped) {
-			// No domain mapped organization, no cry...
-			return openapi.AvailableGroups{}, nil
-		}
-
-		return nil, errors.OAuth2ServerError("failed to get organization").WithError(err)
-	}
-
-	provider, err := a.lookupProviderByName(r.Context(), *organization.Spec.ProviderID)
-	if err != nil {
-		return nil, errors.OAuth2InvalidRequest("unable to lookup provider for domain").WithError(err)
-	}
-
-	header := r.Header.Get("Authorization")
-
-	parts := strings.Split(header, " ")
-
-	info := &VerifyInfo{
-		Issuer:   "https://" + r.Host,
-		Audience: r.Host,
-		Token:    parts[1],
-	}
-
-	claims, err := a.Verify(r.Context(), info)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to verify token").WithError(err)
-	}
-
-	driver := providers.New(provider.Spec.Type)
-
-	groups, err := driver.Groups(r.Context(), organization, claims.Custom.AccessToken)
-	if err != nil {
-		if goerrors.Is(err, providererrors.ErrUnauthorized) {
-			return nil, errors.OAuth2AccessDenied("unable to get groups from provider").WithError(err)
-		}
-
-		return nil, errors.OAuth2ServerError("unable to get groups").WithError(err)
-	}
-
-	result := make([]openapi.AvailableGroup, 0, len(groups))
-
-	for _, group := range groups {
-		result = append(result, openapi.AvailableGroup{
-			Name:        group.Name,
-			DisplayName: group.DisplayName,
-		})
-	}
-
-	return result, nil
 }

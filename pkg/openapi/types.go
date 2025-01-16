@@ -144,18 +144,6 @@ type AclScopedEndpointsList = []AclScopedEndpoints
 // AuthMethod Supported authentication methods.
 type AuthMethod string
 
-// AvailableGroup An IdP group
-type AvailableGroup struct {
-	// DisplayName A human readable group name.
-	DisplayName *string `json:"displayName,omitempty"`
-
-	// Name The canonical group name.
-	Name string `json:"name"`
-}
-
-// AvailableGroups A list of IdP groups.
-type AvailableGroups = []AvailableGroup
-
 // Claim Supported claims.
 type Claim string
 
@@ -178,9 +166,6 @@ type GroupRead struct {
 
 // GroupSpec A group.
 type GroupSpec struct {
-	// ProviderGroups A list of provider groups.
-	ProviderGroups *ProviderGroupList `json:"providerGroups,omitempty"`
-
 	// RoleIDs A list of strings.
 	RoleIDs StringList `json:"roleIDs"`
 
@@ -383,9 +368,6 @@ type ProjectWrite struct {
 // Projects A list of projects.
 type Projects = []ProjectRead
 
-// ProviderGroupList A list of provider groups.
-type ProviderGroupList = []string
-
 // ProviderScope Describes how to lookup the provider, when global, use a built in generic provider
 // e.g. Google/Microsoft, when organization, us an organization scoped provider.
 type ProviderScope string
@@ -561,9 +543,6 @@ type UsernameParameter = string
 
 // AclResponse A list of access control scopes and permissions.
 type AclResponse = Acl
-
-// AvailableGroupsResponse A list of IdP groups.
-type AvailableGroupsResponse = AvailableGroups
 
 // GroupResponse A group when read.
 type GroupResponse = GroupRead
