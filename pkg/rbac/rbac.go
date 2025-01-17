@@ -76,7 +76,7 @@ func (r *RBAC) GetActiveSubjects(ctx context.Context, subject string) (*unikornv
 	}
 
 	result.Items = slices.DeleteFunc(result.Items, func(user unikornv1.User) bool {
-		return user.Spec.Subject != subject && user.Spec.State != unikornv1.UserStateActive
+		return user.Spec.Subject != subject || user.Spec.State != unikornv1.UserStateActive
 	})
 
 	// While we have a list of all user references update their activity status.
