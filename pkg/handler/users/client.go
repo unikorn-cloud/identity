@@ -247,6 +247,8 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Users
 
 // Update modifies any metadata for the user if it exists.  If a matching account
 // doesn't exist it raises an error.
+//
+//nolint:cyclop
 func (c *Client) Update(ctx context.Context, organizationID, userID string, request *openapi.UserWrite) (*openapi.UserRead, error) {
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
@@ -261,6 +263,11 @@ func (c *Client) Update(ctx context.Context, organizationID, userID string, requ
 	required, err := generate(ctx, organization, request)
 	if err != nil {
 		return nil, err
+	}
+
+	// Ensure users cannot bypass checks if enabled.
+	if current.Spec.State == unikornv1.UserStatePending && required.Spec.State != unikornv1.UserStatePending {
+		return nil, errors.OAuth2ServerError("user pending state cannot be removed via the API")
 	}
 
 	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {

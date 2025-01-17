@@ -21,15 +21,18 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -64,6 +67,8 @@ func groupContainsServiceAccount(group *unikornv1.Group, serviceAccountID string
 
 // GetActiveSubjects returns all users who match the subject across all organizations.
 func (r *RBAC) GetActiveSubjects(ctx context.Context, subject string) (*unikornv1.UserList, error) {
+	log := log.FromContext(ctx)
+
 	result := &unikornv1.UserList{}
 
 	if err := r.client.List(ctx, result, &client.ListOptions{}); err != nil {
@@ -73,6 +78,28 @@ func (r *RBAC) GetActiveSubjects(ctx context.Context, subject string) (*unikornv
 	result.Items = slices.DeleteFunc(result.Items, func(user unikornv1.User) bool {
 		return user.Spec.Subject != subject && user.Spec.State != unikornv1.UserStateActive
 	})
+
+	// While we have a list of all user references update their activity status.
+	for i := range result.Items {
+		user := &result.Items[i]
+
+		// Implement rate limiting to prevent pummelling the API/etcd into
+		// grinding to a halt!  Most observers will only be interested in
+		// whether users are using the system in the order of days/weeks/months.
+		if user.Spec.LastActive != nil {
+			if time.Since(user.Spec.LastActive.Time) < time.Hour {
+				continue
+			}
+		}
+
+		user.Spec.LastActive = &metav1.Time{
+			Time: time.Now(),
+		}
+
+		if err := r.client.Update(ctx, user); err != nil {
+			log.Info("failed to update user activity", "userID", user.Name)
+		}
+	}
 
 	return result, nil
 }
