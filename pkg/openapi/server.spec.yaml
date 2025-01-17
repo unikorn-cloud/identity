@@ -383,12 +383,12 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/users/{username}:
+  /api/v1/organizations/{organizationID}/users/{userID}:
     description: |-
       Allows management of federated users.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
-    - $ref: '#/components/parameters/usernameParameter'
+    - $ref: '#/components/parameters/userIDParameter'
     put:
       description: |-
         Updates a user.
@@ -746,10 +746,10 @@ components:
       required: true
       schema:
         type: string
-    usernameParameter:
-      name: username
+    userIDParameter:
+      name: userID
       in: path
-      description: A user name.
+      description: A user ID.
       required: true
       schema:
         type: string
@@ -1274,7 +1274,7 @@ components:
       required:
       - roleIDs
       properties:
-        users:
+        userIDs:
           $ref: '#/components/schemas/stringList'
         roleIDs:
           $ref: '#/components/schemas/stringList'
@@ -1404,23 +1404,67 @@ components:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
         spec:
           $ref: '#/components/schemas/serviceAccountSpec'
-    user:
+    userState:
+      description: The state a user is in.
+      type: string
+      enum:
+      - active
+      - pending
+      - suspended
+    userSpec:
       description: A user specification.
       type: object
       required:
-      - name
+      - subject
+      - state
       - groupIDs
       properties:
-        name:
+        subject:
           description: The uers's canonical name, usually an email address.
           type: string
+        state:
+          $ref: '#/components/schemas/userState'
         groupIDs:
           $ref: '#/components/schemas/groupIDs'
+    userStatus:
+      description: Additional user metadata.
+      type: object
+      properties:
+        lastActive:
+          description: |-
+            The last time a user performed some action.  This is not guaranteed to
+            be completely accurate depending on performance constraints.
+          type: string
+          format: date-time
+    userRead:
+      description: A user read object.
+      type: object
+      required:
+      - metadata
+      - spec
+      - status
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/organizationScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/userSpec'
+        status:
+          $ref: '#/components/schemas/userStatus'
+    userWrite:
+      description: A user create/update object.
+      type: object
+      required:
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/userSpec'
     users:
       description: A list of users.
       type: array
       items:
-        $ref: '#/components/schemas/user'
+        $ref: '#/components/schemas/userRead'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -1469,11 +1513,13 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/user'
+            $ref: '#/components/schemas/userWrite'
           example:
-            name: john.doe@acme.com
-            groupIDs:
-            - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
+            spec:
+              subject: john.doe@acme.com
+              state: active
+              groupIDs:
+              - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
     createOrganizationRequest:
       description: Body required to create an organization.
       required: true
@@ -1729,8 +1775,8 @@ components:
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
             spec:
-              users:
-              - face@a-team.com
+              usersIDs:
+              - d4600d6e-e965-4b44-a808-84fb2fa36702
               roleIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
     groupsResponse:
@@ -1748,8 +1794,8 @@ components:
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
             spec:
-              users:
-              - face@a-team.com
+              userIDs:
+              - d4600d6e-e965-4b44-a808-84fb2fa36702
               roleIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
     projectsResponse:
@@ -1837,19 +1883,39 @@ components:
           schema:
             $ref: '#/components/schemas/users'
           example:
-          - name: john.doe@acme.com
-            groupIDs:
-            - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
+          - metadata:
+              id: ee45f34b-9685-40d8-8724-23c31252ca46
+              name: unused
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              subject: john.doe@acme.com
+              state: active
+              groupIDs:
+              - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
+            status:
+              lastAcive: 2025-01-12T10:49:13Z
     userResponse:
       description: A user.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/user'
+            $ref: '#/components/schemas/userRead'
           example:
-            name: john.doe@acme.com
-            groupIDs:
-            - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
+            metadata:
+              id: ee45f34b-9685-40d8-8724-23c31252ca46
+              name: unused
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              subject: john.doe@acme.com
+              state: active
+              groupIDs:
+              - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
+            status:
+              lastAcive: 2025-01-12T10:49:13Z
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.

@@ -51,6 +51,7 @@ type createGroupOptions struct {
 	organizationID        string
 	organizationNamespace string
 	roleIDs               []string
+	userIDs               []string
 }
 
 func (o *createGroupOptions) AddFlags(cmd *cobra.Command, factory *factory.Factory) error {
@@ -76,11 +77,15 @@ func (o *createGroupOptions) AddFlags(cmd *cobra.Command, factory *factory.Facto
 		return err
 	}
 
-	if err := cmd.RegisterFlagCompletionFunc("organization", factory.ResourceNameCompletionFunc("organization.identity.unikorn-cloud.org")); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("organization", factory.ResourceNameCompletionFunc("organization.identity.unikorn-cloud.org", "")); err != nil {
 		return err
 	}
 
-	if err := cmd.RegisterFlagCompletionFunc("role", factory.ResourceNameCompletionFunc("roles.identity.unikorn-cloud.org")); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("role", factory.ResourceNameCompletionFunc("roles.identity.unikorn-cloud.org", "")); err != nil {
+		return err
+	}
+
+	if err := cmd.RegisterFlagCompletionFunc("user", factory.UserSubjectCompletionFunc("users.identity.unikorn-cloud.org", "")); err != nil {
 		return err
 	}
 
@@ -184,11 +189,46 @@ func (o *createGroupOptions) validateRoles(ctx context.Context, cli client.Clien
 	return nil
 }
 
+// validateUsers ensures the roles exist and sets the IDs for use later.
+func (o *createGroupOptions) validateUsers(ctx context.Context, cli client.Client) error {
+	// Remove duplicates.
+	slices.Sort(o.users)
+	o.users = slices.Compact(o.users)
+
+	options := &client.ListOptions{
+		Namespace: *o.ConfigFlags.Namespace,
+	}
+
+	var resources unikornv1.UserList
+
+	if err := cli.List(ctx, &resources, options); err != nil {
+		return err
+	}
+
+	o.userIDs = make([]string, len(o.roles))
+
+	for i, user := range o.users {
+		indexer := func(u unikornv1.User) bool {
+			return u.Spec.Subject == user
+		}
+
+		index := slices.IndexFunc(resources.Items, indexer)
+		if index < 0 {
+			return fmt.Errorf("%w: unable to find user %s", errors.ErrValidation, user)
+		}
+
+		o.userIDs[i] = resources.Items[index].Name
+	}
+
+	return nil
+}
+
 func (o *createGroupOptions) validate(ctx context.Context, cli client.Client) error {
 	validators := []func(context.Context, client.Client) error{
 		o.validateOrganization,
 		o.validateGroup,
 		o.validateRoles,
+		o.validateUsers,
 	}
 
 	for _, validator := range validators {
@@ -212,7 +252,7 @@ func (o *createGroupOptions) execute(ctx context.Context, cli client.Client) err
 		},
 		Spec: unikornv1.GroupSpec{
 			RoleIDs: o.roleIDs,
-			Users:   o.users,
+			UserIDs: o.userIDs,
 		},
 	}
 

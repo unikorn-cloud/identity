@@ -105,11 +105,11 @@ type ServerInterface interface {
 	// (POST /api/v1/organizations/{organizationID}/users)
 	PostApiV1OrganizationsOrganizationIDUsers(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
 
-	// (DELETE /api/v1/organizations/{organizationID}/users/{username})
-	DeleteApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, username UsernameParameter)
+	// (DELETE /api/v1/organizations/{organizationID}/users/{userID})
+	DeleteApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, userID UserIDParameter)
 
-	// (PUT /api/v1/organizations/{organizationID}/users/{username})
-	PutApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, username UsernameParameter)
+	// (PUT /api/v1/organizations/{organizationID}/users/{userID})
+	PutApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, userID UserIDParameter)
 
 	// (GET /oauth2/v2/authorization)
 	GetOauth2V2Authorization(w http.ResponseWriter, r *http.Request)
@@ -284,13 +284,13 @@ func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDUsers(w http.Response
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (DELETE /api/v1/organizations/{organizationID}/users/{username})
-func (_ Unimplemented) DeleteApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, username UsernameParameter) {
+// (DELETE /api/v1/organizations/{organizationID}/users/{userID})
+func (_ Unimplemented) DeleteApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, userID UserIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (PUT /api/v1/organizations/{organizationID}/users/{username})
-func (_ Unimplemented) PutApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, username UsernameParameter) {
+// (PUT /api/v1/organizations/{organizationID}/users/{userID})
+func (_ Unimplemented) PutApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, userID UserIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1301,8 +1301,8 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDUsers(w h
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteApiV1OrganizationsOrganizationIDUsersUsername operation middleware
-func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request) {
+// DeleteApiV1OrganizationsOrganizationIDUsersUserID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -1315,12 +1315,12 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDUsersUs
 		return
 	}
 
-	// ------------- Path parameter "username" -------------
-	var username UsernameParameter
+	// ------------- Path parameter "userID" -------------
+	var userID UserIDParameter
 
-	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
 		return
 	}
 
@@ -1331,7 +1331,7 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDUsersUs
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteApiV1OrganizationsOrganizationIDUsersUsername(w, r, organizationID, username)
+		siw.Handler.DeleteApiV1OrganizationsOrganizationIDUsersUserID(w, r, organizationID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1341,8 +1341,8 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDUsersUs
 	handler.ServeHTTP(w, r)
 }
 
-// PutApiV1OrganizationsOrganizationIDUsersUsername operation middleware
-func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationIDUsersUsername(w http.ResponseWriter, r *http.Request) {
+// PutApiV1OrganizationsOrganizationIDUsersUserID operation middleware
+func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -1355,12 +1355,12 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationIDUsersUsern
 		return
 	}
 
-	// ------------- Path parameter "username" -------------
-	var username UsernameParameter
+	// ------------- Path parameter "userID" -------------
+	var userID UserIDParameter
 
-	err = runtime.BindStyledParameterWithOptions("simple", "username", chi.URLParam(r, "username"), &username, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	err = runtime.BindStyledParameterWithOptions("simple", "userID", chi.URLParam(r, "userID"), &userID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "username", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userID", Err: err})
 		return
 	}
 
@@ -1371,7 +1371,7 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationIDUsersUsern
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PutApiV1OrganizationsOrganizationIDUsersUsername(w, r, organizationID, username)
+		siw.Handler.PutApiV1OrganizationsOrganizationIDUsersUserID(w, r, organizationID, userID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1675,10 +1675,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/users", wrapper.PostApiV1OrganizationsOrganizationIDUsers)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/organizations/{organizationID}/users/{username}", wrapper.DeleteApiV1OrganizationsOrganizationIDUsersUsername)
+		r.Delete(options.BaseURL+"/api/v1/organizations/{organizationID}/users/{userID}", wrapper.DeleteApiV1OrganizationsOrganizationIDUsersUserID)
 	})
 	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/api/v1/organizations/{organizationID}/users/{username}", wrapper.PutApiV1OrganizationsOrganizationIDUsersUsername)
+		r.Put(options.BaseURL+"/api/v1/organizations/{organizationID}/users/{userID}", wrapper.PutApiV1OrganizationsOrganizationIDUsersUserID)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oauth2/v2/authorization", wrapper.GetOauth2V2Authorization)

@@ -18,12 +18,22 @@ package rbac
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"slices"
 
+	"github.com/unikorn-cloud/core/pkg/constants"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	ErrResourceReference = errors.New("resource reference error")
 )
 
 // RBAC contains all the scoping rules for services across the platform.
@@ -40,128 +50,97 @@ func New(client client.Client, namespace string) *RBAC {
 	}
 }
 
-// getOrganizations grabs all organizations for the system.
-func (r *RBAC) getOrganizations(ctx context.Context) (*unikornv1.OrganizationList, error) {
-	var organizations unikornv1.OrganizationList
-
-	if err := r.client.List(ctx, &organizations, &client.ListOptions{Namespace: r.namespace}); err != nil {
-		return nil, err
-	}
-
-	return &organizations, nil
-}
-
 // groupContainsUser checks if the group contains the user.
-// TODO: implied group membership needs doing.
-func groupContainsUser(group *unikornv1.Group, subject string) bool {
+func groupContainsUser(group *unikornv1.Group, userID string) bool {
 	// Simple check to see if the user is explicitly a member.
-	return slices.Contains(group.Spec.Users, subject)
+	return slices.Contains(group.Spec.UserIDs, userID)
 }
 
 // groupContainsServiceAccount checks if the sobject is actuall a service acccount ID.
 // TODO: we should be able to derive what the subject is explicitly from the access token.
-func groupContainsServiceAccount(group *unikornv1.Group, subject string) bool {
-	return slices.Contains(group.Spec.ServiceAccountIDs, subject)
+func groupContainsServiceAccount(group *unikornv1.Group, serviceAccountID string) bool {
+	return slices.Contains(group.Spec.ServiceAccountIDs, serviceAccountID)
 }
 
-// getGroupsWithMembership grabs all groups for an organization that contain the subject.
-func (r *RBAC) getGroupsWithMembership(ctx context.Context, organization *unikornv1.Organization, subject string) (*unikornv1.GroupList, error) {
-	result := &unikornv1.GroupList{}
+// GetActiveSubjects returns all users who match the subject across all organizations.
+func (r *RBAC) GetActiveSubjects(ctx context.Context, subject string) (*unikornv1.UserList, error) {
+	result := &unikornv1.UserList{}
 
-	if err := r.client.List(ctx, result, &client.ListOptions{Namespace: organization.Status.Namespace}); err != nil {
+	if err := r.client.List(ctx, result, &client.ListOptions{}); err != nil {
 		return nil, err
 	}
 
-	result.Items = slices.DeleteFunc(result.Items, func(resource unikornv1.Group) bool {
-		return !groupContainsUser(&resource, subject) && !groupContainsServiceAccount(&resource, subject)
+	result.Items = slices.DeleteFunc(result.Items, func(user unikornv1.User) bool {
+		return user.Spec.Subject != subject && user.Spec.State != unikornv1.UserStateActive
 	})
 
 	return result, nil
 }
 
-// OrganizationMemberships is an organization with groups a user is a member of.
-type OrganizationMemberships struct {
-	Organization *unikornv1.Organization
-	Groups       *unikornv1.GroupList
-}
+// getUserGroups returns a map of groups the user is a member of, indexed by ID.
+func (r *RBAC) getUserGroups(ctx context.Context, user *unikornv1.User) (map[string]*unikornv1.Group, error) {
+	result := &unikornv1.GroupList{}
 
-func (o *OrganizationMemberships) GetGroup(groupID string) *unikornv1.Group {
-	for i := range o.Groups.Items {
-		if o.Groups.Items[i].Name == groupID {
-			return &o.Groups.Items[i]
-		}
+	if err := r.client.List(ctx, result, &client.ListOptions{Namespace: user.Namespace}); err != nil {
+		return nil, err
 	}
 
-	return nil
+	result.Items = slices.DeleteFunc(result.Items, func(group unikornv1.Group) bool {
+		return !groupContainsUser(&group, user.Name) && !groupContainsServiceAccount(&group, user.Name)
+	})
+
+	out := map[string]*unikornv1.Group{}
+
+	for i := range result.Items {
+		out[result.Items[i].Name] = &result.Items[i]
+	}
+
+	return out, nil
 }
 
-// GetOrganizationMemberships returns a list of organizations we have membership of and
-// the groups we are members of.
-func (r *RBAC) GetOrganizationMemberships(ctx context.Context, subject string) ([]OrganizationMemberships, error) {
-	organizations, err := r.getOrganizations(ctx)
+// getRoles returns a map of roles in the system indexed by ID.
+func (r *RBAC) getRoles(ctx context.Context) (map[string]*unikornv1.Role, error) {
+	result := &unikornv1.RoleList{}
+
+	if err := r.client.List(ctx, result, &client.ListOptions{Namespace: r.namespace}); err != nil {
+		return nil, err
+	}
+
+	out := map[string]*unikornv1.Role{}
+
+	for i := range result.Items {
+		out[result.Items[i].Name] = &result.Items[i]
+	}
+
+	return out, nil
+}
+
+// getProjects grabs all projects for an organization.
+func (r *RBAC) getProjects(ctx context.Context, organizationID string) (*unikornv1.ProjectList, error) {
+	requirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.Equals, []string{organizationID})
 	if err != nil {
 		return nil, err
 	}
 
-	var result []OrganizationMemberships
+	selector := labels.NewSelector().Add(*requirement)
 
-	for i := range organizations.Items {
-		organization := &organizations.Items[i]
-
-		groups, err := r.getGroupsWithMembership(ctx, organization, subject)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(groups.Items) > 0 {
-			result = append(result, OrganizationMemberships{
-				Organization: organization,
-				Groups:       groups,
-			})
-		}
-	}
-
-	return result, nil
-}
-
-// getProjects grabs all projects for an organization.
-func (r *RBAC) getProjects(ctx context.Context, organization *unikornv1.Organization) (*unikornv1.ProjectList, error) {
 	result := &unikornv1.ProjectList{}
 
-	if err := r.client.List(ctx, result, &client.ListOptions{Namespace: organization.Status.Namespace}); err != nil {
+	if err := r.client.List(ctx, result, &client.ListOptions{LabelSelector: selector}); err != nil {
 		return nil, err
 	}
 
 	return result, nil
 }
 
-// UserExists is an optimized version of the permissions builder that is used to
-// authorize authentication requests.  Failure here means the user need to signup
-// and register themselves with an organization uing a back-channel.
+// UserExists tells us whether the user is active in any organization.
 func (r *RBAC) UserExists(ctx context.Context, subject string) (bool, error) {
-	organizations, err := r.getOrganizations(ctx)
+	users, err := r.GetActiveSubjects(ctx, subject)
 	if err != nil {
 		return false, err
 	}
 
-	for i := range organizations.Items {
-		organization := &organizations.Items[i]
-
-		// If the user is a member of a group in an organization, let them in.
-		// Doing otherwise would be pointless as the user wouldn't be able to
-		// do anything, and we shouldn't allow global APIs to be accessed without
-		// some form of authorization.
-		groups, err := r.getGroupsWithMembership(ctx, organization, subject)
-		if err != nil {
-			return false, err
-		}
-
-		if len(groups.Items) > 0 {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return len(users.Items) > 0, nil
 }
 
 func convertOperation(in unikornv1.Operation) openapi.AclOperation {
@@ -224,6 +203,11 @@ func addScopesToEndpointList(e *openapi.AclEndpoints, scopes []unikornv1.RoleSco
 //
 //nolint:cyclop,gocognit
 func (r *RBAC) GetACL(ctx context.Context, organizationID, subject string) (*openapi.Acl, error) {
+	roles, err := r.getRoles(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	var globalACL openapi.AclEndpoints
 
 	organizationACL := openapi.AclScopedEndpoints{
@@ -234,34 +218,45 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID, subject string) (*ope
 
 	// A subject may be part of any organization's group, and may have global endpoints
 	// defined, if so add them.
-	memberships, err := r.GetOrganizationMemberships(ctx, subject)
+	users, err := r.GetActiveSubjects(ctx, subject)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, membership := range memberships {
-		for _, group := range membership.Groups.Items {
-			for _, roleID := range group.Spec.RoleIDs {
-				var role unikornv1.Role
+	for i := range users.Items {
+		user := &users.Items[i]
 
-				if err := r.client.Get(ctx, client.ObjectKey{Namespace: r.namespace, Name: roleID}, &role); err != nil {
-					return nil, err
+		userOrganizationID, ok := user.Labels[constants.OrganizationLabel]
+		if !ok {
+			return nil, fmt.Errorf("%w: organization missing from user %s", ErrResourceReference, user.Name)
+		}
+
+		groups, err := r.getUserGroups(ctx, user)
+		if err != nil {
+			return nil, err
+		}
+
+		for groupID, group := range groups {
+			for _, roleID := range group.Spec.RoleIDs {
+				role, ok := roles[roleID]
+				if !ok {
+					return nil, fmt.Errorf("%w: role %s referenced by group %s does not exist", ErrResourceReference, roleID, groupID)
 				}
 
+				// Accumulate global permissions.
 				addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
 
-				// While we are here, if the organization is the correct one
-				// add any organization endpoints to the organization scope.
-				if organizationID == membership.Organization.Name {
+				if userOrganizationID == organizationID {
+					// Accumulate organization permissions if this user is
+					// for the requested scoped organization.
 					addScopesToEndpointList(&organizationACL.Endpoints, role.Spec.Scopes.Organization)
 				}
 			}
 		}
 
-		// If the organization is the one we are requesting, we need to check each project
-		// for user membership, if so add any project scoped endpoints to the ACL.
-		if organizationID == membership.Organization.Name {
-			projects, err := r.getProjects(ctx, membership.Organization)
+		// Pass 2: accumulate any project permissions.
+		if userOrganizationID == organizationID {
+			projects, err := r.getProjects(ctx, organizationID)
 			if err != nil {
 				return nil, err
 			}
@@ -272,16 +267,17 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID, subject string) (*ope
 				}
 
 				for _, groupID := range project.Spec.GroupIDs {
-					group := membership.GetGroup(groupID)
-					if group == nil {
+					group, ok := groups[groupID]
+					if !ok {
+						// This is okay as projects may reference groups
+						// we aren't a member of.
 						continue
 					}
 
 					for _, roleID := range group.Spec.RoleIDs {
-						var role unikornv1.Role
-
-						if err := r.client.Get(ctx, client.ObjectKey{Namespace: r.namespace, Name: roleID}, &role); err != nil {
-							return nil, err
+						role, ok := roles[roleID]
+						if !ok {
+							return nil, fmt.Errorf("%w: role %s referenced by group %s does not exist", ErrResourceReference, roleID, groupID)
 						}
 
 						addScopesToEndpointList(&projectACL.Endpoints, role.Spec.Scopes.Project)

@@ -226,6 +226,60 @@ type SigningKeyStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type UserList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []User `json:"items"`
+}
+
+// User represents an entity with a federated login credential.  Users are
+// scoped to an organization, and may exist in multiple organizations
+// at once.  At least one user must be in the "active" state to allow
+// authentication.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:printcolumn:name="subject",type="string",JSONPath=".spec.subject"
+// +kubebuilder:printcolumn:name="state",type="string",JSONPath=".spec.state"
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:subresource:status
+type User struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              UserSpec   `json:"spec"`
+	Status            UserStatus `json:"status,omitempty"`
+}
+
+// UserState describes the state a user is in.
+type UserState string
+
+const (
+	// UserStateActive means the user can authenticate.
+	UserStateActive UserState = "active"
+	// UserStatePending means the user is registered with the system
+	// but needs to complete some onboarding action e.g. security checks.
+	UserStatePending UserState = "pending"
+	// UserStateSuspended means the user is not allowed to authenticate.
+	// But is still alive to maintain foreign key mappings e.g. groups.
+	UserStateSuspended UserState = "suspended"
+)
+
+type UserSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
+	// Subject is usually and email address, sadly this cannot be made
+	// a label for selection that way.  This will map to the subject in
+	// a JWT.
+	Subject string `json:"subject"`
+	// State controls what the user is allowed to do.
+	State UserState `json:"state"`
+	// LastActive is updated when the user last requested an access token.
+	LastActive *metav1.Time `json:"lastActive,omitempty"`
+}
+
+type UserStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ServiceAccountList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -234,6 +288,7 @@ type ServiceAccountList struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/name']"
 // +kubebuilder:resource:scope=Namespaced,categories=unikorn
 // +kubebuilder:subresource:status
 type ServiceAccount struct {

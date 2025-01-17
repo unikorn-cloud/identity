@@ -202,13 +202,13 @@ type ClientInterface interface {
 
 	PostApiV1OrganizationsOrganizationIDUsers(ctx context.Context, organizationID OrganizationIDParameter, body PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteApiV1OrganizationsOrganizationIDUsersUsername request
-	DeleteApiV1OrganizationsOrganizationIDUsersUsername(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteApiV1OrganizationsOrganizationIDUsersUserID request
+	DeleteApiV1OrganizationsOrganizationIDUsersUserID(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PutApiV1OrganizationsOrganizationIDUsersUsernameWithBody request with any body
-	PutApiV1OrganizationsOrganizationIDUsersUsernameWithBody(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PutApiV1OrganizationsOrganizationIDUsersUserIDWithBody request with any body
+	PutApiV1OrganizationsOrganizationIDUsersUserIDWithBody(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	PutApiV1OrganizationsOrganizationIDUsersUsername(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, body PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PutApiV1OrganizationsOrganizationIDUsersUserID(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, body PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOauth2V2Authorization request
 	GetOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -725,8 +725,8 @@ func (c *Client) PostApiV1OrganizationsOrganizationIDUsers(ctx context.Context, 
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteApiV1OrganizationsOrganizationIDUsersUsername(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteApiV1OrganizationsOrganizationIDUsersUsernameRequest(c.Server, organizationID, username)
+func (c *Client) DeleteApiV1OrganizationsOrganizationIDUsersUserID(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1OrganizationsOrganizationIDUsersUserIDRequest(c.Server, organizationID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -737,8 +737,8 @@ func (c *Client) DeleteApiV1OrganizationsOrganizationIDUsersUsername(ctx context
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutApiV1OrganizationsOrganizationIDUsersUsernameWithBody(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequestWithBody(c.Server, organizationID, username, contentType, body)
+func (c *Client) PutApiV1OrganizationsOrganizationIDUsersUserIDWithBody(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationIDUsersUserIDRequestWithBody(c.Server, organizationID, userID, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -749,8 +749,8 @@ func (c *Client) PutApiV1OrganizationsOrganizationIDUsersUsernameWithBody(ctx co
 	return c.Client.Do(req)
 }
 
-func (c *Client) PutApiV1OrganizationsOrganizationIDUsersUsername(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, body PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequest(c.Server, organizationID, username, body)
+func (c *Client) PutApiV1OrganizationsOrganizationIDUsersUserID(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, body PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutApiV1OrganizationsOrganizationIDUsersUserIDRequest(c.Server, organizationID, userID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2062,8 +2062,8 @@ func NewPostApiV1OrganizationsOrganizationIDUsersRequestWithBody(server string, 
 	return req, nil
 }
 
-// NewDeleteApiV1OrganizationsOrganizationIDUsersUsernameRequest generates requests for DeleteApiV1OrganizationsOrganizationIDUsersUsername
-func NewDeleteApiV1OrganizationsOrganizationIDUsersUsernameRequest(server string, organizationID OrganizationIDParameter, username UsernameParameter) (*http.Request, error) {
+// NewDeleteApiV1OrganizationsOrganizationIDUsersUserIDRequest generates requests for DeleteApiV1OrganizationsOrganizationIDUsersUserID
+func NewDeleteApiV1OrganizationsOrganizationIDUsersUserIDRequest(server string, organizationID OrganizationIDParameter, userID UserIDParameter) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2075,7 +2075,7 @@ func NewDeleteApiV1OrganizationsOrganizationIDUsersUsernameRequest(server string
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "username", runtime.ParamLocationPath, username)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -2103,19 +2103,19 @@ func NewDeleteApiV1OrganizationsOrganizationIDUsersUsernameRequest(server string
 	return req, nil
 }
 
-// NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequest calls the generic PutApiV1OrganizationsOrganizationIDUsersUsername builder with application/json body
-func NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequest(server string, organizationID OrganizationIDParameter, username UsernameParameter, body PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody) (*http.Request, error) {
+// NewPutApiV1OrganizationsOrganizationIDUsersUserIDRequest calls the generic PutApiV1OrganizationsOrganizationIDUsersUserID builder with application/json body
+func NewPutApiV1OrganizationsOrganizationIDUsersUserIDRequest(server string, organizationID OrganizationIDParameter, userID UserIDParameter, body PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequestWithBody(server, organizationID, username, "application/json", bodyReader)
+	return NewPutApiV1OrganizationsOrganizationIDUsersUserIDRequestWithBody(server, organizationID, userID, "application/json", bodyReader)
 }
 
-// NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequestWithBody generates requests for PutApiV1OrganizationsOrganizationIDUsersUsername with any type of body
-func NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequestWithBody(server string, organizationID OrganizationIDParameter, username UsernameParameter, contentType string, body io.Reader) (*http.Request, error) {
+// NewPutApiV1OrganizationsOrganizationIDUsersUserIDRequestWithBody generates requests for PutApiV1OrganizationsOrganizationIDUsersUserID with any type of body
+func NewPutApiV1OrganizationsOrganizationIDUsersUserIDRequestWithBody(server string, organizationID OrganizationIDParameter, userID UserIDParameter, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2127,7 +2127,7 @@ func NewPutApiV1OrganizationsOrganizationIDUsersUsernameRequestWithBody(server s
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "username", runtime.ParamLocationPath, username)
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "userID", runtime.ParamLocationPath, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -2500,13 +2500,13 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1OrganizationsOrganizationIDUsersWithResponse(ctx context.Context, organizationID OrganizationIDParameter, body PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDUsersResponse, error)
 
-	// DeleteApiV1OrganizationsOrganizationIDUsersUsernameWithResponse request
-	DeleteApiV1OrganizationsOrganizationIDUsersUsernameWithResponse(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse, error)
+	// DeleteApiV1OrganizationsOrganizationIDUsersUserIDWithResponse request
+	DeleteApiV1OrganizationsOrganizationIDUsersUserIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse, error)
 
-	// PutApiV1OrganizationsOrganizationIDUsersUsernameWithBodyWithResponse request with any body
-	PutApiV1OrganizationsOrganizationIDUsersUsernameWithBodyWithResponse(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUsernameResponse, error)
+	// PutApiV1OrganizationsOrganizationIDUsersUserIDWithBodyWithResponse request with any body
+	PutApiV1OrganizationsOrganizationIDUsersUserIDWithBodyWithResponse(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUserIDResponse, error)
 
-	PutApiV1OrganizationsOrganizationIDUsersUsernameWithResponse(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, body PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUsernameResponse, error)
+	PutApiV1OrganizationsOrganizationIDUsersUserIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, body PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUserIDResponse, error)
 
 	// GetOauth2V2AuthorizationWithResponse request
 	GetOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2AuthorizationResponse, error)
@@ -3285,7 +3285,7 @@ func (r PostApiV1OrganizationsOrganizationIDUsersResponse) StatusCode() int {
 	return 0
 }
 
-type DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse struct {
+type DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *externalRef0.UnauthorizedResponse
@@ -3295,7 +3295,7 @@ type DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse) Status() string {
+func (r DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3303,14 +3303,14 @@ func (r DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse) Status() st
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse) StatusCode() int {
+func (r DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PutApiV1OrganizationsOrganizationIDUsersUsernameResponse struct {
+type PutApiV1OrganizationsOrganizationIDUsersUserIDResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *UserResponse
@@ -3320,7 +3320,7 @@ type PutApiV1OrganizationsOrganizationIDUsersUsernameResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r PutApiV1OrganizationsOrganizationIDUsersUsernameResponse) Status() string {
+func (r PutApiV1OrganizationsOrganizationIDUsersUserIDResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -3328,7 +3328,7 @@ func (r PutApiV1OrganizationsOrganizationIDUsersUsernameResponse) Status() strin
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PutApiV1OrganizationsOrganizationIDUsersUsernameResponse) StatusCode() int {
+func (r PutApiV1OrganizationsOrganizationIDUsersUserIDResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3828,30 +3828,30 @@ func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDUsersWithRespo
 	return ParsePostApiV1OrganizationsOrganizationIDUsersResponse(rsp)
 }
 
-// DeleteApiV1OrganizationsOrganizationIDUsersUsernameWithResponse request returning *DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse
-func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationIDUsersUsernameWithResponse(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse, error) {
-	rsp, err := c.DeleteApiV1OrganizationsOrganizationIDUsersUsername(ctx, organizationID, username, reqEditors...)
+// DeleteApiV1OrganizationsOrganizationIDUsersUserIDWithResponse request returning *DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse
+func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationIDUsersUserIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse, error) {
+	rsp, err := c.DeleteApiV1OrganizationsOrganizationIDUsersUserID(ctx, organizationID, userID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse(rsp)
+	return ParseDeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse(rsp)
 }
 
-// PutApiV1OrganizationsOrganizationIDUsersUsernameWithBodyWithResponse request with arbitrary body returning *PutApiV1OrganizationsOrganizationIDUsersUsernameResponse
-func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationIDUsersUsernameWithBodyWithResponse(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUsernameResponse, error) {
-	rsp, err := c.PutApiV1OrganizationsOrganizationIDUsersUsernameWithBody(ctx, organizationID, username, contentType, body, reqEditors...)
+// PutApiV1OrganizationsOrganizationIDUsersUserIDWithBodyWithResponse request with arbitrary body returning *PutApiV1OrganizationsOrganizationIDUsersUserIDResponse
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationIDUsersUserIDWithBodyWithResponse(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUserIDResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganizationIDUsersUserIDWithBody(ctx, organizationID, userID, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutApiV1OrganizationsOrganizationIDUsersUsernameResponse(rsp)
+	return ParsePutApiV1OrganizationsOrganizationIDUsersUserIDResponse(rsp)
 }
 
-func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationIDUsersUsernameWithResponse(ctx context.Context, organizationID OrganizationIDParameter, username UsernameParameter, body PutApiV1OrganizationsOrganizationIDUsersUsernameJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUsernameResponse, error) {
-	rsp, err := c.PutApiV1OrganizationsOrganizationIDUsersUsername(ctx, organizationID, username, body, reqEditors...)
+func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationIDUsersUserIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, userID UserIDParameter, body PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDUsersUserIDResponse, error) {
+	rsp, err := c.PutApiV1OrganizationsOrganizationIDUsersUserID(ctx, organizationID, userID, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePutApiV1OrganizationsOrganizationIDUsersUsernameResponse(rsp)
+	return ParsePutApiV1OrganizationsOrganizationIDUsersUserIDResponse(rsp)
 }
 
 // GetOauth2V2AuthorizationWithResponse request returning *GetOauth2V2AuthorizationResponse
@@ -5362,15 +5362,15 @@ func ParsePostApiV1OrganizationsOrganizationIDUsersResponse(rsp *http.Response) 
 	return response, nil
 }
 
-// ParseDeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationIDUsersUsernameWithResponse call
-func ParseDeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse, error) {
+// ParseDeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationIDUsersUserIDWithResponse call
+func ParseDeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse{
+	response := &DeleteApiV1OrganizationsOrganizationIDUsersUserIDResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -5409,15 +5409,15 @@ func ParseDeleteApiV1OrganizationsOrganizationIDUsersUsernameResponse(rsp *http.
 	return response, nil
 }
 
-// ParsePutApiV1OrganizationsOrganizationIDUsersUsernameResponse parses an HTTP response from a PutApiV1OrganizationsOrganizationIDUsersUsernameWithResponse call
-func ParsePutApiV1OrganizationsOrganizationIDUsersUsernameResponse(rsp *http.Response) (*PutApiV1OrganizationsOrganizationIDUsersUsernameResponse, error) {
+// ParsePutApiV1OrganizationsOrganizationIDUsersUserIDResponse parses an HTTP response from a PutApiV1OrganizationsOrganizationIDUsersUserIDWithResponse call
+func ParsePutApiV1OrganizationsOrganizationIDUsersUserIDResponse(rsp *http.Response) (*PutApiV1OrganizationsOrganizationIDUsersUserIDResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PutApiV1OrganizationsOrganizationIDUsersUsernameResponse{
+	response := &PutApiV1OrganizationsOrganizationIDUsersUserIDResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

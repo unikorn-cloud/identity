@@ -47,12 +47,12 @@ type Group struct {
 type GroupSpec struct {
 	// Tags are aribrary user data.
 	Tags unikornv1core.TagList `json:"tags,omitempty"`
-	// ProviderID is the name of the group as returned by the provider.
-	// For example a query of https://cloudidentity.googleapis.com/v1/groups/
-	// will return something like groups/01664s551ax43ok.
-	ProviderGroupNames []string `json:"providerGroupNames,omitempty"`
 	// Users are a list of user names that are members of the group.
+	// TODO: remove me, this is kept alive to allow migration to User
+	// CRDs.
 	Users []string `json:"users,omitempty"`
+	// UserIDs are a list of users that are members of the group.
+	UserIDs []string `json:"userIDs,omitempty"`
 	// ServiceAccountIDs are a list of service accounts that are members of
 	// the group.
 	ServiceAccountIDs []string `json:"serviceAccountIDs,omitempty"`

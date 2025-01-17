@@ -54,6 +54,7 @@ func init() {
 	SchemeBuilder.Register(&Group{}, &GroupList{})
 	SchemeBuilder.Register(&Project{}, &ProjectList{})
 	SchemeBuilder.Register(&SigningKey{}, &SigningKeyList{})
+	SchemeBuilder.Register(&User{}, &UserList{})
 	SchemeBuilder.Register(&ServiceAccount{}, &ServiceAccountList{})
 }
 

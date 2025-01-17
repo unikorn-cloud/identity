@@ -47,14 +47,6 @@ spec:
             type: object
           spec:
             properties:
-              providerGroupNames:
-                description: |-
-                  ProviderID is the name of the group as returned by the provider.
-                  For example a query of https://cloudidentity.googleapis.com/v1/groups/
-                  will return something like groups/01664s551ax43ok.
-                items:
-                  type: string
-                type: array
               roleIDs:
                 description: RoleIDs are a list of roles users of the group inherit.
                 items:
@@ -83,9 +75,15 @@ spec:
                   - value
                   type: object
                 type: array
+              userIDs:
+                description: UserIDs are a list of users that are members of the group.
+                items:
+                  type: string
+                type: array
               users:
-                description: Users are a list of user names that are members of the
-                  group.
+                description: |-
+                  Users are a list of user names that are members of the group.
+                  CRDs.
                 items:
                   type: string
                 type: array
