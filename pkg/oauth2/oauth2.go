@@ -135,10 +135,6 @@ const (
 	ErrorServerError             Error = "server_error"
 )
 
-const (
-	ProviderCookie = "provider"
-)
-
 // State records state across the call to the authorization server.
 // This must be encrypted with JWE.
 type State struct {
@@ -382,33 +378,6 @@ func randomString(size int) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
-type providerGetter func(*http.Request, string) (*unikornv1.OAuth2Provider, error)
-
-func (a *Authenticator) cookieProviderGetter(r *http.Request, _ string) (*unikornv1.OAuth2Provider, error) {
-	providerCookie, err := r.Cookie(ProviderCookie)
-	if err != nil {
-		return nil, err
-	}
-
-	return a.lookupProviderByType(r.Context(), unikornv1.IdentityProviderType(providerCookie.Value))
-}
-
-func (a *Authenticator) organizationProviderGetter(r *http.Request, email string) (*unikornv1.OAuth2Provider, error) {
-	organization, err := a.lookupOrganization(r.Context(), email)
-	if err != nil {
-		return nil, err
-	}
-
-	return a.lookupProviderByName(r.Context(), *organization.Spec.ProviderID)
-}
-
-func (a *Authenticator) providerGetters() []providerGetter {
-	return []providerGetter{
-		a.cookieProviderGetter,
-		a.organizationProviderGetter,
-	}
-}
-
 type LoginStateClaims struct {
 	Query string `json:"query"`
 }
@@ -418,8 +387,6 @@ type LoginStateClaims struct {
 // either returning an authorization grant or error via a HTTP 302 redirect,
 // or returning a HTML fragment for errors that cannot follow the provided
 // redirect URI.
-//
-//nolint:cyclop
 func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	log := log.FromContext(r.Context())
 
@@ -437,22 +404,6 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 
 	if !a.authorizationValidateRedirecting(w, r, client) {
 		return
-	}
-
-	// If the login_hint is provided, we can short cut the user interaction and
-	// directly do the request to the backend provider.  This makes token expiry
-	// almost seamless in that a client can catch a 401, and just redirect back
-	// here with the cached email address in the id_token.  For users who have
-	// clicked "login in X", we need to have remembered this provider with a
-	// cookie also.
-	if email := query.Get("login_hint"); email != "" {
-		for _, getter := range a.providerGetters() {
-			provider, err := getter(r, email)
-			if err == nil {
-				a.providerAuthenticationRequest(w, r, client, email, provider, query)
-				return
-			}
-		}
 	}
 
 	// Encrypt the query across the login dialog to prevent tampering.
@@ -582,7 +533,7 @@ func newOIDCProvider(ctx context.Context, p *unikornv1.OAuth2Provider) (*oidc.Pr
 
 // providerAuthenticationRequest takes a client provided email address and routes it
 // to the correct identity provider, if we can.
-func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client, email string, providerResource *unikornv1.OAuth2Provider, query url.Values) {
+func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client, providerResource *unikornv1.OAuth2Provider, query url.Values) {
 	log := log.FromContext(r.Context())
 
 	driver := providers.New(providerResource.Spec.Type)
@@ -646,7 +597,6 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 	authURLParams := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("code_challenge", codeChallenge),
-		oauth2.SetAuthURLParam("login_hint", email),
 		oidc.Nonce(nonce),
 	}
 
@@ -699,29 +649,10 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Remember the choice for steam-lining login when a login_hint is provided.
-		cookie := &http.Cookie{
-			Name:     ProviderCookie,
-			Value:    providerType,
-			Secure:   true,
-			HttpOnly: true,
-		}
-
-		w.Header().Add("Set-Cookie", cookie.String())
-
-		a.providerAuthenticationRequest(w, r, client, r.Form.Get("email"), provider, query)
+		a.providerAuthenticationRequest(w, r, client, provider, query)
 
 		return
 	}
-
-	// Remove the cookie otherwise.
-	cookie := &http.Cookie{
-		Name:   ProviderCookie,
-		Value:  "undefined",
-		MaxAge: -1,
-	}
-
-	w.Header().Add("Set-Cookie", cookie.String())
 
 	if !r.Form.Has("email") {
 		log.Info("email doesn't exist in form")
@@ -740,7 +671,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.providerAuthenticationRequest(w, r, client, r.Form.Get("email"), provider, query)
+	a.providerAuthenticationRequest(w, r, client, provider, query)
 }
 
 // oidcExtractIDToken wraps up token verification against the JWKS service and conversion
