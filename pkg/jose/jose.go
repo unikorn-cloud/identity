@@ -489,6 +489,10 @@ const (
 	//nolint:gosec
 	TokenTypeLoginState TokenType = "unikorn-cloud.org/loginstate+jwt"
 
+	// TokenTypeLoginDialogState is deinfed by us to prevent reuse in other contexts.
+	//nolint:gosec
+	TokenTypeLoginDialogState TokenType = "unikorn-cloud.org/logindialogstate+jwt"
+
 	// TokenTypeRefreshToken is defined to prevent reuse in other contexts.
 	//nolint:gosec
 	TokenTypeRefreshToken TokenType = "unikorn-cloud.org/rt+jwt"

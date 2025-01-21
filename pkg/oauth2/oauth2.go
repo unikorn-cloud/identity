@@ -305,7 +305,7 @@ func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWrite
 // OAuth2AuthorizationValidateRedirecting checks autohorization request parameters after
 // the redirect URI has been validated.  If any of these fail, we redirect but with an
 // error query rather than a code for the client to pick up and run with.
-func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request) bool {
+func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client) bool {
 	query := r.URL.Query()
 
 	var kind Error
@@ -326,7 +326,7 @@ func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, 
 		return true
 	}
 
-	authorizationError(w, r, query.Get("redirect_uri"), kind, description)
+	authorizationError(w, r, client.Spec.RedirectURI, kind, description)
 
 	return false
 }
@@ -409,6 +409,10 @@ func (a *Authenticator) providerGetters() []providerGetter {
 	}
 }
 
+type LoginStateClaims struct {
+	Query string `json:"query"`
+}
+
 // Authorization redirects the client to the OIDC autorization endpoint
 // to get an authorization code.  Note that this function is responsible for
 // either returning an authorization grant or error via a HTTP 302 redirect,
@@ -425,13 +429,19 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !a.authorizationValidateRedirecting(w, r) {
+	client, ok := a.lookupClient(w, r, query.Get("client_id"))
+	if !ok {
+		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
+		return
+	}
+
+	if !a.authorizationValidateRedirecting(w, r, client) {
 		return
 	}
 
 	// If the login_hint is provided, we can short cut the user interaction and
 	// directly do the request to the backend provider.  This makes token expiry
-	// alomost seamless in that a client can catch a 401, and just redirect back
+	// almost seamless in that a client can catch a 401, and just redirect back
 	// here with the cached email address in the id_token.  For users who have
 	// clicked "login in X", we need to have remembered this provider with a
 	// cookie also.
@@ -439,24 +449,29 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 		for _, getter := range a.providerGetters() {
 			provider, err := getter(r, email)
 			if err == nil {
-				a.providerAuthenticationRequest(w, r, email, provider, query)
+				a.providerAuthenticationRequest(w, r, client, email, provider, query)
 				return
 			}
 		}
 	}
 
+	// Encrypt the query across the login dialog to prevent tampering.
+	stateClaims := &LoginStateClaims{
+		Query: query.Encode(),
+	}
+
+	state, err := a.issuer.EncodeJWEToken(r.Context(), stateClaims, jose.TokenTypeLoginDialogState)
+	if err != nil {
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to encode request state")
+		return
+	}
+
 	loginQuery := url.Values{}
 
-	loginQuery.Set("state", query.Encode())
+	loginQuery.Set("state", state)
 	loginQuery.Set("callback", "https://"+r.Host+"/oauth2/v2/login")
 	// TODO: this needs to be driven by the available oauth2providers
 	loginQuery.Set("providers", "google microsoft")
-
-	client, ok := a.lookupClient(w, r, query.Get("client_id"))
-	if !ok {
-		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
-		return
-	}
 
 	// Redirect to an external login handler, if you have chosen to.
 	if client.Spec.LoginURI != nil {
@@ -472,7 +487,7 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	templateContext := map[string]interface{}{
-		"state": query.Encode(),
+		"state": loginQuery.Encode(),
 	}
 
 	var buffer bytes.Buffer
@@ -567,7 +582,7 @@ func newOIDCProvider(ctx context.Context, p *unikornv1.OAuth2Provider) (*oidc.Pr
 
 // providerAuthenticationRequest takes a client provided email address and routes it
 // to the correct identity provider, if we can.
-func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, email string, providerResource *unikornv1.OAuth2Provider, query url.Values) {
+func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client, email string, providerResource *unikornv1.OAuth2Provider, query url.Values) {
 	log := log.FromContext(r.Context())
 
 	driver := providers.New(providerResource.Spec.Type)
@@ -580,12 +595,10 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 
 	endpoint := provider.Endpoint()
 
-	clientRedirectURI := query.Get("redirect_uri")
-
 	// OIDC requires a nonce, just some random data base64 URL encoded will suffice.
 	nonce, err := randomString(16)
 	if err != nil {
-		authorizationError(w, r, clientRedirectURI, ErrorServerError, "unable to create oidc nonce: "+err.Error())
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "unable to create oidc nonce: "+err.Error())
 		return
 	}
 
@@ -595,7 +608,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 	// it's talking to the same client.
 	codeVerifier, err := randomString(32)
 	if err != nil {
-		authorizationError(w, r, clientRedirectURI, ErrorServerError, "unable to create oauth2 code verifier: "+err.Error())
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "unable to create oauth2 code verifier: "+err.Error())
 		return
 	}
 
@@ -625,7 +638,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 
 	state, err := a.issuer.EncodeJWEToken(r.Context(), oidcState, jose.TokenTypeLoginState)
 	if err != nil {
-		authorizationError(w, r, clientRedirectURI, ErrorServerError, "failed to encode oidc state: "+err.Error())
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to encode oidc state: "+err.Error())
 		return
 	}
 
@@ -645,6 +658,8 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 }
 
 // Login handles the response from the user login prompt.
+//
+//nolint:cyclop
 func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	log := log.FromContext(r.Context())
 
@@ -658,9 +673,22 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query, err := url.ParseQuery(r.Form.Get("state"))
+	state := &LoginStateClaims{}
+
+	if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("state"), state, jose.TokenTypeLoginDialogState); err != nil {
+		htmlError(w, r, http.StatusBadRequest, "login state failed to decode")
+		return
+	}
+
+	query, err := url.ParseQuery(state.Query)
 	if err != nil {
 		log.Error(err, "failed to parse query")
+		return
+	}
+
+	client, ok := a.lookupClient(w, r, query.Get("client_id"))
+	if !ok {
+		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
 		return
 	}
 
@@ -681,7 +709,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Add("Set-Cookie", cookie.String())
 
-		a.providerAuthenticationRequest(w, r, r.Form.Get("email"), provider, query)
+		a.providerAuthenticationRequest(w, r, client, r.Form.Get("email"), provider, query)
 
 		return
 	}
@@ -712,7 +740,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.providerAuthenticationRequest(w, r, r.Form.Get("email"), provider, query)
+	a.providerAuthenticationRequest(w, r, client, r.Form.Get("email"), provider, query)
 }
 
 // oidcExtractIDToken wraps up token verification against the JWKS service and conversion
