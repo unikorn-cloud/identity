@@ -1,5 +1,5 @@
 /*
-Copyright 2024-2025 the Unikorn Authors.
+Copyright 2025 the Unikorn Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,22 +20,36 @@ import (
 	"context"
 
 	"github.com/unikorn-cloud/core/pkg/errors"
-	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/openapi"
 )
+
+// Info contains all the information we can derive from an
+// access token.
+type Info struct {
+	// Token is a copy of the access token made available to handlers.
+	Token string
+	// Userinfo is a parsed version of the token, used primarily for
+	// auditing etc.
+	Userinfo *openapi.Userinfo
+	// ClientID optionally records the oauth2 client that initiated
+	// the session, and can be used to route errors to the correct
+	// endpoint.
+	ClientID string
+}
 
 type keyType int
 
 //nolint:gochecknoglobals
 var key keyType
 
-func NewContextWithUserinfo(ctx context.Context, userinfo *identityapi.Userinfo) context.Context {
-	return context.WithValue(ctx, key, userinfo)
+func NewContext(ctx context.Context, info *Info) context.Context {
+	return context.WithValue(ctx, key, info)
 }
 
-func UserinfoFromContext(ctx context.Context) (*identityapi.Userinfo, error) {
+func FromContext(ctx context.Context) (*Info, error) {
 	if value := ctx.Value(key); value != nil {
-		if userinfo, ok := value.(*identityapi.Userinfo); ok {
-			return userinfo, nil
+		if info, ok := value.(*Info); ok {
+			return info, nil
 		}
 	}
 

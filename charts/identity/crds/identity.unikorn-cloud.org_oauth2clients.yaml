@@ -52,6 +52,12 @@ spec:
             description: OAuth2ClientSpec defines the required configuration for the
               client.
             properties:
+              errorUri:
+                description: ErrorURI is a URI to pass control to for error dialogs.
+                type: string
+              homeUri:
+                description: HomeURI is a URI to pass control to get to the console.
+                type: string
               loginUri:
                 description: LoginURI is a URI to pass control to for login dialogs.
                 type: string

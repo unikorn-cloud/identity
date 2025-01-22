@@ -129,13 +129,13 @@ func (c *Client) Get(ctx context.Context, organizationID, projectID string) (*op
 }
 
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.ProjectWrite) (*unikornv1.Project, error) {
-	userinfo, err := authorization.UserinfoFromContext(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
 
 	out := &unikornv1.Project{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 	}
 
 	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)

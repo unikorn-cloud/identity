@@ -25,6 +25,25 @@ spec:
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
+        {{- with $signup := .Values.signup }}
+          {{- if $signup.enabled }}
+        - --user-email-verification
+          {{- end }}
+          {{- if $signup.tokenDuration }}
+        - --user-email-verification-token-duration={{ $signup.tokenDuration }}
+          {{- end }}
+          {{- if $signup.signupTemplateConfigMap }}
+        - --user-email-verification-template-configmap={{ $signup.signupTemplateConfigMap }}
+          {{- end }}
+        {{- end }}
+        {{- with $smtp := .Values.smtp -}}
+          {{- if $smtp.host }}
+        - --smtp-server={{ $smtp.host }}
+          {{- end }}
+          {{- if $smtp.credentialsSecret }}
+        - --smtp-credentials-secret={{ $smtp.credentialsSecret }}
+          {{- end }}
+        {{- end }}
         ports:
         - name: http
           containerPort: 6080

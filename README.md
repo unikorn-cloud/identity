@@ -174,6 +174,7 @@ UI_HOST=console.${DOMAIN}
 UI_ORIGIN=https://${UI_HOST}
 UI_OIDC_CALLBACK=${UI_ORIGIN}/oauth2/callback
 UI_LOGIN_CALLBACK=${UI_ORIGIN}/login
+UI_ERROR_CALLBACK=${UI_ORIGIN}/error
 UI_CLIENT_ID=$(uuidgen)
 ```
 
@@ -190,7 +191,9 @@ ingress:
 clients:
   unikorn-ui:
     redirectURI: ${UI_OIDC_CALLBACK}
+    homeURI: ${UI_ORIGIN}
     loginURI: ${UI_LOGIN_CALLBACK} # (optional)
+    errorURL: ${UI_ERROR_CALLBACK}
 providers:
   google-identity:
     description: Google Identity
@@ -210,6 +213,28 @@ Deploy:
 
 ```shell
 helm update --install --namespace unikorn-identity unikorn-identity/unikorn-identity -f values.yaml
+```
+
+### Email Notifications
+
+Identity supports a mode of operation where new user accounts need to be verified before they can be made active.
+First you will need to configure SMTP.
+Consult your provider on acquiring the server, port, and credentials.
+
+Create a secret containing the credentials:
+
+```shell
+kubectl create secret -n unikorn-identity generic --from-literal username=${USERNAME} --from-literal password=${PASSWORD} unikorn-smtp-credentials
+```
+
+Next configure your `values.yaml` file to add in the SMTP server information and enable user verification:
+
+```yaml
+smtp:
+  host: smtp.mail.yahoo.com:465
+
+signup:
+  enabled: true
 ```
 
 ### Installing the Management Plugin

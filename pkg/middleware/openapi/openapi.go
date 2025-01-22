@@ -29,8 +29,6 @@ import (
 	"github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
-	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/accesstoken"
-	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,11 +47,9 @@ type Validator struct {
 	// openapi caches the Schema schema.
 	openapi *openapi.Schema
 
-	// accessToken is used to propagate to descendant services.
-	accessToken string
-
-	// userinfo is used for identity and RBAC.
-	userinfo *identityapi.Userinfo
+	// info is the authorization info containing the token, any claims
+	// and other available metadata.
+	info *authorization.Info
 
 	// err is used to indicate the actual openapi error.
 	err error
@@ -122,7 +118,7 @@ func (w *bufferingResponseWriter) StatusCode() int {
 
 func (v *Validator) validateRequest(r *http.Request, route *routers.Route, params map[string]string) (*openapi3filter.ResponseValidationInput, error) {
 	authorizationFunc := func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
-		v.accessToken, v.userinfo, v.err = v.authorizer.Authorize(input)
+		v.info, v.err = v.authorizer.Authorize(input)
 
 		return v.err
 	}
@@ -195,14 +191,17 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Propagate authentication/authorization info to the handlers
-	// and the ACL layer to use.
-	ctx = accesstoken.NewContext(ctx, v.accessToken)
-	ctx = authorization.NewContextWithUserinfo(ctx, v.userinfo)
+	// If any authentication was requested as part of the route, then update anything
+	// that needs doing.
+	if v.info != nil {
+		// Propagate authentication/authorization info to the handlers
+		// and the ACL layer to use.
+		ctx = authorization.NewContext(ctx, v.info)
 
-	if v.userinfo != nil {
 		// The organizationID parameter is standardized across all services.
-		acl, err := v.authorizer.GetACL(ctx, params["organizationID"], v.userinfo.Sub)
+		// NOTE: this can legitimately be undefined, but the ACL code will handle
+		// that and only look for globally scoped roles.
+		acl, err := v.authorizer.GetACL(ctx, params["organizationID"], v.info.Userinfo.Sub)
 		if err != nil {
 			errors.HandleError(w, r, err)
 			return

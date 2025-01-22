@@ -154,14 +154,14 @@ func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
-	userinfo, err := authorization.UserinfoFromContext(r.Context())
+	info, err := authorization.FromContext(r.Context())
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("userinfo is not set").WithError(err))
 		return
 	}
 
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, userinfo)
+	util.WriteJSONResponse(w, r, http.StatusOK, info.Userinfo)
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
@@ -647,8 +647,12 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDServiceaccountsServiceAcco
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
-func (h *Handler) usersClient() *users.Client {
-	return users.New(h.client, h.namespace)
+func (h *Handler) usersClient(r *http.Request) *users.Client {
+	return users.New(r.Host, h.client, h.namespace, h.issuer, &h.options.Users)
+}
+
+func (h *Handler) GetApiV1Signup(w http.ResponseWriter, r *http.Request) {
+	h.usersClient(r).Signup(w, r)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDUsers(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
@@ -657,7 +661,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDUsers(w http.ResponseWriter
 		return
 	}
 
-	result, err := h.usersClient().List(r.Context(), organizationID)
+	result, err := h.usersClient(r).List(r.Context(), organizationID)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
@@ -680,7 +684,7 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDUsers(w http.ResponseWrite
 		return
 	}
 
-	result, err := h.usersClient().Create(r.Context(), organizationID, request)
+	result, err := h.usersClient(r).Create(r.Context(), organizationID, request)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
@@ -696,7 +700,7 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDUsersUserID(w http.Respo
 		return
 	}
 
-	if err := h.usersClient().Delete(r.Context(), organizationID, userID); err != nil {
+	if err := h.usersClient(r).Delete(r.Context(), organizationID, userID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -718,7 +722,7 @@ func (h *Handler) PutApiV1OrganizationsOrganizationIDUsersUserID(w http.Response
 		return
 	}
 
-	result, err := h.usersClient().Update(r.Context(), organizationID, userID, request)
+	result, err := h.usersClient(r).Update(r.Context(), organizationID, userID, request)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
