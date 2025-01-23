@@ -56,6 +56,10 @@ spec:
               OAuth2ProviderSpec defines the required configuration for an oauth2
               provider.
             properties:
+              authorizatonURI:
+                description: AuthorizationURI is used when OIDC (discovery) is not
+                  available.
+                type: string
               clientID:
                 description: ClientID is the assigned client identifier.
                 type: string
@@ -84,6 +88,9 @@ spec:
                   - value
                   type: object
                 type: array
+              tokenURI:
+                description: TokenURI is used when OIDC (discovery) is not available.
+                type: string
               type:
                 description: |-
                   Type defines the interface to use with the provider, specifically
@@ -95,6 +102,7 @@ spec:
                 - custom
                 - google
                 - microsoft
+                - github
                 type: string
             required:
             - clientID

@@ -136,10 +136,14 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 	out := &unikornv1.OAuth2Provider{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.OAuth2ProviderSpec{
-			Issuer:       in.Spec.Issuer,
-			ClientID:     in.Spec.ClientID,
-			ClientSecret: in.Spec.ClientSecret,
+			Issuer:   in.Spec.Issuer,
+			ClientID: in.Spec.ClientID,
 		},
+	}
+
+	// TODO: always require this to be written.
+	if in.Spec.ClientSecret != nil {
+		out.Spec.ClientSecret = *in.Spec.ClientSecret
 	}
 
 	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)

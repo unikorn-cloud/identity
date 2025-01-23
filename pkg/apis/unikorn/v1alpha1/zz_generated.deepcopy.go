@@ -331,8 +331,13 @@ func (in *OAuth2ProviderSpec) DeepCopyInto(out *OAuth2ProviderSpec) {
 		*out = new(IdentityProviderType)
 		**out = **in
 	}
-	if in.ClientSecret != nil {
-		in, out := &in.ClientSecret, &out.ClientSecret
+	if in.AuthorizationURI != nil {
+		in, out := &in.AuthorizationURI, &out.AuthorizationURI
+		*out = new(string)
+		**out = **in
+	}
+	if in.TokenURI != nil {
+		in, out := &in.TokenURI, &out.TokenURI
 		*out = new(string)
 		**out = **in
 	}
