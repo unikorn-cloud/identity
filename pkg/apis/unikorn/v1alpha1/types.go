@@ -25,12 +25,13 @@ import (
 
 // IdentityProviderType defines the type of identity provider, and in turn
 // that defines the required configuration and API interfaces.
-// +kubebuilder:validation:Enum=custom;google;microsoft
+// +kubebuilder:validation:Enum=custom;google;microsoft;github
 type IdentityProviderType string
 
 const (
 	GoogleIdentity IdentityProviderType = "google"
 	MicrosoftEntra IdentityProviderType = "microsoft"
+	GitHub         IdentityProviderType = "github"
 )
 
 // OAuth2ClientList is a typed list of frontend clients.
@@ -114,7 +115,11 @@ type OAuth2ProviderSpec struct {
 	// ClientID is the assigned client identifier.
 	ClientID string `json:"clientID"`
 	// ClientSecret is created by the IdP for token exchange.
-	ClientSecret *string `json:"clientSecret,omitempty"`
+	ClientSecret string `json:"clientSecret,omitempty"`
+	// AuthorizationURI is used when OIDC (discovery) is not available.
+	AuthorizationURI *string `json:"authorizatonURI,omitempty"`
+	// TokenURI is used when OIDC (discovery) is not available.
+	TokenURI *string `json:"tokenURI,omitempty"`
 }
 
 // OAuth2ProviderStatus defines the status of the server.

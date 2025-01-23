@@ -176,7 +176,7 @@ func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
-	h.oauth2.OIDCCallback(w, r)
+	h.oauth2.Callback(w, r)
 }
 
 func (h *Handler) GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request) {

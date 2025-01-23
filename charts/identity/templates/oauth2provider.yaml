@@ -12,8 +12,5 @@ metadata:
     unikorn-cloud.org/description: {{ $spec.description }}
   {{- end }}
 spec:
-  type: {{ $spec.type }}
-  issuer: {{ $spec.issuer }}
-  clientID: {{ $spec.clientID }}
-  clientSecret: {{ $spec.clientSecret }}
+  {{- toYaml $spec | nindent 2 }}
 {{- end }}
