@@ -61,8 +61,12 @@ type OAuth2ClientSpec struct {
 	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// RedirectURI is the URI to pass control back to the client.
 	RedirectURI string `json:"redirectUri"`
+	// HomeURI is a URI to pass control to get to the console.
+	HomeURI *string `json:"homeUri,omitempty"`
 	// LoginURI is a URI to pass control to for login dialogs.
 	LoginURI *string `json:"loginUri,omitempty"`
+	// ErrorURI is a URI to pass control to for error dialogs.
+	ErrorURI *string `json:"errorUri,omitempty"`
 }
 
 // OAuth2ClientStatus defines the status of the client.
@@ -274,6 +278,19 @@ type UserSpec struct {
 	State UserState `json:"state"`
 	// LastActive is updated when the user last requested an access token.
 	LastActive *metav1.Time `json:"lastActive,omitempty"`
+	// Signup is set when the user is being verified.
+	Signup *UserSignup `json:"signup,omitempty"`
+}
+
+type UserSignup struct {
+	// Token is used to store a time limited one use sign-up token
+	// in order to transition from the pending to active state.  It typically
+	// involves an email to notify the user they have been added.
+	Token string `json:"token"`
+	// ClientID remembers the oauth2 client that added the user in the first
+	// place so that we can link to per-client email templates and error
+	// handling dialogs.
+	ClientID string `json:"clientID"`
 }
 
 type UserStatus struct {

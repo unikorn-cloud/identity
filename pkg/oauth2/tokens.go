@@ -60,6 +60,8 @@ type CustomAccessTokenClaims struct {
 	AccessToken string `json:"at"`
 	// OrganizationID is the identifier of the organization (service accounts only).
 	OrganizationID string `json:"oid"`
+	// ClientID is the oauth2 client that the user is using.
+	ClientID string `json:"cid"`
 }
 
 // AccessTokenClaims is an application specific set of claims.
@@ -86,6 +88,8 @@ type CustomRefreshTokenClaims struct {
 	Provider string
 	// RefreshToken as defined for the IdP.
 	RefreshToken string `json:"rt"`
+	// ClientID is the oauth2 client that the user is using.
+	ClientID string `json:"cid"`
 }
 
 // RefreshTokenClaims is a basic set of JWT claims, plus a wrapper for the
@@ -137,6 +141,8 @@ type IssueInfo struct {
 	ServiceAccount *ServiceAccount
 	// X509Thumbprint is a certificate thumbprint for X.509 based passwordless authentication.
 	X509Thumbprint string
+	// ClientID is the oauth2 client that the user is using.
+	ClientID string
 }
 
 // expiry calculates when the token should expire.  By default we use the duration
@@ -167,6 +173,7 @@ func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *Issue
 			Type:        AccessTokenTypeFederated,
 			Provider:    info.Federated.Provider,
 			AccessToken: info.Federated.AccessToken,
+			ClientID:    info.ClientID,
 		}
 
 	case info.ServiceAccount != nil:
@@ -233,6 +240,7 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 			},
 			Custom: &CustomRefreshTokenClaims{
 				Provider:     info.Federated.Provider,
+				ClientID:     info.ClientID,
 				RefreshToken: *info.Federated.RefreshToken,
 			},
 		}

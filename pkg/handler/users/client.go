@@ -17,36 +17,91 @@ limitations under the License.
 package users
 
 import (
+	"bytes"
 	"context"
+	goerrors "errors"
+	"fmt"
+	"net"
+	"net/http"
+	"net/mail"
+	"net/url"
 	"slices"
+	"strconv"
 	"strings"
+	"text/template"
+	"time"
 
+	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/spf13/pflag"
+	gomail "gopkg.in/gomail.v2"
+
+	"github.com/unikorn-cloud/core/pkg/constants"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/html"
+	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var (
+	ErrConfiguration = goerrors.New("configuration error")
+)
+
+type Options struct {
+	// emailVerification defines whether to send an email notification.
+	emailVerification bool
+	// emailVerificationTokenDuration defines how long the email token lives for.
+	emailVerificationTokenDuration time.Duration
+	// emailVerificationTemplateConfigMap allows the administrator to define the
+	// welcome email template and subject string.
+	emailVerificationTemplateConfigMap string
+	// smtpServer is the host:port of the SMTP server.
+	smtpServer string
+	// smtpCredentialsSecret is the username/password secret
+	// to connect to SMTP as.
+	smtpCredentialsSecret string
+}
+
+func (o *Options) AddFlags(f *pflag.FlagSet) {
+	f.BoolVar(&o.emailVerification, "user-email-verification", false, "Whether to enable user creation email notifications and verification.")
+	f.DurationVar(&o.emailVerificationTokenDuration, "user-email-verification-token-duration", 24*time.Hour, "How long the user has to sign up before the token is revoked.")
+	f.StringVar(&o.emailVerificationTemplateConfigMap, "user-email-verification-template-configmap", "", "ConfigMap containing subject and template for email account verification.")
+	f.StringVar(&o.smtpServer, "smtp-server", "", "SMTP server host:port.")
+	f.StringVar(&o.smtpCredentialsSecret, "smtp-credentials-secret", "unikorn-smtp-credentials", "Secret containing username and password keys for SMTP verification.")
+}
 
 // Client is responsible for user management.
 type Client struct {
+	// host is the hostname of this service.
+	host string
 	// client is the Kubernetes client.
 	client client.Client
 	// namespace is the namespace the identity service is running in.
 	namespace string
+	// issuer for creating signup tokens.
+	issuer *jose.JWTIssuer
+	// options are any options to be passed to the handler.
+	options *Options
 }
 
 // New creates a new user client.
-func New(client client.Client, namespace string) *Client {
+func New(host string, client client.Client, namespace string, issuer *jose.JWTIssuer, options *Options) *Client {
 	return &Client{
+		host:      host,
 		client:    client,
 		namespace: namespace,
+		issuer:    issuer,
+		options:   options,
 	}
 }
 
@@ -123,7 +178,7 @@ func generateUserState(in openapi.UserState) unikornv1.UserState {
 }
 
 func generate(ctx context.Context, organization *organizations.Meta, in *openapi.UserWrite) (*unikornv1.User, error) {
-	userinfo, err := authorization.UserinfoFromContext(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
@@ -133,7 +188,7 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 	}
 
 	out := &unikornv1.User{
-		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.UserSpec{
 			Subject: in.Spec.Subject,
 			State:   generateUserState(in.Spec.State),
@@ -196,8 +251,297 @@ func convertList(in *unikornv1.UserList, groups *unikornv1.GroupList) openapi.Us
 	return out
 }
 
+const (
+	defaultEmailVerificationSubject = "Welcome to Unikorn Cloud!"
+)
+
+type emailConfiguration struct {
+	subject string
+	body    string
+}
+
+// getEmailVerification returns either the user defined subject and body,
+// which allows branding and marketing, or a default fallback.
+func (c *Client) getEmailVerification(ctx context.Context, organization, verifyLink string) (*emailConfiguration, error) {
+	if c.options.emailVerificationTemplateConfigMap == "" {
+		defaultEmailVerificationBody, err := html.WelcomeEmail(organization, verifyLink)
+		if err != nil {
+			return nil, err
+		}
+
+		out := &emailConfiguration{
+			subject: defaultEmailVerificationSubject,
+			body:    string(defaultEmailVerificationBody),
+		}
+
+		return out, nil
+	}
+
+	configMap := &corev1.ConfigMap{}
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.options.emailVerificationTemplateConfigMap}, configMap); err != nil {
+		return nil, err
+	}
+
+	subject, ok := configMap.Data["subject"]
+	if !ok {
+		return nil, fmt.Errorf("%w: user verification email configmap missing subject", ErrConfiguration)
+	}
+
+	templateData, ok := configMap.Data["template"]
+	if !ok {
+		return nil, fmt.Errorf("%w: user verification email configmap missing template", ErrConfiguration)
+	}
+
+	t, err := template.New("welcome").Parse(templateData)
+	if err != nil {
+		return nil, err
+	}
+
+	data := map[string]any{
+		"organization": organization,
+		"verifyLink":   verifyLink,
+	}
+
+	body := &bytes.Buffer{}
+
+	if err := t.Execute(body, data); err != nil {
+		return nil, err
+	}
+
+	out := &emailConfiguration{
+		subject: subject,
+		body:    body.String(),
+	}
+
+	return out, nil
+}
+
+type smtpConfiguration struct {
+	host     string
+	port     int
+	username string
+	password string
+}
+
+// getSMTPConfiguration verifies and loads SMTP configuration.
+func (c *Client) getSMTPConfiguration(ctx context.Context) (*smtpConfiguration, error) {
+	host, portStr, err := net.SplitHostPort(c.options.smtpServer)
+	if err != nil {
+		return nil, err
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return nil, err
+	}
+
+	secret := &corev1.Secret{}
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: c.options.smtpCredentialsSecret}, secret); err != nil {
+		return nil, err
+	}
+
+	username, ok := secret.Data["username"]
+	if !ok {
+		return nil, fmt.Errorf("%w: smtp secret missing username", ErrConfiguration)
+	}
+
+	password, ok := secret.Data["password"]
+	if !ok {
+		return nil, fmt.Errorf("%w: smtp secret missing password", ErrConfiguration)
+	}
+
+	out := &smtpConfiguration{
+		host:     host,
+		port:     port,
+		username: string(username),
+		password: string(password),
+	}
+
+	return out, nil
+}
+
+// notifyUserCreation sends an email to the user asking them to click a link in order to
+// verify themselves.
+func (c *Client) notifyUserCreation(ctx context.Context, organizationMeta *organizations.Meta, user *unikornv1.User) error {
+	info, err := authorization.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	organization := &unikornv1.Organization{}
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationMeta.ID}, organization); err != nil {
+		return err
+	}
+
+	verifyLink := fmt.Sprintf("https://%s/api/v1/signup?token=%s&clientID=%s", c.host, user.Spec.Signup.Token, info.ClientID)
+
+	email, err := c.getEmailVerification(ctx, organization.Labels[constants.NameLabel], verifyLink)
+	if err != nil {
+		return err
+	}
+
+	smtp, err := c.getSMTPConfiguration(ctx)
+	if err != nil {
+		return err
+	}
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", smtp.username)
+	m.SetAddressHeader("To", user.Spec.Subject, "New User")
+	m.SetHeader("Subject", email.subject)
+	m.SetBody("text/html", email.body)
+
+	if err := gomail.NewDialer(smtp.host, smtp.port, smtp.username, smtp.password).DialAndSend(m); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type SignupClaims struct {
+	jwt.Claims `json:",inline"`
+
+	OrganizationID string `json:"unikorn:oid"`
+	UserID         string `json:"unikorn:uid"`
+}
+
+// issueSignupToken creates a time limited, single use token that's valid for email account
+// verification.
+func (c *Client) issueSignupToken(ctx context.Context, organization *organizations.Meta, user *unikornv1.User) (string, error) {
+	claims := &SignupClaims{
+		Claims: jwt.Claims{
+			Issuer:  "https://" + c.host,
+			Subject: user.Spec.Subject,
+			Audience: []string{
+				user.Spec.Subject,
+			},
+			Expiry:   jwt.NewNumericDate(time.Now().Add(c.options.emailVerificationTokenDuration)),
+			IssuedAt: jwt.NewNumericDate(time.Now()),
+		},
+		OrganizationID: organization.ID,
+		UserID:         user.Name,
+	}
+
+	token, err := c.issuer.EncodeJWEToken(ctx, claims, jose.TokenTypeUserSignupToken)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func handleErrorFallback(w http.ResponseWriter, r *http.Request, short, message string) {
+	log := log.FromContext(r.Context())
+
+	body, err := html.Error(short, message)
+	if err != nil {
+		log.Info("user: failed to render error page")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusInternalServerError)
+
+	if _, err := w.Write(body); err != nil {
+		log.Info("user: failed to write HTML response")
+		return
+	}
+}
+
+// handleError routes the error to the correct page for the registered client.
+func (c *Client) handleError(w http.ResponseWriter, r *http.Request, cli *unikornv1.OAuth2Client, short, message string) {
+	log := log.FromContext(r.Context())
+
+	if cli.Spec.ErrorURI == nil {
+		handleErrorFallback(w, r, short, message)
+		return
+	}
+
+	query := url.Values{}
+	query.Set("error", short)
+	query.Set("message", message)
+
+	url, err := url.Parse(*cli.Spec.ErrorURI)
+	if err != nil {
+		log.Error(err, "failed to parse error URI", "clientID", cli.Name)
+		handleErrorFallback(w, r, short, message)
+
+		return
+	}
+
+	url.RawQuery = query.Encode()
+
+	http.Redirect(w, r, url.String(), http.StatusFound)
+}
+
+// Signup is called when a user clicks on the email verification link, it verifies the token is
+// valid, and transitions the user into an active state.
+func (c *Client) Signup(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+
+	tokenRaw := query.Get("token")
+	clientID := query.Get("clientID")
+
+	cli := &unikornv1.OAuth2Client{}
+
+	if err := c.client.Get(r.Context(), client.ObjectKey{Namespace: c.namespace, Name: clientID}, cli); err != nil {
+		handleErrorFallback(w, r, "user signup failure", "unable to lookup oauth2 client")
+
+		return
+	}
+
+	claims := &SignupClaims{}
+
+	if err := c.issuer.DecodeJWEToken(r.Context(), tokenRaw, claims, jose.TokenTypeUserSignupToken); err != nil {
+		// TODO: has it expired?  Issue a new one!
+		c.handleError(w, r, cli, "user signup failure", "error decoding token")
+		return
+	}
+
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(r.Context(), claims.OrganizationID)
+	if err != nil {
+		c.handleError(w, r, cli, "user signup failure", "error looking up organization")
+		return
+	}
+
+	user := &unikornv1.User{}
+
+	if err := c.client.Get(r.Context(), client.ObjectKey{Namespace: organization.Namespace, Name: claims.UserID}, user); err != nil {
+		c.handleError(w, r, cli, "user signup failure", "error looking up user")
+		return
+	}
+
+	user.Spec.State = unikornv1.UserStateActive
+	user.Spec.Signup = nil
+
+	if err := c.client.Update(r.Context(), user); err != nil {
+		c.handleError(w, r, cli, "user signup failure", "error activating user")
+		return
+	}
+
+	if cli.Spec.HomeURI == nil {
+		c.handleError(w, r, cli, "user signup error", "user active but client redirect not set")
+		return
+	}
+
+	http.Redirect(w, r, *cli.Spec.HomeURI, http.StatusFound)
+}
+
 // Create makes a new user and issues an access token.
+//
+//nolint:cyclop
 func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.UserWrite) (*openapi.UserRead, error) {
+	log := log.FromContext(ctx)
+
+	// Any accounts that aren't email based must use kubectl-unikorn to create them,
+	// e.g. users for unikorn services.
+	if _, err := mail.ParseAddress(request.Spec.Subject); err != nil {
+		return nil, errors.OAuth2InvalidRequest("subject address invalid").WithError(err)
+	}
+
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
 		return nil, err
@@ -206,6 +550,20 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 	resource, err := generate(ctx, organization, request)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.options.emailVerification {
+		token, err := c.issueSignupToken(ctx, organization, resource)
+		if err != nil {
+			return nil, errors.OAuth2ServerError("failed to create user sigup token").WithError(err)
+		}
+
+		// Force new signups into a pending state.
+		resource.Spec.State = unikornv1.UserStatePending
+
+		resource.Spec.Signup = &unikornv1.UserSignup{
+			Token: token,
+		}
 	}
 
 	if err := c.client.Create(ctx, resource); err != nil {
@@ -219,6 +577,13 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 
 	if err := c.updateGroups(ctx, resource.Name, request.Spec.GroupIDs, groups); err != nil {
 		return nil, err
+	}
+
+	if c.options.emailVerification {
+		if err := c.notifyUserCreation(ctx, organization, resource); err != nil {
+			// TODO: perhaps consider deleting the user immediately.
+			log.Error(err, "failed to send user creation notification")
+		}
 	}
 
 	return convert(resource, groups), nil

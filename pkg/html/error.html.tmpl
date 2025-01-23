@@ -7,8 +7,10 @@
 	<main>
 		<h1>Oops! Something went wrong</h1>
 		<dl>
+			<dt>Error</dt>
+			<dd>{{ .error }}</dd>
 			<dt>Description:</dt>
-			<dd>{{ .description}}</dd>
+			<dd>{{ .message }}</dd>
 		</dl>
 	</main>
 </body>

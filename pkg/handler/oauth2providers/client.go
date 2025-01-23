@@ -128,13 +128,13 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Oauth
 }
 
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.Oauth2ProviderWrite) (*unikornv1.OAuth2Provider, error) {
-	userinfo, err := authorization.UserinfoFromContext(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
 
 	out := &unikornv1.OAuth2Provider{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.OAuth2ProviderSpec{
 			Issuer:       in.Spec.Issuer,
 			ClientID:     in.Spec.ClientID,

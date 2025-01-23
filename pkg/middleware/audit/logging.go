@@ -120,7 +120,7 @@ func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If there is not accountibility e.g. a global call, it's not worth logging.
-	userinfo, err := authorization.UserinfoFromContext(r.Context())
+	info, err := authorization.FromContext(r.Context())
 	if err != nil {
 		return
 	}
@@ -142,7 +142,7 @@ func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Version: l.version,
 		},
 		"actor", &Actor{
-			Subject: userinfo.Sub,
+			Subject: info.Userinfo.Sub,
 		},
 		"operation", &Operation{
 			Verb: r.Method,

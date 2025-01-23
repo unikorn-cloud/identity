@@ -36,6 +36,7 @@ rules:
   - ""
   resources:
   - secrets
+  - configmaps
   verbs:
   - list
   - watch

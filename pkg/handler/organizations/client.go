@@ -176,7 +176,7 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organ
 		return convertList(&result), nil
 	}
 
-	userinfo, err := authorization.UserinfoFromContext(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
@@ -186,7 +186,7 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organ
 		return nil, errors.OAuth2ServerError("failed to list organizations").WithError(err)
 	}
 
-	users, err := rbacClient.GetActiveSubjects(ctx, userinfo.Sub)
+	users, err := rbacClient.GetActiveSubjects(ctx, info.Userinfo.Sub)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to list active subjects").WithError(err)
 	}
@@ -222,13 +222,13 @@ func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.Organ
 }
 
 func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) (*unikornv1.Organization, error) {
-	userinfo, err := authorization.UserinfoFromContext(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
 
 	out := &unikornv1.Organization{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace, userinfo.Sub).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace, info.Userinfo.Sub).Get(),
 	}
 
 	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)

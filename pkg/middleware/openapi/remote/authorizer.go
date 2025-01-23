@@ -31,8 +31,8 @@ import (
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/middleware/openapi"
-	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/accesstoken"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -121,25 +121,30 @@ func (t *requestMutatingTransport) RoundTrip(req *http.Request) (*http.Response,
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
 //
 //nolint:cyclop
-func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.Userinfo, error) {
+func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, error) {
 	ctx := r.Context()
 
 	authorizationScheme, rawToken, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	if !strings.EqualFold(authorizationScheme, "bearer") {
-		return "", nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
+		return nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
 	}
 
 	if value, ok := a.tokenCache.Get(rawToken); ok {
 		claims, ok := value.(*identityapi.Userinfo)
 		if !ok {
-			return "", nil, errors.OAuth2ServerError("invalid token cache data")
+			return nil, errors.OAuth2ServerError("invalid token cache data")
 		}
 
-		return rawToken, claims, nil
+		info := &authorization.Info{
+			Token:    rawToken,
+			Userinfo: claims,
+		}
+
+		return info, nil
 	}
 
 	// The identity client neatly wraps up TLS...
@@ -147,7 +152,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 
 	client, err := identity.HTTPClient(ctx)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	// NOTE: The mutation is required to do trace context propagation.
@@ -172,7 +177,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 	// and also return some information about the user that we can use for audit logging.
 	provider, err := oidc.NewProvider(ctx, a.options.Host())
 	if err != nil {
-		return "", nil, errors.OAuth2ServerError("oidc service discovery failed").WithError(err)
+		return nil, errors.OAuth2ServerError("oidc service discovery failed").WithError(err)
 	}
 
 	token := &oauth2.Token{
@@ -183,16 +188,16 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 	ui, err := provider.UserInfo(ctx, oauth2.StaticTokenSource(token))
 	if err != nil {
 		if oidcErrorIsUnauthorized(err) {
-			return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
+			return nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 		}
 
-		return "", nil, err
+		return nil, err
 	}
 
 	claims := &identityapi.Userinfo{}
 
 	if err := ui.Claims(claims); err != nil {
-		return "", nil, errors.OAuth2ServerError("failed to extrac user information").WithError(err)
+		return nil, errors.OAuth2ServerError("failed to extrac user information").WithError(err)
 	}
 
 	// The cache entry needs a timeout as a federated user may have had their rights
@@ -206,27 +211,38 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *identityapi.User
 
 	a.tokenCache.Add(rawToken, claims, timeout)
 
-	return rawToken, claims, nil
+	out := &authorization.Info{
+		Token:    rawToken,
+		Userinfo: claims,
+	}
+
+	return out, nil
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
-func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *identityapi.Userinfo, error) {
+func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (*authorization.Info, error) {
 	if authentication.SecurityScheme.Type == "oauth2" {
 		return a.authorizeOAuth2(authentication.RequestValidationInput.Request)
 	}
 
-	return "", nil, errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
+	return nil, errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
+}
+
+type Getter string
+
+func (a Getter) Get() string {
+	return string(a)
 }
 
 // GetACL retrieves access control information from the subject identified
 // by the Authorize call.
 func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string) (*identityapi.Acl, error) {
-	accessToken, err := accesstoken.NewGetter(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := identityclient.New(a.client, a.options, a.clientOptions).Client(ctx, accessToken)
+	client, err := identityclient.New(a.client, a.options, a.clientOptions).Client(ctx, Getter(info.Token))
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to create identity client").WithError(err)
 	}

@@ -13,7 +13,13 @@ metadata:
   {{- end }}
 spec:
   redirectUri: {{ $spec.redirectURI }}
+  {{- if $spec.homeURI }}
+  homeUri: {{ $spec.homeURI }}
+  {{- end }}
   {{- if $spec.loginURI }}
   loginUri: {{ $spec.loginURI }}
+  {{- end }}
+  {{- if $spec.errorURI }}
+  errorUri: {{ $spec.errorURI }}
   {{- end }}
 {{- end }}

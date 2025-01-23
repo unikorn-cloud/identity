@@ -122,7 +122,7 @@ func (c *Client) Get(ctx context.Context, organizationID, groupID string) (*open
 }
 
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.GroupWrite) (*unikornv1.Group, error) {
-	userinfo, err := authorization.UserinfoFromContext(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
@@ -150,7 +150,7 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 
 	// TODO: validate groups exist.
 	out := &unikornv1.Group{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.GroupSpec{
 			Tags:    conversion.GenerateTagList(in.Metadata.Tags),
 			RoleIDs: in.Spec.RoleIDs,

@@ -164,13 +164,13 @@ func (c *Client) generateAccessToken(ctx context.Context, organization *organiza
 // generate takes an API request and generates a new Kubernetes resource for it, including
 // a new access token.
 func (c *Client) generate(ctx context.Context, organization *organizations.Meta, in *openapi.ServiceAccountWrite) (*unikornv1.ServiceAccount, error) {
-	userinfo, err := authorization.UserinfoFromContext(ctx)
+	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
 
 	out := &unikornv1.ServiceAccount{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, userinfo.Sub).WithOrganization(organization.ID).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.ServiceAccountSpec{
 			Tags: conversion.GenerateTagList(in.Metadata.Tags),
 		},

@@ -63,26 +63,47 @@ func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *openapi.Userinfo, error) {
+func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, error) {
 	authorizationScheme, token, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	if !strings.EqualFold(authorizationScheme, "bearer") {
-		return "", nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
+		return nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
 	}
 
-	info := &oauth2.VerifyInfo{
+	verifyInfo := &oauth2.VerifyInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Token:    token,
 	}
 
 	// Check the token is from us, for us, and in date.
-	claims, err := a.authenticator.Verify(r.Context(), info)
+	claims, err := a.authenticator.Verify(r.Context(), verifyInfo)
 	if err != nil {
-		return "", nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
+		return nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
+	}
+
+	exp := int(claims.Expiry.Time().Unix())
+	nbf := int(claims.NotBefore.Time().Unix())
+	iat := int(claims.IssuedAt.Time().Unix())
+
+	info := &authorization.Info{
+		Token: token,
+		Userinfo: &openapi.Userinfo{
+			Iss: &claims.Issuer,
+			Sub: claims.Subject,
+			Aud: &claims.Audience[0],
+			Exp: &exp,
+			Nbf: &nbf,
+			Iat: &iat,
+			Jti: &claims.ID,
+		},
+	}
+
+	if claims.Custom != nil {
+		info.ClientID = claims.Custom.ClientID
 	}
 
 	// All API requests will ultimately end up here as service call back
@@ -93,45 +114,31 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (string, *openapi.Userinfo
 	if claims.Config != nil && claims.Config.X509Thumbprint != nil {
 		certPEM, err := authorization.ClientCertFromContext(r.Context())
 		if err != nil {
-			return "", nil, errors.OAuth2AccessDenied("client certificate not present for bound token").WithError(err)
+			return nil, errors.OAuth2AccessDenied("client certificate not present for bound token").WithError(err)
 		}
 
 		certificate, err := util.GetClientCertificate(certPEM)
 		if err != nil {
-			return "", nil, errors.OAuth2AccessDenied("client certificate parse error").WithError(err)
+			return nil, errors.OAuth2AccessDenied("client certificate parse error").WithError(err)
 		}
 
 		thumbprint := util.GetClientCertiifcateThumbprint(certificate)
 
 		if thumbprint != *claims.Config.X509Thumbprint {
-			return "", nil, errors.OAuth2AccessDenied("client certificate mismatch for bound token")
+			return nil, errors.OAuth2AccessDenied("client certificate mismatch for bound token")
 		}
 	}
 
-	exp := int(claims.Expiry.Time().Unix())
-	nbf := int(claims.NotBefore.Time().Unix())
-	iat := int(claims.IssuedAt.Time().Unix())
-
-	userinfo := &openapi.Userinfo{
-		Iss: &claims.Issuer,
-		Sub: claims.Subject,
-		Aud: &claims.Audience[0],
-		Exp: &exp,
-		Nbf: &nbf,
-		Iat: &iat,
-		Jti: &claims.ID,
-	}
-
-	return token, userinfo, nil
+	return info, nil
 }
 
 // Authorize checks the request against the OpenAPI security scheme.
-func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (string, *openapi.Userinfo, error) {
+func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInput) (*authorization.Info, error) {
 	if authentication.SecurityScheme.Type == "oauth2" {
 		return a.authorizeOAuth2(authentication.RequestValidationInput.Request)
 	}
 
-	return "", nil, errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
+	return nil, errors.OAuth2InvalidRequest("authorization scheme unsupported").WithValues("scheme", authentication.SecurityScheme.Type)
 }
 
 // GetACL retrieves access control information from the subject identified

@@ -479,23 +479,33 @@ type TokenType string
 
 const (
 	// TokenTypeAccessToken is defined by RFC9068 to prevent reuse in other contexts.
+	// This is only valid for access tokens.
 	TokenTypeAccessToken TokenType = "at+jwt"
 
 	// TokenTypeAuthorizationCode is defined by us to prevent reuse in other contexts.
+	// This is only valid for authorization codes.
 	//nolint:gosec
 	TokenTypeAuthorizationCode TokenType = "unikorn-cloud.org/authcode+jwt"
 
-	// TokenTypeLoginState is deinfed by us to prevent reuse in other contexts.
+	// TokenTypeLoginState is defined by us to prevent reuse in other contexts.
+	// This is only valid to preserve state across federated authentication.
 	//nolint:gosec
 	TokenTypeLoginState TokenType = "unikorn-cloud.org/loginstate+jwt"
 
-	// TokenTypeLoginDialogState is deinfed by us to prevent reuse in other contexts.
+	// TokenTypeLoginDialogState is defined by us to prevent reuse in other contexts.
+	// This is only valid to preserve state across login dialogs.
 	//nolint:gosec
 	TokenTypeLoginDialogState TokenType = "unikorn-cloud.org/logindialogstate+jwt"
 
 	// TokenTypeRefreshToken is defined to prevent reuse in other contexts.
+	// This is only valid for a refresh token.
 	//nolint:gosec
 	TokenTypeRefreshToken TokenType = "unikorn-cloud.org/rt+jwt"
+
+	// TokenTypeUserSignupToken is defined to prevent reuse in other contexts.
+	// This is only valid for user signup emails.
+	//nolint:gosec
+	TokenTypeUserSignupToken TokenType = "unikorn-cloud.org/userSignup+jwt"
 )
 
 // EncodeJWEToken encodes, signs and encrypts as set of claims.

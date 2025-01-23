@@ -18,12 +18,10 @@ limitations under the License.
 package oauth2
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
-	_ "embed"
 	"encoding/base64"
 	goerrors "errors"
 	"fmt"
@@ -31,7 +29,6 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -43,6 +40,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/util/retry"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/html"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
@@ -195,43 +193,21 @@ type Code struct {
 	OAuth2Provider string `json:"oap"`
 }
 
-var (
-	// errorTemplate defines the HTML used to raise an error to the client.
-	//go:embed error.tmpl
-	errorTemplate string
-
-	// loginTemplate defines the HTML used to acquire an email address from
-	// the end user.
-	//go:embed login.tmpl
-	loginTemplate string
-)
-
 // htmlError is used in dire situations when we cannot return an error via
 // the usual oauth2 flow.
 func htmlError(w http.ResponseWriter, r *http.Request, status int, description string) {
 	log := log.FromContext(r.Context())
 
+	body, err := html.Error("oauth2 error", description)
+	if err != nil {
+		log.Info("oauth2: failed to generate error page", "error", err)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(status)
 
-	tmpl, err := template.New("error").Parse(errorTemplate)
-	if err != nil {
-		log.Info("oauth2: failed to parse template", "error", err)
-		return
-	}
-
-	templateContext := map[string]interface{}{
-		"description": description,
-	}
-
-	var buffer bytes.Buffer
-
-	if err := tmpl.Execute(&buffer, templateContext); err != nil {
-		log.Info("oauth2: failed to render template", "error", err)
-		return
-	}
-
-	if _, err := w.Write(buffer.Bytes()); err != nil {
+	if _, err := w.Write(body); err != nil {
 		log.Info("oauth2: failed to write HTML response")
 	}
 }
@@ -431,28 +407,18 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Otherwise use the internal version.
-	tmpl, err := template.New("login").Parse(loginTemplate)
+	body, err := html.Login(loginQuery.Encode())
 	if err != nil {
-		log.Info("oauth2: failed to parse template", "error", err)
-		return
-	}
-
-	templateContext := map[string]interface{}{
-		"state": loginQuery.Encode(),
-	}
-
-	var buffer bytes.Buffer
-
-	if err := tmpl.Execute(&buffer, templateContext); err != nil {
-		log.Info("oauth2: failed to render template", "error", err)
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to render login template")
 		return
 	}
 
 	w.Header().Set("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 
-	if _, err := w.Write(buffer.Bytes()); err != nil {
+	if _, err := w.Write(body); err != nil {
 		log.Info("oauth2: failed to write HTML response")
+		return
 	}
 }
 
@@ -940,6 +906,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Subject:  code.IDToken.OIDCClaimsEmail.Email,
+		ClientID: code.ClientID,
 		Federated: &Federated{
 			Provider:    code.OAuth2Provider,
 			Expiry:      code.AccessTokenExpiry,
@@ -1034,6 +1001,7 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Subject:  claims.Claims.Subject,
+		ClientID: claims.Custom.ClientID,
 		Federated: &Federated{
 			Provider:    claims.Custom.Provider,
 			Expiry:      providerTokens.Expiry,
