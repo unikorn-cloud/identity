@@ -1067,6 +1067,7 @@ components:
       enum:
       - google
       - microsoft
+      - github
     oauth2ProviderSpec:
       description: An oauth2 provider.
       type: object
