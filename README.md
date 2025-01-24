@@ -4,9 +4,7 @@
 ![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/logo.svg#gh-light-mode-only)
 
 Unikorn's Identity Provider.
-This package provides an OIDC compliant server, that federates other OIDC compliant backends.
-
-Users are designed to be ephemeral, thus requiring no state management, no databases and result in a component that can be horizontally scaled trivially.
+This package provides an OIDC compliant server, that federates other OIDC and oauth2 compliant backends.
 
 ## Architecture
 
@@ -36,23 +34,37 @@ You can _bring your own_ by providing:
 
 Providers may have a supported driver build into the identity service that allows groups to be read from the identity provider for use in group mapping.
 
+By default Unikorn Identity supports:
+
+* Google Workspace
+* Microsoft Entra
+* GitHub
+
+### Users
+
+Users are records that record a user in the system.
+Rather than allow ephemeral users directly from federated identity provider, these records allow more flexibility in user handling.
+For example, they can record a user's status, where by they can be disabled (without disassociating any group memberships, but they aren't allowed access to the organization), or in a pending state (to allow email verification).
+
+Further reading:
+
+* [Email Notifications and User Verification](#email-notifications-and-user-verification)
+
 ### Groups
 
 Every organization SHOULD have some groups, as it's useless without them.
 Groups define a set of users that belong to them, and a set of roles associated with that group.
 
-Users can be included explicitly, implicitly, or a mixture of both.
-Explicit users are simply added to a list within the group, the user name MUST be the user's canonical name (as returned by the _id\_token_ after authentication), and not an alias.
-Implicit users are defined by an identity provider group, and are generally easier to govern for large organization.
+Users are simply added to a list within the group, the user name MUST be the user's canonical name (as returned by the _id\_token_ after authentication), and not an alias.
+Supporting aliases would require intrusive API requests against identity providers to list them.
 
 There are no constraints on which users can belong to any group, thus enabling - for example - an external contractor to be added, or a user to be a member of multiple organizations.
 
-When a user is part of an organization group, it can discover that organization.
-Any user is not part of an organization will be denied entry to the system, and require either adding to a new organization via a back-channel (e.g. customer onboarding), or adding by an organization admin.
+Any user is not part of an organization will be denied entry to the system (Dy default), and require either adding to an organization via a back-channel (e.g. customer onboarding), or adding by an organization admin.
 
 ### Roles
 
-Every group SHOULD have at last one role.
+Every group MUST have at least one role.
 
 We define a number of default roles, but the system is flexible enough to have any arbitrary roles.
 
@@ -63,6 +75,10 @@ The `user` role cannot modify anything defined by the identity service, it's onl
 Users SHOULD have additional permissions defined for external services, e.g. provisioning and management of compute infrastructure.
 
 The `reader` is similar to the `user` but allows read only access, typically used by billing and auditing teams.
+
+[!NOTE]
+> If you do define external 3rd party roles, you will be responsible for removing any references to them from groups on deletion.
+> Failure to do so will result in dangling references, an inconsistency and an error condition.
 
 ### Projects
 
@@ -81,37 +97,43 @@ It features service discovery for simple configuration, and the login hint exten
 
 To enable a client, you will need to create a `oauth2client` resource in the identity service namespace, featuring the client ID (must be unique, typically you can use `uuidgen` for this), and an OIDC callback URI.
 
-Optionally you can override the branding with a custom login URL callback too.
-See the [reference implementation](pkg/oauth2/login.tmpl) for the interface.
+Optionally you can override the branding with a custom login and error URL callback too.
+These are available on the `OAuth2Client` data type.
+See the reference implementation [login](https://github.com/unikorn-cloud/ui/tree/main/src/routes/login) and [error](https://github.com/unikorn-cloud/ui/tree/main/src/routes/error) pages for the interface.
+
+### Authentication
+
+Authentication is handled in a few different ways:
+
+* OIDC authorization code flow (for typical users via a browser).
+* Service accounts (that issue long lived access tokens).
+* System accounts secured by X.509 (used by Unikorn services to talk to one another).
+
+Service endpoints that users directly interact with will use token introspection against he Identity service to authenticate a user, then retrieve and ACL to authorize the request.
+
+Services that act on behalf of an end user will use X.509 to retrieve an access token, then when interacting with downstream services will have that token authenticated and authorized in exactly the same way as with end user tokens.
 
 ### RBAC
 
-The identity service provides centralized role based access control to the unikorn suite of services.
+The identity service provides centralized role based access control to the Unikorn suite of services.
 As described previously, roles can be arbitrary and apply to services outside of the identity service.
 
-A role is composed of a set of arbitrary scopes, that typically define an API end point group e.g. clusters or projects.
-Within a scope is a set of permissions; create, read, update and delete (i.e. CRUD).
+A role is composed of a set of arbitrary endpoint scopes, that typically define an API endpoint group e.g. `kubernetes:clusters` or `identity:projects`.
+Within an endpoint scope is a set of permissions; `create`, `read`, `update` and `delete` (i.e. CRUD).
 
-As everything should be scoped to an organization, with the exception of organization discovery etc, you can poll an API on the organization requesting an access control list (ACL).
-An ACL is a list of all projects that the user if a member of within that organization, and each project contains a union of all the scopes and CRUD permissions granted within that project.
+Endpoint scopes are grouped by identity scopes, `global` scopes affect all resources on the platform, `organization` scopes are limited to an organization and `project` scopes are limited to specific projects.
 
-The ACL can be used to:
+The API provides access to an access control list (ACL) which contains global scopes, organization scopes for the selected organization, and project scopes within that organization.
+
+The ACL is used to:
 
 * Control API access to endpoint resources.
 * Drive UI views tailored to what actions the user can actually perform.
 
-There is a special shortcut for a "super admin" user, who as a platform administrator can see and do anything.
-
 ### Scoping
 
-Further to basic RBAC and ACLs, a second API details what the user can see.
-
-For example, you may want to view all resource of one type within the organization as an overview.
-You need to only be returned resources that belong to projects you have read access to.
-
-Typically this information is used to construct label selectors for Unikorn services.
-
-This functionality piggy-backs on the `userinfo` OIDC API, but don't rely on that, instead a shared library provided by Unikorn Core should be used to provide this functionality in your services.
+Some APIs e.g. listing Kubernetes clusters within an organization, are implicitly scoped.
+These will return all clusters if you have global or organization scoped cluster read access, or only those resources that exist in projects you have cluster read access to.
 
 ## Integration with Other Services
 
@@ -215,7 +237,7 @@ Deploy:
 helm update --install --namespace unikorn-identity unikorn-identity/unikorn-identity -f values.yaml
 ```
 
-### Email Notifications
+### Email Notifications and User Verification
 
 Identity supports a mode of operation where new user accounts need to be verified before they can be made active.
 First you will need to configure SMTP.
@@ -314,5 +336,5 @@ kubectl unikorn create group \
 
 ## What Next?
 
-As you've noted, objects are named based on UUIDs, therefore administration is somewhat counterintuitive, but it does allow names to be mutable.
+As you've noted, objects are named based on UUIDs, therefore administration is somewhat counter intuitive, but it does allow names to be mutable.
 For ease of management we recommend installing the [UI](https://github.com/unikorn-cloud/ui)
