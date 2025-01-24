@@ -59,6 +59,7 @@ const (
 
 // Defines values for Oauth2ProviderType.
 const (
+	Github    Oauth2ProviderType = "github"
 	Google    Oauth2ProviderType = "google"
 	Microsoft Oauth2ProviderType = "microsoft"
 )
