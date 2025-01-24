@@ -19,28 +19,17 @@ package providers
 import (
 	"context"
 
-	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/types"
+	"golang.org/x/oauth2"
+
+	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
 )
 
 type Provider interface {
-	// AuthorizationRequestParameters allows the autorization request parameters
-	// to be tweaked on a per-provider basis.
-	AuthorizationRequestParameters() map[string]string
-
-	// Scopes returns a set of scopes that are required by the access token
-	// to operate correctly.
-	Scopes() []string
-
-	// RequiresAccessToken defines whether the access and refresh tokens are
-	// required for operation.
-	// TODO: this is because Microsoft's tokens are massive and blow nginx's
-	// request size limit (4096).  We really need to cache these securely and
-	// internally so we don't have to pass them around.  For example hand to
-	// the client an ID and private key that can decrpyt from storage, in memory
-	// on demand.
-	RequiresAccessToken() bool
-
-	// Groups returns a list of groups the user belongs to.
-	Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error)
+	// Config returns an oauth2 configuration.
+	Config(ctx context.Context, parameters *types.ConfigParameters) (*oauth2.Config, error)
+	// Authorization gets the oauth2 authorization URL.
+	AuthorizationURL(config *oauth2.Config, parameters *types.AuthorizationParamters) (string, error)
+	// CodeExchange exchanges a code with an oauth2 server and returns a (possibly emulated) OIDC ID token.
+	CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error)
 }

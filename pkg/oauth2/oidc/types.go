@@ -14,16 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package oauth2
+package oidc
 
 import (
 	"github.com/go-jose/go-jose/v3/jwt"
 )
 
-// OIDCClaims are claims defined by OIDC to be in an id_token.
+// Default are claims defined by default for an id_token.
 //
 //nolint:tagliatelle
-type OIDCClaims struct {
+type Default struct {
 	// Nonce should match the nonce provided by the client at authorization
 	// time and should be verfified against the original nonce.
 	Nonce string `json:"nonce,omitempty"`
@@ -32,11 +32,11 @@ type OIDCClaims struct {
 	ATHash string `json:"at_hash,omitempty"`
 }
 
-// OIDCClaimsProfile are claims that may be returned by requesting the
+// Profile are claims that may be returned by requesting the
 // profile scope.
 //
 //nolint:tagliatelle
-type OIDCClaimsProfile struct {
+type Profile struct {
 	// Name is the user's full name.
 	Name string `json:"name,omitempty"`
 	// GivenName is the user's forename.
@@ -68,11 +68,11 @@ type OIDCClaimsProfile struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-// OIDCClaimsEmail are claims that make be returned by requesting the
+// Email are claims that make be returned by requesting the
 // email scope.
 //
 //nolint:tagliatelle
-type OIDCClaimsEmail struct {
+type Email struct {
 	// Email is the user's email address.
 	Email string `json:"email,omitempty"`
 	// EmailVerified indicates whether this email address has been verified
@@ -80,14 +80,14 @@ type OIDCClaimsEmail struct {
 	EmailVerified bool `json:"email_verified,omitempty"`
 }
 
-// IDToken defines an OIDC id_token.
+// IDToken defines an  id_token.
 type IDToken struct {
 	// Claims are the standard claims expected in a JWT.
 	jwt.Claims `json:",inline"`
-	// OIDC claims are claims defined by OIDC to be in an id_token.
-	OIDCClaims `json:",inline"`
-	// OIDCClaimsProfile are claims returned by the "profile" scope.
-	OIDCClaimsProfile `json:",inline"`
-	// OIDCClaimsEmail are claims returned by the "email" scope.
-	OIDCClaimsEmail `json:",inline"`
+	// Default are claims defined by default for an id_token.
+	Default `json:",inline"`
+	// Profile are claims returned by the "profile" scope.
+	Profile `json:",inline"`
+	// Email are claims returned by the "email" scope.
+	Email `json:",inline"`
 }

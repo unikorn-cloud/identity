@@ -19,8 +19,10 @@ package providers
 import (
 	"context"
 
-	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/types"
+	"golang.org/x/oauth2"
+
+	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
 )
 
 // nullProvider does nothing.
@@ -30,18 +32,16 @@ func newNullProvider() Provider {
 	return &nullProvider{}
 }
 
-func (*nullProvider) AuthorizationRequestParameters() map[string]string {
-	return nil
+func (*nullProvider) Config(ctx context.Context, parameters *types.ConfigParameters) (*oauth2.Config, error) {
+	_, config, err := oidc.Config(ctx, parameters, nil)
+
+	return config, err
 }
 
-func (*nullProvider) Scopes() []string {
-	return nil
+func (*nullProvider) AuthorizationURL(config *oauth2.Config, parameters *types.AuthorizationParamters) (string, error) {
+	return oidc.Authorization(config, parameters, nil)
 }
 
-func (*nullProvider) RequiresAccessToken() bool {
-	return false
-}
-
-func (*nullProvider) Groups(ctx context.Context, organization *unikornv1.Organization, accessToken string) ([]types.Group, error) {
-	return nil, nil
+func (*nullProvider) CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error) {
+	return oidc.CodeExchange(ctx, parameters)
 }

@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package google
+package microsoft
 
 import (
 	"context"
 
+	gooidc "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
 	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
@@ -32,23 +33,23 @@ func New() *Provider {
 }
 
 func (*Provider) Config(ctx context.Context, parameters *types.ConfigParameters) (*oauth2.Config, error) {
+	// Handle non-stardard issuers.
+	ctx = gooidc.InsecureIssuerURLContext(ctx, "https://login.microsoftonline.com/{tenantid}/v2.0")
+
 	_, config, err := oidc.Config(ctx, parameters, nil)
 
 	return config, err
 }
 
 func (*Provider) AuthorizationURL(config *oauth2.Config, parameters *types.AuthorizationParamters) (string, error) {
-	// This grants us access to a refresh token.
-	// See: https://developers.google.com/identity/openid-connect/openid-connect#access-type-param
-	// And: https://stackoverflow.com/questions/10827920/not-receiving-google-oauth-refresh-token
-	requestParameters := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("prompt", "consent"),
-		oauth2.SetAuthURLParam("access_type", "offline"),
-	}
-
-	return oidc.Authorization(config, parameters, requestParameters)
+	return oidc.Authorization(config, parameters, nil)
 }
 
 func (*Provider) CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error) {
+	// Handle non-stardard issuers.
+	ctx = gooidc.InsecureIssuerURLContext(ctx, "https://login.microsoftonline.com/{tenantid}/v2.0")
+
+	parameters.SkipIssuerCheck = true
+
 	return oidc.CodeExchange(ctx, parameters)
 }

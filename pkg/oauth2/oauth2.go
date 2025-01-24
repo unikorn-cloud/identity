@@ -23,28 +23,26 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
-	"encoding/json"
 	goerrors "errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
 	"time"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	"github.com/unikorn-cloud/core/pkg/util/retry"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/html"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	"github.com/unikorn-cloud/identity/pkg/util"
@@ -59,7 +57,6 @@ var (
 	ErrUnsupportedProviderType = goerrors.New("unhandled provider type")
 	ErrReference               = goerrors.New("resource reference error")
 	ErrUserNotDomainMapped     = goerrors.New("user is not domain mapped to an organization")
-	ErrEmailLookup             = goerrors.New("failed to lookup email")
 )
 
 type Options struct {
@@ -145,7 +142,7 @@ type State struct {
 	Nonce string `json:"n"`
 	// Code verfier is required to prove our identity when
 	// exchanging the code with the token endpoint.
-	CodeVerfier string `json:"cv"`
+	CodeVerifier string `json:"cv"`
 	// OAuth2Provider is the name of the provider configuration in
 	// use, this will reference the issuer and allow discovery.
 	OAuth2Provider string `json:"oap"`
@@ -186,11 +183,7 @@ type Code struct {
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
 	// IDToken is the full set of claims returned by the provider.
-	IDToken *IDToken `json:"idt"`
-	// AccessToken is the user's access token.
-	AccessToken string `json:"at"`
-	// RefreshToken is the users's refresh token.
-	RefreshToken string `json:"rt"`
+	IDToken *oidc.IDToken `json:"idt"`
 	// AccessTokenExpiry tells us how long the token will last for.
 	AccessTokenExpiry time.Time `json:"ate"`
 	// OAuth2Provider is the name of the provider configuration in
@@ -238,205 +231,6 @@ func (a *Authenticator) lookupClient(ctx context.Context, id string) (*unikornv1
 	}
 
 	return cli, nil
-}
-
-// OAuth2AuthorizationValidateNonRedirecting checks authorization request parameters
-// are valid that directly control the ability to redirect, and returns some helpful
-// debug in HTML.
-func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWriter, r *http.Request) (*unikornv1.OAuth2Client, bool) {
-	query := r.URL.Query()
-
-	if !query.Has("client_id") {
-		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
-
-		return nil, false
-	}
-
-	if !query.Has("redirect_uri") {
-		htmlError(w, r, http.StatusBadRequest, "redirect_uri is not specified")
-
-		return nil, false
-	}
-
-	client, err := a.lookupClient(r.Context(), query.Get("client_id"))
-	if err != nil {
-		htmlError(w, r, http.StatusBadRequest, "client_id does not exist")
-
-		return nil, false
-	}
-
-	if client.Spec.RedirectURI != query.Get("redirect_uri") {
-		htmlError(w, r, http.StatusBadRequest, "redirect_uri is invalid")
-
-		return nil, false
-	}
-
-	return client, true
-}
-
-// OAuth2AuthorizationValidateRedirecting checks autohorization request parameters after
-// the redirect URI has been validated.  If any of these fail, we redirect but with an
-// error query rather than a code for the client to pick up and run with.
-func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client) bool {
-	query := r.URL.Query()
-
-	var kind Error
-
-	var description string
-
-	switch {
-	case query.Get("response_type") != "code":
-		kind = ErrorUnsupportedResponseType
-		description = "response_type must be 'code'"
-	case query.Get("code_challenge_method") != "S256":
-		kind = ErrorInvalidRequest
-		description = "code_challenge_method must be 'S256'"
-	case query.Get("code_challenge") == "":
-		kind = ErrorInvalidRequest
-		description = "code_challenge must be specified"
-	default:
-		return true
-	}
-
-	authorizationError(w, r, client.Spec.RedirectURI, kind, description)
-
-	return false
-}
-
-// useOauth2 is a quick hack, we should probably encode this as part of the CRD?
-func useOauth2(provider *unikornv1.OAuth2Provider) bool {
-	if provider.Spec.Type != nil && *provider.Spec.Type == unikornv1.GitHub {
-		return true
-	}
-
-	return false
-}
-
-// oidcConfig returns a oauth2 configuration for the OIDC backend.
-func oidcConfig(ctx context.Context, host string, provider *unikornv1.OAuth2Provider, scopes []string) (*oidc.Provider, *oauth2.Config, error) {
-	// Do service disocvery.
-	oidcProvider, err := newOIDCProvider(ctx, provider)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	endpoint := oidcProvider.Endpoint()
-
-	config := oauth2Config(host, provider, &endpoint, slices.Concat([]string{oidc.ScopeOpenID, "profile", "email"}, scopes))
-
-	return oidcProvider, config, nil
-}
-
-// oauth2Config returns an oauth2 configuration for the oauth2 only backend.
-func oauth2Config(host string, provider *unikornv1.OAuth2Provider, endpoint *oauth2.Endpoint, scopes []string) *oauth2.Config {
-	config := &oauth2.Config{
-		ClientID:     provider.Spec.ClientID,
-		ClientSecret: provider.Spec.ClientSecret,
-		RedirectURL:  "https://" + host + "/oidc/callback",
-		Scopes:       scopes,
-	}
-
-	if endpoint != nil {
-		config.Endpoint = *endpoint
-	}
-
-	if provider.Spec.AuthorizationURI != nil && provider.Spec.TokenURI != nil {
-		config.Endpoint.AuthURL = *provider.Spec.AuthorizationURI
-		config.Endpoint.TokenURL = *provider.Spec.TokenURI
-	}
-
-	return config
-}
-
-// encodeCodeChallengeS256 performs code verifier to code challenge translation
-// for the SHA256 method.
-func encodeCodeChallengeS256(codeVerifier string) string {
-	hash := sha256.Sum256([]byte(codeVerifier))
-
-	return base64.RawURLEncoding.EncodeToString(hash[:])
-}
-
-// randomString creates size bytes of high entropy randomness and base64 URL
-// encodes it into a string.  Bear in mind base64 expands the size by 33%, so for example
-// an oauth2 code verifier needs to be at least 43 bytes, so youd nee'd a size of 32,
-// 32 * 1.33 = 42.66.
-func randomString(size int) (string, error) {
-	buf := make([]byte, size)
-
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-
-	return base64.RawURLEncoding.EncodeToString(buf), nil
-}
-
-type LoginStateClaims struct {
-	Query string `json:"query"`
-}
-
-// Authorization redirects the client to the OIDC autorization endpoint
-// to get an authorization code.  Note that this function is responsible for
-// either returning an authorization grant or error via a HTTP 302 redirect,
-// or returning a HTML fragment for errors that cannot follow the provided
-// redirect URI.
-func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
-	log := log.FromContext(r.Context())
-
-	query := r.URL.Query()
-
-	client, ok := a.authorizationValidateNonRedirecting(w, r)
-	if !ok {
-		return
-	}
-
-	if !a.authorizationValidateRedirecting(w, r, client) {
-		return
-	}
-
-	// Encrypt the query across the login dialog to prevent tampering.
-	stateClaims := &LoginStateClaims{
-		Query: query.Encode(),
-	}
-
-	state, err := a.issuer.EncodeJWEToken(r.Context(), stateClaims, jose.TokenTypeLoginDialogState)
-	if err != nil {
-		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to encode request state")
-		return
-	}
-
-	supportedTypes, err := a.getProviderTypes(r.Context())
-	if err != nil {
-		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to get oauth2 providers")
-		return
-	}
-
-	loginQuery := url.Values{}
-
-	loginQuery.Set("state", state)
-	loginQuery.Set("callback", "https://"+r.Host+"/oauth2/v2/login")
-	// TODO: this needs to be driven by the available oauth2providers
-	loginQuery.Set("providers", strings.Join(supportedTypes, " "))
-
-	// Redirect to an external login handler, if you have chosen to.
-	if client.Spec.LoginURI != nil {
-		http.Redirect(w, r, fmt.Sprintf("%s?%s", *client.Spec.LoginURI, loginQuery.Encode()), http.StatusFound)
-		return
-	}
-
-	// Otherwise use the internal version.
-	body, err := html.Login(loginQuery.Encode())
-	if err != nil {
-		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to render login template")
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-
-	if _, err := w.Write(body); err != nil {
-		log.Info("oauth2: failed to write HTML response")
-		return
-	}
 }
 
 // lookupOrganization maps from an email address to an organization, this handles
@@ -544,20 +338,163 @@ func (a *Authenticator) lookupProviderByID(ctx context.Context, id string, organ
 	return provider, nil
 }
 
-// newOIDCProvider abstracts away any hacks for specific providers.
-func newOIDCProvider(ctx context.Context, p *unikornv1.OAuth2Provider) (*oidc.Provider, error) {
-	if p.Spec.Type != nil && *p.Spec.Type == unikornv1.MicrosoftEntra {
-		ctx = oidc.InsecureIssuerURLContext(ctx, "https://login.microsoftonline.com/{tenantid}/v2.0")
+// OAuth2AuthorizationValidateNonRedirecting checks authorization request parameters
+// are valid that directly control the ability to redirect, and returns some helpful
+// debug in HTML.
+func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWriter, r *http.Request) (*unikornv1.OAuth2Client, bool) {
+	query := r.URL.Query()
+
+	if !query.Has("client_id") {
+		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
+
+		return nil, false
 	}
 
-	return oidc.NewProvider(ctx, p.Spec.Issuer)
+	if !query.Has("redirect_uri") {
+		htmlError(w, r, http.StatusBadRequest, "redirect_uri is not specified")
+
+		return nil, false
+	}
+
+	client, err := a.lookupClient(r.Context(), query.Get("client_id"))
+	if err != nil {
+		htmlError(w, r, http.StatusBadRequest, "client_id does not exist")
+
+		return nil, false
+	}
+
+	if client.Spec.RedirectURI != query.Get("redirect_uri") {
+		htmlError(w, r, http.StatusBadRequest, "redirect_uri is invalid")
+
+		return nil, false
+	}
+
+	return client, true
+}
+
+// OAuth2AuthorizationValidateRedirecting checks autohorization request parameters after
+// the redirect URI has been validated.  If any of these fail, we redirect but with an
+// error query rather than a code for the client to pick up and run with.
+func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client) bool {
+	query := r.URL.Query()
+
+	var kind Error
+
+	var description string
+
+	switch {
+	case query.Get("response_type") != "code":
+		kind = ErrorUnsupportedResponseType
+		description = "response_type must be 'code'"
+	case query.Get("code_challenge_method") != "S256":
+		kind = ErrorInvalidRequest
+		description = "code_challenge_method must be 'S256'"
+	case query.Get("code_challenge") == "":
+		kind = ErrorInvalidRequest
+		description = "code_challenge must be specified"
+	default:
+		return true
+	}
+
+	authorizationError(w, r, client.Spec.RedirectURI, kind, description)
+
+	return false
+}
+
+// encodeCodeChallengeS256 performs code verifier to code challenge translation
+// for the SHA256 method.
+func encodeCodeChallengeS256(codeVerifier string) string {
+	hash := sha256.Sum256([]byte(codeVerifier))
+
+	return base64.RawURLEncoding.EncodeToString(hash[:])
+}
+
+// randomString creates size bytes of high entropy randomness and base64 URL
+// encodes it into a string.  Bear in mind base64 expands the size by 33%, so for example
+// an oauth2 code verifier needs to be at least 43 bytes, so you'd need a size of 32,
+// 32 * 1.33 = 42.66.
+func randomString(size int) (string, error) {
+	buf := make([]byte, size)
+
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+// LoginStateClaims are used to encrypt information across the login dialog.
+type LoginStateClaims struct {
+	Query string `json:"query"`
+}
+
+// Authorization redirects the client to the OIDC autorization endpoint
+// to get an authorization code.  Note that this function is responsible for
+// either returning an authorization grant or error via a HTTP 302 redirect,
+// or returning a HTML fragment for errors that cannot follow the provided
+// redirect URI.
+func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
+	log := log.FromContext(r.Context())
+
+	query := r.URL.Query()
+
+	client, ok := a.authorizationValidateNonRedirecting(w, r)
+	if !ok {
+		return
+	}
+
+	if !a.authorizationValidateRedirecting(w, r, client) {
+		return
+	}
+
+	// Encrypt the query across the login dialog to prevent tampering.
+	stateClaims := &LoginStateClaims{
+		Query: query.Encode(),
+	}
+
+	state, err := a.issuer.EncodeJWEToken(r.Context(), stateClaims, jose.TokenTypeLoginDialogState)
+	if err != nil {
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to encode request state")
+		return
+	}
+
+	supportedTypes, err := a.getProviderTypes(r.Context())
+	if err != nil {
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to get oauth2 providers")
+		return
+	}
+
+	loginQuery := url.Values{}
+
+	loginQuery.Set("state", state)
+	loginQuery.Set("callback", "https://"+r.Host+"/oauth2/v2/login")
+	loginQuery.Set("providers", strings.Join(supportedTypes, " "))
+
+	// Redirect to an external login handler, if you have chosen to.
+	if client.Spec.LoginURI != nil {
+		http.Redirect(w, r, fmt.Sprintf("%s?%s", *client.Spec.LoginURI, loginQuery.Encode()), http.StatusFound)
+		return
+	}
+
+	// Otherwise use the internal version.
+	body, err := html.Login(loginQuery.Encode())
+	if err != nil {
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "failed to render login template")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+
+	if _, err := w.Write(body); err != nil {
+		log.Info("oauth2: failed to write HTML response")
+		return
+	}
 }
 
 // providerAuthenticationRequest takes a client provided email address and routes it
 // to the correct identity provider, if we can.
-func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client, providerResource *unikornv1.OAuth2Provider, query url.Values, email string) {
-	driver := providers.New(providerResource.Spec.Type)
-
+func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client, provider *unikornv1.OAuth2Provider, query url.Values, email string) {
 	// OIDC requires a nonce, just some random data base64 URL encoded will suffice.
 	nonce, err := randomString(16)
 	if err != nil {
@@ -579,9 +516,9 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 	// requires persistent state at the minimum, and a database in the case of multi-head
 	// deployments, just encrypt it and send with the authoriation request.
 	oidcState := &State{
-		OAuth2Provider:      providerResource.Name,
+		OAuth2Provider:      provider.Name,
 		Nonce:               nonce,
-		CodeVerfier:         codeVerifier,
+		CodeVerifier:        codeVerifier,
 		ClientID:            query.Get("client_id"),
 		ClientRedirectURI:   query.Get("redirect_uri"),
 		ClientState:         query.Get("state"),
@@ -603,36 +540,33 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		return
 	}
 
-	// Take a short cut if using oauth2.
-	if useOauth2(providerResource) {
-		http.Redirect(w, r, oauth2Config(r.Host, providerResource, nil, nil).AuthCodeURL(state), http.StatusFound)
-		return
+	driver := providers.New(provider.Spec.Type)
+
+	configParameters := &types.ConfigParameters{
+		Host:     r.Host,
+		Provider: provider,
 	}
 
-	// Otherwise handle OIDC via endpoint discovery.
-	_, config, err := oidcConfig(r.Context(), r.Host, providerResource, driver.Scopes())
+	config, err := driver.Config(r.Context(), configParameters)
 	if err != nil {
-		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "unable to create oauth2 configuration: "+err.Error())
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "unable to create oauth2 config: "+err.Error())
 		return
 	}
 
-	authURLParams := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("code_challenge", encodeCodeChallengeS256(codeVerifier)),
-		oidc.Nonce(nonce),
+	parameters := &types.AuthorizationParamters{
+		Nonce:         nonce,
+		State:         state,
+		CodeChallenge: encodeCodeChallengeS256(codeVerifier),
+		Email:         email,
 	}
 
-	// If the user provided an email as part of the loging screen, send that to the IdP to
-	// optimize the process.
-	if email != "" {
-		authURLParams = append(authURLParams, oauth2.SetAuthURLParam("login_hint", email))
+	url, err := driver.AuthorizationURL(config, parameters)
+	if err != nil {
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorServerError, "unable to create oauth2 redirect: "+err.Error())
+		return
 	}
 
-	for k, v := range driver.AuthorizationRequestParameters() {
-		authURLParams = append(authURLParams, oauth2.SetAuthURLParam(k, v))
-	}
-
-	http.Redirect(w, r, config.AuthCodeURL(state, authURLParams...), http.StatusFound)
+	http.Redirect(w, r, url, http.StatusFound)
 }
 
 // Login handles the response from the user login prompt.
@@ -670,6 +604,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Handle the case where the provider is explicitly specified.
 	if providerType := r.Form.Get("provider"); providerType != "" {
 		provider, err := a.lookupProviderByType(r.Context(), unikornv1.IdentityProviderType(providerType))
 		if err != nil {
@@ -682,6 +617,7 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Otherwise we need to infer the provider.
 	email := r.Form.Get("email")
 
 	if email == "" {
@@ -702,209 +638,6 @@ func (a *Authenticator) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.providerAuthenticationRequest(w, r, client, provider, query, email)
-}
-
-// oidcExtractIDToken wraps up token verification against the JWKS service and conversion
-// to a concrete type.
-func (a *Authenticator) oidcExtractIDToken(ctx context.Context, provider *oidc.Provider, providerResource *unikornv1.OAuth2Provider, token string) (*oidc.IDToken, error) {
-	config := &oidc.Config{
-		ClientID: providerResource.Spec.ClientID,
-		// TODO: this is a Entra-ism
-		SkipIssuerCheck: true,
-	}
-
-	idTokenVerifier := provider.Verifier(config)
-
-	idToken, err := idTokenVerifier.Verify(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return idToken, nil
-}
-
-//nolint:tagliatelle
-type GitHubUser struct {
-	Name      string `json:"name"`
-	AvatarURL string `json:"avatar_url"`
-}
-
-type GitHubEmail struct {
-	Email    string `json:"email"`
-	Verified bool   `json:"verified"`
-	Primary  bool   `json:"primary"`
-}
-
-const githubAPIBase = "https://api.github.com"
-
-type GitHubClient struct {
-	token string
-}
-
-func NewGitHubClient(token string) *GitHubClient {
-	return &GitHubClient{
-		token: token,
-	}
-}
-
-func (g *GitHubClient) do(ctx context.Context, path string, data interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubAPIBase+path, nil)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("Authorization", "bearer "+g.token)
-	req.Header.Set("X-Github-Api-Version", "2022-11-28")
-
-	c := &http.Client{}
-
-	resp, err := c.Do(req)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(body, data); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (g *GitHubClient) GetUser(ctx context.Context) (*GitHubUser, error) {
-	user := &GitHubUser{}
-
-	if err := g.do(ctx, "/user", user); err != nil {
-		return nil, err
-	}
-
-	return user, nil
-}
-
-func (g *GitHubClient) GetEmails(ctx context.Context) ([]GitHubEmail, error) {
-	var emails []GitHubEmail
-
-	if err := g.do(ctx, "/user/emails", &emails); err != nil {
-		return nil, err
-	}
-
-	return emails, nil
-}
-
-func (g *GitHubClient) GetPrimaryEmail(ctx context.Context) (*GitHubEmail, error) {
-	emails, err := g.GetEmails(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	i := slices.IndexFunc(emails, func(email GitHubEmail) bool { return email.Primary })
-	if i < 0 {
-		return nil, ErrEmailLookup
-	}
-
-	return &emails[i], nil
-}
-
-func createGitHubIDToken(ctx context.Context, token string) (*IDToken, error) {
-	github := NewGitHubClient(token)
-
-	// User gives us information about the user...
-	user, err := github.GetUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// ...but not always an email address.
-	email, err := github.GetPrimaryEmail(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	out := &IDToken{
-		OIDCClaimsProfile: OIDCClaimsProfile{
-			Name:    user.Name,
-			Picture: user.AvatarURL,
-		},
-		OIDCClaimsEmail: OIDCClaimsEmail{
-			Email:         email.Email,
-			EmailVerified: email.Verified,
-		},
-	}
-
-	return out, nil
-}
-
-// oauth2CodeExchange exchanges a code with a plain oauth2 server.
-func (a *Authenticator) oauth2CodeExchange(ctx context.Context, provider *unikornv1.OAuth2Provider, host, code string) (*oauth2.Token, *IDToken, error) {
-	token, err := oauth2Config(host, provider, nil, nil).Exchange(ctx, code)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if provider.Spec.Type == nil || *provider.Spec.Type != unikornv1.GitHub {
-		return nil, nil, fmt.Errorf("%w: %v", ErrUnsupportedProviderType, provider.Spec.Type)
-	}
-
-	idToken, err := createGitHubIDToken(ctx, token.AccessToken)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return token, idToken, nil
-}
-
-// oidcCodeExchange exchanges a code with an IODC compliant server.
-func (a *Authenticator) oidcCodeExchange(ctx context.Context, provider *unikornv1.OAuth2Provider, state *State, host, code string) (*oauth2.Token, *IDToken, error) {
-	oidcProvider, config, err := oidcConfig(ctx, host, provider, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Exchange the code for an id_token, access_token and refresh_token with
-	// the extracted code verifier.
-	authURLParams := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("client_id", state.ClientID),
-		oauth2.SetAuthURLParam("code_verifier", state.CodeVerfier),
-	}
-
-	token, err := config.Exchange(ctx, code, authURLParams...)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	idTokenRaw, ok := token.Extra("id_token").(string)
-	if !ok {
-		return nil, nil, err
-	}
-
-	idToken, err := a.oidcExtractIDToken(ctx, oidcProvider, provider, idTokenRaw)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	idTokenClaims := &IDToken{}
-
-	if err := idToken.Claims(idTokenClaims); err != nil {
-		return nil, nil, err
-	}
-
-	return token, idTokenClaims, nil
-}
-
-// codeExchange exchanges a code with any server in an abstract way.
-func (a *Authenticator) codeExchange(ctx context.Context, provider *unikornv1.OAuth2Provider, state *State, host, code string) (*oauth2.Token, *IDToken, error) {
-	if useOauth2(provider) {
-		return a.oauth2CodeExchange(ctx, provider, host, code)
-	}
-
-	return a.oidcCodeExchange(ctx, provider, state, host, code)
 }
 
 // OIDCCallback is called by the authorization endpoint in order to return an
@@ -947,7 +680,16 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokens, idToken, err := a.codeExchange(r.Context(), provider, state, r.Host, query.Get("code"))
+	parameters := &types.CodeExchangeParameters{
+		ConfigParameters: types.ConfigParameters{
+			Host:     r.Host,
+			Provider: provider,
+		},
+		Code:         query.Get("code"),
+		CodeVerifier: state.CodeVerifier,
+	}
+
+	tokens, idToken, err := providers.New(provider.Spec.Type).CodeExchange(r.Context(), parameters)
 	if err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "code exchange failed: "+err.Error())
 		return
@@ -955,7 +697,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Only check rbac if we are not allowing unknown users.
 	if !a.options.AuthenticateUnknownUsers {
-		userExists, err := a.rbac.UserExists(r.Context(), idToken.Email)
+		userExists, err := a.rbac.UserExists(r.Context(), idToken.Email.Email)
 
 		if err != nil {
 			authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to perform RBAC user lookup: "+err.Error())
@@ -979,14 +721,6 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		OAuth2Provider:      state.OAuth2Provider,
 		IDToken:             idToken,
 		AccessTokenExpiry:   tokens.Expiry,
-	}
-
-	driver := providers.New(provider.Spec.Type)
-
-	// These can be big, see the provider comment for why.
-	if driver.RequiresAccessToken() {
-		oauth2Code.AccessToken = tokens.AccessToken
-		oauth2Code.RefreshToken = tokens.RefreshToken
 	}
 
 	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
@@ -1060,28 +794,28 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 		return nil, nil
 	}
 
-	claims := &IDToken{
+	claims := &oidc.IDToken{
 		Claims: jwt.Claims{
 			Issuer:  "https://" + r.Host,
-			Subject: code.IDToken.OIDCClaimsEmail.Email,
+			Subject: code.IDToken.Email.Email,
 			Audience: []string{
 				code.ClientID,
 			},
 			Expiry:   jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
-		OIDCClaims: OIDCClaims{
+		Default: oidc.Default{
 			Nonce:  code.ClientNonce,
 			ATHash: atHash,
 		},
 	}
 
 	if slices.Contains(code.ClientScope, "email") {
-		claims.OIDCClaimsEmail = code.IDToken.OIDCClaimsEmail
+		claims.Email = code.IDToken.Email
 	}
 
 	if slices.Contains(code.ClientScope, "profile") {
-		claims.OIDCClaimsProfile = code.IDToken.OIDCClaimsProfile
+		claims.Profile = code.IDToken.Profile
 	}
 
 	idToken, err := a.issuer.EncodeJWT(r.Context(), claims)
@@ -1112,17 +846,12 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	info := &IssueInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
-		Subject:  code.IDToken.OIDCClaimsEmail.Email,
+		Subject:  code.IDToken.Email.Email,
 		ClientID: code.ClientID,
 		Federated: &Federated{
-			Provider:    code.OAuth2Provider,
-			Expiry:      code.AccessTokenExpiry,
-			AccessToken: code.AccessToken,
+			Provider: code.OAuth2Provider,
+			Expiry:   code.AccessTokenExpiry,
 		},
-	}
-
-	if code.RefreshToken != "" {
-		info.Federated.RefreshToken = &code.RefreshToken
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -1147,39 +876,6 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	return result, nil
 }
 
-// tokenRefreshConfig selects the correct configuration for a token refresh.
-func tokenRefreshConfig(ctx context.Context, provider *unikornv1.OAuth2Provider, host string) (*oauth2.Config, error) {
-	if useOauth2(provider) {
-		return oauth2Config(host, provider, nil, nil), nil
-	}
-
-	var config *oauth2.Config
-
-	// Quality of life improvement, when you are a road-warrior, you are going
-	// to get an expired access token almost immediately, and a token refresh
-	// well before Wifi comes up, so allow retries while DNS errors are
-	// occurring, within reason.
-	callback := func() error {
-		_, c, err := oidcConfig(ctx, host, provider, nil)
-		if err != nil {
-			return err
-		}
-
-		config = c
-
-		return nil
-	}
-
-	retryContext, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	if err := retry.Forever().DoWithContext(retryContext, callback); err != nil {
-		return nil, err
-	}
-
-	return config, nil
-}
-
 // TokenRefreshToken issues a token if the provided refresh token is valid.
 func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
 	// Validate the refresh token and extract the claims.
@@ -1196,7 +892,12 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 		return nil, err
 	}
 
-	config, err := tokenRefreshConfig(r.Context(), provider, r.Host)
+	parameters := &types.ConfigParameters{
+		Host:     r.Host,
+		Provider: provider,
+	}
+
+	config, err := providers.New(provider.Spec.Type).Config(r.Context(), parameters)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to get oauth2 config").WithError(err)
 	}
