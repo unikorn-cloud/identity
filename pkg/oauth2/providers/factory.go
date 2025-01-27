@@ -18,7 +18,9 @@ package providers
 
 import (
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/github"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/google"
+	"github.com/unikorn-cloud/identity/pkg/oauth2/providers/microsoft"
 )
 
 func New(providerType *unikornv1.IdentityProviderType) Provider {
@@ -26,10 +28,13 @@ func New(providerType *unikornv1.IdentityProviderType) Provider {
 		return newNullProvider()
 	}
 
-	//nolint:gocritic,exhaustive
 	switch *providerType {
 	case unikornv1.GoogleIdentity:
 		return google.New()
+	case unikornv1.MicrosoftEntra:
+		return microsoft.New()
+	case unikornv1.GitHub:
+		return github.New()
 	}
 
 	return newNullProvider()
