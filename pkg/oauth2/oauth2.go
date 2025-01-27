@@ -182,6 +182,10 @@ type Code struct {
 	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
+	// AccessToken is the user's access token.
+	AccessToken string `json:"at"`
+	// RefreshToken is the users's refresh token.
+	RefreshToken string `json:"rt"`
 	// IDToken is the full set of claims returned by the provider.
 	IDToken *oidc.IDToken `json:"idt"`
 	// AccessTokenExpiry tells us how long the token will last for.
@@ -719,6 +723,8 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
 		OAuth2Provider:      state.OAuth2Provider,
+		AccessToken:         tokens.AccessToken,
+		RefreshToken:        tokens.RefreshToken,
 		IDToken:             idToken,
 		AccessTokenExpiry:   tokens.Expiry,
 	}
@@ -849,8 +855,10 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		Subject:  code.IDToken.Email.Email,
 		ClientID: code.ClientID,
 		Federated: &Federated{
-			Provider: code.OAuth2Provider,
-			Expiry:   code.AccessTokenExpiry,
+			Provider:     code.OAuth2Provider,
+			AccessToken:  code.AccessToken,
+			RefreshToken: code.RefreshToken,
+			Expiry:       code.AccessTokenExpiry,
 		},
 	}
 
@@ -918,20 +926,21 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 		return nil, err
 	}
 
+	if providerTokens.RefreshToken == "" {
+		return nil, errors.OAuth2ServerError("provider didn't supply a refresh token on refresh")
+	}
+
 	info := &IssueInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Subject:  claims.Claims.Subject,
 		ClientID: claims.Custom.ClientID,
 		Federated: &Federated{
-			Provider:    claims.Custom.Provider,
-			Expiry:      providerTokens.Expiry,
-			AccessToken: providerTokens.AccessToken,
+			Provider:     claims.Custom.Provider,
+			AccessToken:  providerTokens.AccessToken,
+			RefreshToken: providerTokens.RefreshToken,
+			Expiry:       providerTokens.Expiry,
 		},
-	}
-
-	if providerTokens.RefreshToken != "" {
-		info.Federated.RefreshToken = &providerTokens.RefreshToken
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
