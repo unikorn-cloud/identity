@@ -113,7 +113,7 @@ type Federated struct {
 	Provider     string
 	Expiry       time.Time
 	AccessToken  string
-	RefreshToken *string
+	RefreshToken string
 }
 
 // ServiceAccount is any information required to issue a service account access token.
@@ -225,7 +225,10 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 		Expiry:      expiry,
 	}
 
-	if info.Federated != nil && info.Federated.RefreshToken != nil {
+	// Only supply a refresh token if the provider provided one.  We can then
+	// guarantee that all calls to refresh will then reauthenticate against
+	// the provider.
+	if info.Federated != nil && info.Federated.RefreshToken != "" {
 		rtClaims := &RefreshTokenClaims{
 			Claims: jwt.Claims{
 				ID:      uuid.New().String(),
@@ -241,7 +244,7 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 			Custom: &CustomRefreshTokenClaims{
 				Provider:     info.Federated.Provider,
 				ClientID:     info.ClientID,
-				RefreshToken: *info.Federated.RefreshToken,
+				RefreshToken: info.Federated.RefreshToken,
 			},
 		}
 
