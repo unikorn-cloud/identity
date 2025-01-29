@@ -76,7 +76,7 @@ Users SHOULD have additional permissions defined for external services, e.g. pro
 
 The `reader` is similar to the `user` but allows read only access, typically used by billing and auditing teams.
 
-[!NOTE]
+> [!NOTE]
 > If you do define external 3rd party roles, you will be responsible for removing any references to them from groups on deletion.
 > Failure to do so will result in dangling references, an inconsistency and an error condition.
 
@@ -181,11 +181,9 @@ Most OIDC providers will be configured by creating an "Application".
 This will require the callback URI to be registered as trusted.
 The identity provider will give you an issuer or discovery endpoint, client ID and client secret for the following steps.
 
-**NOTE**: Only Google Identity and Microsoft Entra are currently supported.
-
-**NOTE**: Google Identity will need the Directory Service API enabling in the Cloud Console for RBAC integration.
-
-**NOTE**: Documentation for individual providers is provided by them.
+> [!NOTE]
+> Only Google Identity, Microsoft Entra and GitHub are currently supported.
+> Documentation for individual providers is provided by them.
 
 ### Installing the Service with Helm
 

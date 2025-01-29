@@ -21,10 +21,12 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
+	"github.com/unikorn-cloud/core/pkg/util/retry"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/common"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
 )
@@ -35,17 +37,37 @@ var (
 
 // Config returns a oauth2 configuration via service discovery.
 func Config(ctx context.Context, parameters *types.ConfigParameters, scopes []string) (*oidc.Provider, *oauth2.Config, error) {
-	oidcProvider, err := oidc.NewProvider(ctx, parameters.Provider.Spec.Issuer)
-	if err != nil {
+	var provider *oidc.Provider
+
+	callback := func() error {
+		p, err := oidc.NewProvider(ctx, parameters.Provider.Spec.Issuer)
+		if err != nil {
+			return err
+		}
+
+		provider = p
+
+		return nil
+	}
+
+	// The retry logic here is literally as a nicety for road-warriors whose
+	// internet is going to take a while to come up, during which time service
+	// discovery is going to fail.  The logic being your token will have expired
+	// while the laptop was off, and will immediately try and refresh.  The first
+	// API call as a result of that will be this.
+	retryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	if err := retry.Forever().DoWithContext(retryCtx, callback); err != nil {
 		return nil, nil, err
 	}
 
 	scopes = slices.Concat([]string{oidc.ScopeOpenID, "profile", "email"}, scopes)
 
 	config := common.Config(parameters, scopes)
-	config.Endpoint = oidcProvider.Endpoint()
+	config.Endpoint = provider.Endpoint()
 
-	return oidcProvider, config, nil
+	return provider, config, nil
 }
 
 // Authorization gets the oauth2 authorization URL.
@@ -67,7 +89,7 @@ func Authorization(config *oauth2.Config, parameters *types.AuthorizationParamte
 
 // CodeExchange exchanges a code with an OIDC compliant server.
 func CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *IDToken, error) {
-	oidcProvider, config, err := Config(ctx, &parameters.ConfigParameters, nil)
+	provider, config, err := Config(ctx, &parameters.ConfigParameters, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -94,7 +116,7 @@ func CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters)
 		SkipIssuerCheck: parameters.SkipIssuerCheck,
 	}
 
-	idToken, err := oidcProvider.Verifier(oidcConfig).Verify(ctx, idTokenRaw)
+	idToken, err := provider.Verifier(oidcConfig).Verify(ctx, idTokenRaw)
 	if err != nil {
 		return nil, nil, err
 	}
