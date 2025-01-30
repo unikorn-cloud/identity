@@ -35,6 +35,8 @@ type Info struct {
 	// the session, and can be used to route errors to the correct
 	// endpoint.
 	ClientID string
+	// ServiceAccount means this belongs explicitly to a service account.
+	ServiceAccount bool
 }
 
 type keyType int

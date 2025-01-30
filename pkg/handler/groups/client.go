@@ -61,6 +61,10 @@ func convert(in *unikornv1.Group) *openapi.GroupRead {
 		out.Spec.UserIDs = &in.Spec.UserIDs
 	}
 
+	if len(in.Spec.ServiceAccountIDs) > 0 {
+		out.Spec.ServiceAccountIDs = &in.Spec.ServiceAccountIDs
+	}
+
 	return out
 }
 
@@ -159,6 +163,10 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 
 	if in.Spec.UserIDs != nil {
 		out.Spec.UserIDs = *in.Spec.UserIDs
+	}
+
+	if in.Spec.ServiceAccountIDs != nil {
+		out.Spec.ServiceAccountIDs = *in.Spec.ServiceAccountIDs
 	}
 
 	return out, nil

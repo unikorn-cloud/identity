@@ -8,14 +8,16 @@ rules:
 - apiGroups:
   - identity.unikorn-cloud.org
   resources:
+  - allocations
+  - groups
   - oauth2clients
   - oauth2providers
   - organizations
-  - users
-  - serviceaccounts
-  - roles
-  - groups
   - projects
+  - quotas
+  - roles
+  - serviceaccounts
+  - users
   verbs:
   - list
   - watch
@@ -37,6 +39,7 @@ rules:
   resources:
   - secrets
   - configmaps
+  - namespaces
   verbs:
   - list
   - watch

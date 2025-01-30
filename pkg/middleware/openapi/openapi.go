@@ -201,7 +201,7 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// The organizationID parameter is standardized across all services.
 		// NOTE: this can legitimately be undefined, but the ACL code will handle
 		// that and only look for globally scoped roles.
-		acl, err := v.authorizer.GetACL(ctx, params["organizationID"], v.info.Userinfo.Sub)
+		acl, err := v.authorizer.GetACL(ctx, params["organizationID"])
 		if err != nil {
 			errors.HandleError(w, r, err)
 			return

@@ -20,6 +20,7 @@ package v1alpha1
 import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -334,4 +335,96 @@ type ServiceAccountSpec struct {
 }
 
 type ServiceAccountStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type QuotaList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Quota `json:"items"`
+}
+
+// Quota objects are defined per organization, and potentially in future subdivided
+// among projects that set limits on the quanity of arbitrary resources that can be
+// provisioned.  The resources themselves are completely arbitrary and can conceivably
+// be used by 3rd party integrations.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+type Quota struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              QuotaSpec   `json:"spec"`
+	Status            QuotaStatus `json:"status,omitempty"`
+}
+
+type QuotaSpec struct {
+	// Quotas are individual quotas.
+	// +listType=map
+	// +listMapKey=kind
+	Quotas []ResourceQuota `json:"quotas,omitempty"`
+}
+
+type ResourceQuota struct {
+	// Kind of resource e.g. "cluster" or "server".
+	Kind string `json:"kind"`
+	// Quantity of the resource, may be specified as an integer, a decimal
+	// multiple (e,g, 10M), or a binary multiple (e.g. 10Mi).
+	Quantity *resource.Quantity `json:"quantity"`
+}
+
+type QuotaStatus struct{}
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+type AllocationList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []Allocation `json:"items"`
+}
+
+const (
+	ReferencedResourceKindLabel = "resource.unikorn-cloud.org/kind"
+	ReferencedResourceIDLabel   = "resource.unikorn-cloud.org/id"
+)
+
+// Allocation objects are created for a resource, e.g. a cluster, on creation and
+// take up a slice of a quota's available resource quantities.  At no point in time
+// are the sum of all resource allocations within an organization allowed to exceed
+// the overall organization quota.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:printcolumn:name="kind",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/resource-kind']"
+// +kubebuilder:printcolumn:name="id",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/resource-id']"
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+type Allocation struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              AllocationSpec   `json:"spec"`
+	Status            AllocationStatus `json:"status,omitempty"`
+}
+
+type AllocationSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
+	// Allocations are individual resource allocations.
+	// +listType=map
+	// +listMapKey=kind
+	Allocations []ResourceAllocation `json:"allocations,omitempty"`
+}
+
+type ResourceAllocation struct {
+	// Kind of resource e.g. "cluster" or "server".
+	Kind string `json:"kind"`
+	// Committed resources are ones that are always present e.g. a baremetal server.
+	// This is a hard allocation.
+	Committed *resource.Quantity `json:"committed"`
+	// Reserved resources are ones that may or may not be present e.g. a server
+	// that's part of an autoscaling group.  This is a soft allocation and could
+	// potentially be used as overcommit or burst capacity.
+	Reserved *resource.Quantity `json:"reserved"`
+}
+
+type AllocationStatus struct {
 }

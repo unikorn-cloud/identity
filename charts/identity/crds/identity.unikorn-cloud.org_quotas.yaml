@@ -1,0 +1,78 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.3
+  name: quotas.identity.unikorn-cloud.org
+spec:
+  group: identity.unikorn-cloud.org
+  names:
+    categories:
+    - unikorn
+    kind: Quota
+    listKind: QuotaList
+    plural: quotas
+    singular: quota
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Quota objects are defined per organization, and potentially in future subdivided
+          among projects that set limits on the quanity of arbitrary resources that can be
+          provisioned.  The resources themselves are completely arbitrary and can conceivably
+          be used by 3rd party integrations.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              quotas:
+                description: Quotas are individual quotas.
+                items:
+                  properties:
+                    kind:
+                      description: Kind of resource e.g. "cluster" or "server".
+                      type: string
+                    quantity:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: |-
+                        Quantity of the resource, may be specified as an integer, a decimal
+                        multiple (e,g, 10M), or a binary multiple (e.g. 10Mi).
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                  required:
+                  - kind
+                  - quantity
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - kind
+                x-kubernetes-list-type: map
+            type: object
+          status:
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true

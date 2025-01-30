@@ -149,6 +149,38 @@ type AclScopedEndpoints struct {
 // AclScopedEndpointsList A list of resource scoped endpoint permissions.
 type AclScopedEndpointsList = []AclScopedEndpoints
 
+// AllocationRead An allocation of resources.
+type AllocationRead struct {
+	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
+
+	// Spec A set of resource allocations.
+	Spec AllocationSpec `json:"spec"`
+}
+
+// AllocationSpec A set of resource allocations.
+type AllocationSpec struct {
+	// Allocations A list of quotas.
+	Allocations QuotaListDetailed `json:"allocations"`
+
+	// Id The resource ID that owns this allocation.
+	Id string `json:"id"`
+
+	// Kind The resource kind that owns this allocation.
+	Kind string `json:"kind"`
+}
+
+// AllocationWrite An allocation of resources.
+type AllocationWrite struct {
+	// Metadata Resource metadata valid for all API resource reads and writes.
+	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+
+	// Spec A set of resource allocations.
+	Spec AllocationSpec `json:"spec"`
+}
+
+// Allocations A list of allocations.
+type Allocations = []AllocationRead
+
 // AuthMethod Supported authentication methods.
 type AuthMethod string
 
@@ -176,6 +208,9 @@ type GroupRead struct {
 type GroupSpec struct {
 	// RoleIDs A list of strings.
 	RoleIDs StringList `json:"roleIDs"`
+
+	// ServiceAccountIDs A list of strings.
+	ServiceAccountIDs *StringList `json:"serviceAccountIDs,omitempty"`
 
 	// UserIDs A list of strings.
 	UserIDs *StringList `json:"userIDs,omitempty"`
@@ -380,6 +415,51 @@ type Projects = []ProjectRead
 // e.g. Google/Microsoft, when organization, us an organization scoped provider.
 type ProviderScope string
 
+// Quota A single quota.
+type Quota struct {
+	// Kind The kind of resource.
+	Kind string `json:"kind"`
+
+	// Quantity Tha amount of that resource.
+	Quantity int `json:"quantity"`
+}
+
+// QuotaDetailed A single quota but taking into account dynamic allocation.
+type QuotaDetailed struct {
+	// Committed Tha amount of that resource always in use.
+	Committed int `json:"committed"`
+
+	// Kind The kind of resource.
+	Kind string `json:"kind"`
+
+	// Reserved The amount of that resource that may be used e.g. autoscaled.
+	Reserved int `json:"reserved"`
+}
+
+// QuotaList A list of quotas.
+type QuotaList = []Quota
+
+// QuotaListDetailed A list of quotas.
+type QuotaListDetailed = []QuotaDetailed
+
+// QuotasRead A list of quotas, free resources and a detailed view of allocated ones.
+type QuotasRead struct {
+	// Allocated A list of quotas.
+	Allocated QuotaListDetailed `json:"allocated"`
+
+	// Capacity A list of quotas.
+	Capacity QuotaList `json:"capacity"`
+
+	// Free A list of quotas.
+	Free QuotaList `json:"free"`
+}
+
+// QuotasWrite A set of quotas to apply.
+type QuotasWrite struct {
+	// Capacity A list of quotas.
+	Capacity QuotaList `json:"capacity"`
+}
+
 // ResponseType Supported response types.
 type ResponseType string
 
@@ -564,6 +644,9 @@ type Userinfo struct {
 // Users A list of users.
 type Users = []UserRead
 
+// AllocationIDParameter defines model for allocationIDParameter.
+type AllocationIDParameter = string
+
 // GroupidParameter defines model for groupidParameter.
 type GroupidParameter = string
 
@@ -584,6 +667,12 @@ type UserIDParameter = string
 
 // AclResponse A list of access control scopes and permissions.
 type AclResponse = Acl
+
+// AllocationResponse An allocation of resources.
+type AllocationResponse = AllocationRead
+
+// AllocationsResponse A list of allocations.
+type AllocationsResponse = Allocations
 
 // GroupResponse A group when read.
 type GroupResponse = GroupRead
@@ -616,6 +705,9 @@ type ProjectResponse = ProjectRead
 // ProjectsResponse A list of projects.
 type ProjectsResponse = Projects
 
+// QuotasResponse A list of quotas, free resources and a detailed view of allocated ones.
+type QuotasResponse = QuotasRead
+
 // RolesResponse A list of roles.
 type RolesResponse = Roles
 
@@ -643,6 +735,9 @@ type UserinfoResponse = Userinfo
 // UsersResponse A list of users.
 type UsersResponse = Users
 
+// AllocationRequest An allocation of resources.
+type AllocationRequest = AllocationWrite
+
 // CreateGroupRequest A group when created or updated.
 type CreateGroupRequest = GroupWrite
 
@@ -651,6 +746,9 @@ type CreateProjectRequest = ProjectWrite
 
 // Oauth2ProviderRequest An OAuth2 provider when created or updated.
 type Oauth2ProviderRequest = Oauth2ProviderWrite
+
+// QuotasRequest A set of quotas to apply.
+type QuotasRequest = QuotasWrite
 
 // ServiceAccountCreateRequest A service account creation request.
 type ServiceAccountCreateRequest = ServiceAccountWrite
@@ -690,6 +788,15 @@ type PostApiV1OrganizationsOrganizationIDProjectsJSONRequestBody = ProjectWrite
 
 // PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDProjectsProjectID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDProjectsProjectIDJSONRequestBody = ProjectWrite
+
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDAllocations for application/json ContentType.
+type PostApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsJSONRequestBody = AllocationWrite
+
+// PutApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationID for application/json ContentType.
+type PutApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDJSONRequestBody = AllocationWrite
+
+// PutApiV1OrganizationsOrganizationIDQuotasJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDQuotas for application/json ContentType.
+type PutApiV1OrganizationsOrganizationIDQuotasJSONRequestBody = QuotasWrite
 
 // PostApiV1OrganizationsOrganizationIDServiceaccountsJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDServiceaccounts for application/json ContentType.
 type PostApiV1OrganizationsOrganizationIDServiceaccountsJSONRequestBody = ServiceAccountWrite
