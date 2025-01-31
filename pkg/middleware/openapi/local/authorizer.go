@@ -104,6 +104,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 
 	if claims.Custom != nil {
 		info.ClientID = claims.Custom.ClientID
+		info.ServiceAccount = claims.Custom.Type == oauth2.AccessTokenTypeServiceAccount
 	}
 
 	// All API requests will ultimately end up here as service call back
@@ -143,6 +144,6 @@ func (a *Authorizer) Authorize(authentication *openapi3filter.AuthenticationInpu
 
 // GetACL retrieves access control information from the subject identified
 // by the Authorize call.
-func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string) (*openapi.Acl, error) {
-	return a.rbac.GetACL(ctx, organizationID, subject)
+func (a *Authorizer) GetACL(ctx context.Context, organizationID string) (*openapi.Acl, error) {
+	return a.rbac.GetACL(ctx, organizationID)
 }

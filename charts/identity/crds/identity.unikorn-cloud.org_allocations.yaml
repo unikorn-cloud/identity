@@ -1,0 +1,113 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.3
+  name: allocations.identity.unikorn-cloud.org
+spec:
+  group: identity.unikorn-cloud.org
+  names:
+    categories:
+    - unikorn
+    kind: Allocation
+    listKind: AllocationList
+    plural: allocations
+    singular: allocation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/resource-kind']
+      name: kind
+      type: string
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/resource-id']
+      name: id
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Allocation objects are created for a resource, e.g. a cluster, on creation and
+          take up a slice of a quota's available resource quantities.  At no point in time
+          are the sum of all resource allocations within an organization allowed to exceed
+          the overall organization quota.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              allocations:
+                description: Allocations are individual resource allocations.
+                items:
+                  properties:
+                    committed:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: |-
+                        Committed resources are ones that are always present e.g. a baremetal server.
+                        This is a hard allocation.
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    kind:
+                      description: Kind of resource e.g. "cluster" or "server".
+                      type: string
+                    reserved:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: |-
+                        Reserved resources are ones that may or may not be present e.g. a server
+                        that's part of an autoscaling group.  This is a soft allocation and could
+                        potentially be used as overcommit or burst capacity.
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                  required:
+                  - committed
+                  - kind
+                  - reserved
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - kind
+                x-kubernetes-list-type: map
+              tags:
+                description: Tags are aribrary user data.
+                items:
+                  description: Tag is an arbirary key/value.
+                  properties:
+                    name:
+                      description: Name of the tag.
+                      type: string
+                    value:
+                      description: Value of the tag.
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
+            type: object
+          status:
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

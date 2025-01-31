@@ -236,7 +236,7 @@ func (a Getter) Get() string {
 
 // GetACL retrieves access control information from the subject identified
 // by the Authorize call.
-func (a *Authorizer) GetACL(ctx context.Context, organizationID, subject string) (*identityapi.Acl, error) {
+func (a *Authorizer) GetACL(ctx context.Context, organizationID string) (*identityapi.Acl, error) {
 	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, err

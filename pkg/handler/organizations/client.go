@@ -186,7 +186,8 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organ
 		return nil, errors.OAuth2ServerError("failed to list organizations").WithError(err)
 	}
 
-	users, err := rbacClient.GetActiveSubjects(ctx, info.Userinfo.Sub)
+	// TODO: service accounts???
+	users, err := rbacClient.GetActiveUsers(ctx, info.Userinfo.Sub)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to list active subjects").WithError(err)
 	}

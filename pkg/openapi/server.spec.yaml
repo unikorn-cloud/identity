@@ -743,6 +743,152 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/quotas:
+    description: |-
+      Provides management of resource limits.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    get:
+      description: |-
+        Gets quotas for the organization.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/quotasResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    put:
+      description: |-
+        Sets quotas for the organization.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/quotasRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/quotasResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/allocations:
+    description: |-
+      Management of allocations.  Allocations form slices of quotas and in total never
+      exceed the quotas in the scope the quota is defined for.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    get:
+      description: |-
+        Lists all allocation.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/allocationsResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/projects/{projectID}/allocations:
+    description: |-
+      Management of allocations.  Allocations form slices of quotas and in total never
+      exceed the quotas in the scope the quota is defined for.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/projectIDParameter'
+    post:
+      description: |-
+        Creates an allocation.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/allocationRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/allocationResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '409':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/conflictResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/projects/{projectID}/allocations/{allocationID}:
+    description: |-
+      Management of allocations.  Allocations form slices of quotas and in total never
+      exceed the quotas in the scope the quota is defined for.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/projectIDParameter'
+    - $ref: '#/components/parameters/allocationIDParameter'
+    get:
+      description: |-
+        Gets an allocation.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/allocationResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    put:
+      description: |-
+        Updates an allocation.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/allocationRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/allocationResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    delete:
+      description: |-
+        Updates an allocation.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '202':
+          description: Allocation successfully deleted.
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
 components:
   parameters:
     organizationIDParameter:
@@ -784,6 +930,13 @@ components:
       name: providerID
       in: path
       description: An oauth2 provider ID.
+      required: true
+      schema:
+        type: string
+    allocationIDParameter:
+      name: allocationID
+      in: path
+      description: A resource allocation ID.
       required: true
       schema:
         type: string
@@ -1290,6 +1443,8 @@ components:
       properties:
         userIDs:
           $ref: '#/components/schemas/stringList'
+        serviceAccountIDs:
+          $ref: '#/components/schemas/stringList'
         roleIDs:
           $ref: '#/components/schemas/stringList'
     groupRead:
@@ -1479,6 +1634,111 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/userRead'
+    quota:
+      description: A single quota.
+      type: object
+      required:
+      - kind
+      - quantity
+      properties:
+        kind:
+          description: The kind of resource.
+          type: string
+        quantity:
+          description: Tha amount of that resource.
+          type: integer
+    quotaList:
+      description: A list of quotas.
+      type: array
+      items:
+        $ref: '#/components/schemas/quota'
+    quotaDetailed:
+      description: A single quota but taking into account dynamic allocation.
+      type: object
+      required:
+      - kind
+      - committed
+      - reserved 
+      properties:
+        kind:
+          description: The kind of resource.
+          type: string
+        committed:
+          description: Tha amount of that resource always in use.
+          type: integer
+        reserved:
+          description: The amount of that resource that may be used e.g. autoscaled.
+          type: integer
+    quotaListDetailed:
+      description: A list of quotas.
+      type: array
+      items:
+        $ref: '#/components/schemas/quotaDetailed'
+    quotasRead:
+      description: A list of quotas, free resources and a detailed view of allocated ones.
+      type: object
+      required:
+      - capacity
+      - free
+      - allocated
+      properties:
+        capacity:
+          $ref: '#/components/schemas/quotaList'
+        free:
+          $ref: '#/components/schemas/quotaList'
+        allocated:
+          $ref: '#/components/schemas/quotaListDetailed'
+    quotasWrite:
+      description: A set of quotas to apply.
+      type: object
+      required:
+      - capacity
+      properties:
+        capacity:
+          $ref: '#/components/schemas/quotaList'
+    allocationSpec:
+      description: A set of resource allocations.
+      type: object
+      required:
+      - kind
+      - id
+      - allocations
+      properties:
+        kind:
+          description: The resource kind that owns this allocation.
+          type: string
+        id:
+          description: The resource ID that owns this allocation.
+          type: string
+        allocations:
+          $ref: '#/components/schemas/quotaListDetailed'
+    allocationRead:
+      description: An allocation of resources.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/projectScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/allocationSpec'
+    allocations:
+      description: A list of allocations.
+      type: array
+      items:
+        $ref: '#/components/schemas/allocationRead'
+    allocationWrite:
+      description: An allocation of resources.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/allocationSpec'
   requestBodies:
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
@@ -1588,6 +1848,39 @@ components:
             spec:
               groups:
               - ddde69ef-bb52-4815-9e9e-aed856c6057f
+    quotasRequest:
+      description: Allows the setting of quotas.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/quotasWrite'
+          example:
+            capacity:
+            - kind: clusters
+              quantity: 2
+            - kind: servers
+              quantity: 10
+    allocationRequest:
+      description: Creates a resource allocation.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/allocationWrite'
+          example:
+            metadata:
+              name: unused
+            spec:
+              kind: kubernetescluster
+              id: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
+              allocations:
+              - kind: clusters
+                committed: 1
+                reserved: 0
+              - kind: servers
+                committed: 3
+                reserved: 10
   responses:
     htmlErrorResponse:
       description: |-
@@ -1935,6 +2228,79 @@ components:
               - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
             status:
               lastAcive: 2025-01-12T10:49:13Z
+    quotasResponse:
+      description: Queries the quotas for an organizational unit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/quotasRead'
+          example:
+            capacity:
+            - kind: clusters
+              quantity: 2
+            - kind: servers
+              quantity: 10
+            free:
+            - kind: clusters
+              quantity: 1
+            - kind: servers
+              quantity: 4
+            allocated:
+            - kind: clusters
+              committed: 1
+              reserved: 0
+            - kind: servers
+              committed: 3
+              reserved: 3
+    allocationsResponse:
+      description: A list of allocations.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/allocations'
+          example:
+          - metadata:
+              id: ee45f34b-9685-40d8-8724-23c31252ca46
+              name: unused
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              projectId: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              kind: kubernetescluster
+              id: e0b6a5d2-ef9b-4f61-8d84-033b81ad3f73
+              allocations:
+              - kind: clusters
+                committed: 1
+                reserved: 0
+              - kind: servers
+                committed: 3
+                reserved: 10
+    allocationResponse:
+      description: An allocation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/allocationRead'
+          example:
+            metadata:
+              id: ee45f34b-9685-40d8-8724-23c31252ca46
+              name: unused
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              projectId: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
+              creationTime: 2024-05-31T14:11:00Z
+              provisioningStatus: provisioned
+            spec:
+              kind: kubernetescluster
+              id: e0b6a5d2-ef9b-4f61-8d84-033b81ad3f73
+              allocations:
+              - kind: clusters
+                committed: 1
+                reserved: 0
+              - kind: servers
+                committed: 3
+                reserved: 10
+
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.

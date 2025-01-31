@@ -56,6 +56,8 @@ func init() {
 	SchemeBuilder.Register(&SigningKey{}, &SigningKeyList{})
 	SchemeBuilder.Register(&User{}, &UserList{})
 	SchemeBuilder.Register(&ServiceAccount{}, &ServiceAccountList{})
+	SchemeBuilder.Register(&Quota{}, &QuotaList{})
+	SchemeBuilder.Register(&Allocation{}, &AllocationList{})
 }
 
 // Resource maps a resource type to a group resource.
