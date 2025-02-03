@@ -95,10 +95,10 @@ func (c *Client) ProjectNamespace(ctx context.Context, organizationID, projectID
 	return &resources.Items[0], nil
 }
 
-func (c *Client) GetQuota(ctx context.Context, organizationID string) (*unikornv1.Quota, error) {
+func (c *Client) GetQuota(ctx context.Context, organizationID string) (*unikornv1.Quota, bool, error) {
 	selector, err := organizationSelector(organizationID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	options := &client.ListOptions{
@@ -108,14 +108,58 @@ func (c *Client) GetQuota(ctx context.Context, organizationID string) (*unikornv
 	var resources unikornv1.QuotaList
 
 	if err := c.client.List(ctx, &resources, options); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	if len(resources.Items) != 1 {
-		return nil, fmt.Errorf("%w: expected to find 1 project namespace", ErrConsistency)
+	if len(resources.Items) > 1 {
+		return nil, false, fmt.Errorf("%w: expected to find 1 project namespace", ErrConsistency)
 	}
 
-	return &resources.Items[0], nil
+	// We are going to lazily create the quota and any new quota items that come
+	// into existence.
+	var quota *unikornv1.Quota
+
+	var virtual bool
+
+	if len(resources.Items) == 0 {
+		quota = &unikornv1.Quota{}
+
+		virtual = true
+	} else {
+		quota = &resources.Items[0]
+	}
+
+	metadata := &unikornv1.QuotaMetadataList{}
+
+	if err := c.client.List(ctx, metadata, &client.ListOptions{}); err != nil {
+		return nil, false, err
+	}
+
+	names := make([]string, len(metadata.Items))
+
+	for i, meta := range metadata.Items {
+		names[i] = meta.Name
+
+		findQuota := func(q unikornv1.ResourceQuota) bool {
+			return q.Kind == meta.Name
+		}
+
+		if index := slices.IndexFunc(quota.Spec.Quotas, findQuota); index >= 0 {
+			continue
+		}
+
+		quota.Spec.Quotas = append(quota.Spec.Quotas, unikornv1.ResourceQuota{
+			Kind:     meta.Name,
+			Quantity: meta.Spec.Default,
+		})
+	}
+
+	// And remove anything that's been retired.
+	quota.Spec.Quotas = slices.DeleteFunc(quota.Spec.Quotas, func(q unikornv1.ResourceQuota) bool {
+		return !slices.Contains(names, q.Kind)
+	})
+
+	return quota, virtual, nil
 }
 
 func (c *Client) GetAllocations(ctx context.Context, organizationID string) (*unikornv1.AllocationList, error) {
@@ -145,7 +189,7 @@ func (c *Client) GetAllocations(ctx context.Context, organizationID string) (*un
 func (c *Client) CheckQuotaConsistency(ctx context.Context, organizationID string, quota *unikornv1.Quota, allocation *unikornv1.Allocation) error {
 	// Handle the default quota.
 	if quota == nil {
-		temp, err := c.GetQuota(ctx, organizationID)
+		temp, _, err := c.GetQuota(ctx, organizationID)
 		if err != nil {
 			return err
 		}
@@ -197,12 +241,7 @@ func checkQuotaConsistency(quota *unikornv1.Quota, allocations *unikornv1.Alloca
 	}
 
 	for k, v := range totals {
-		capacity, ok := capacities[k]
-		if !ok {
-			return fmt.Errorf("%w: allocation of %s not defined in quota", ErrConsistency, k)
-		}
-
-		if v > capacity {
+		if capacity, ok := capacities[k]; ok && v > capacity {
 			return fmt.Errorf("%w: total allocation of %d would exceed quota limit of %d", ErrConsistency, v, capacity)
 		}
 	}

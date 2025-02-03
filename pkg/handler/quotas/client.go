@@ -172,7 +172,7 @@ func (c *Client) GetMetadata(ctx context.Context) (openapi.QuotaMetadataRead, er
 }
 
 func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.QuotasRead, error) {
-	result, err := common.New(c.client).GetQuota(ctx, organizationID)
+	result, _, err := common.New(c.client).GetQuota(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 		return nil, err
 	}
 
-	current, err := common.GetQuota(ctx, organizationID)
+	current, virtual, err := common.GetQuota(ctx, organizationID)
 	if err != nil {
 		return nil, errors.OAuth2InvalidRequest("unnable to read quota").WithError(err)
 	}
@@ -196,6 +196,14 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 	required, err := generate(ctx, organization, request)
 	if err != nil {
 		return nil, err
+	}
+
+	if virtual {
+		if err := c.client.Create(ctx, required); err != nil {
+			return nil, errors.OAuth2InvalidRequest("unnable to create quota").WithError(err)
+		}
+
+		return c.convert(ctx, required, organizationID)
 	}
 
 	updated := current.DeepCopy()
