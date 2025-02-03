@@ -150,6 +150,27 @@ func (c *Client) convert(ctx context.Context, in *unikornv1.Quota, organizationI
 	return out, nil
 }
 
+func (c *Client) GetMetadata(ctx context.Context) (openapi.QuotaMetadataRead, error) {
+	result := &unikornv1.QuotaMetadataList{}
+
+	if err := c.client.List(ctx, result, &client.ListOptions{Namespace: c.namespace}); err != nil {
+		return nil, errors.OAuth2InvalidRequest("unnable to read quota metadata").WithError(err)
+	}
+
+	out := make(openapi.QuotaMetadataRead, len(result.Items))
+
+	for i := range result.Items {
+		out[i] = openapi.QuotaMetadata{
+			Name:        result.Items[i].Name,
+			DisplayName: result.Items[i].Spec.DisplayName,
+			Description: result.Items[i].Spec.Description,
+			Default:     int(result.Items[i].Spec.Default.Value()),
+		}
+	}
+
+	return out, nil
+}
+
 func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.QuotasRead, error) {
 	result, err := common.New(c.client).GetQuota(ctx, organizationID)
 	if err != nil {
@@ -169,7 +190,7 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 
 	current, err := common.GetQuota(ctx, organizationID)
 	if err != nil {
-		return nil, err
+		return nil, errors.OAuth2InvalidRequest("unnable to read quota").WithError(err)
 	}
 
 	required, err := generate(ctx, organization, request)

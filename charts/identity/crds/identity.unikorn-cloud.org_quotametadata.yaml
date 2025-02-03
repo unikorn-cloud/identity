@@ -1,0 +1,71 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.3
+  name: quotametadata.identity.unikorn-cloud.org
+spec:
+  group: identity.unikorn-cloud.org
+  names:
+    categories:
+    - unikorn
+    kind: QuotaMetadata
+    listKind: QuotaMetadataList
+    plural: quotametadata
+    singular: quotametadata
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          QuotaMetadata defines quota items programatically and allows defaults
+          to be set etc.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              default:
+                anyOf:
+                - type: integer
+                - type: string
+                description: Default is the default quantity to set on creation.
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              description:
+                description: Description allows the quota to have some extended meaning.
+                type: string
+              displayName:
+                description: |-
+                  DisplayName allows the user control over how the metadata
+                  is presented.
+                type: string
+            required:
+            - default
+            - description
+            - displayName
+            type: object
+          status:
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
