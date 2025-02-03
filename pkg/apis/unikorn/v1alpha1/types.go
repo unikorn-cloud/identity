@@ -338,6 +338,38 @@ type ServiceAccountStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type QuotaMetadataList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []QuotaMetadata `json:"items"`
+}
+
+// QuotaMetadata defines quota items programatically and allows defaults
+// to be set etc.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+type QuotaMetadata struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              QuotaMetadataSpec   `json:"spec"`
+	Status            QuotaMetadataStatus `json:"status,omitempty"`
+}
+
+type QuotaMetadataSpec struct {
+	// DisplayName allows the user control over how the metadata
+	// is presented.
+	DisplayName string `json:"displayName"`
+	// Description allows the quota to have some extended meaning.
+	Description string `json:"description"`
+	// Default is the default quantity to set on creation.
+	Default *resource.Quantity `json:"default"`
+}
+
+type QuotaMetadataStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type QuotaList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

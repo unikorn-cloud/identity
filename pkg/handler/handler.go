@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
@@ -76,12 +77,10 @@ func New(client client.Client, namespace string, issuer *jose.JWTIssuer, oauth2 
 	return h, nil
 }
 
-/*
 func (h *Handler) setCacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", fmt.Sprintf("max-age=%d", h.options.CacheMaxAge/time.Second))
 	w.Header().Add("Cache-Control", "private")
 }
-*/
 
 func (h *Handler) setUncacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", "no-cache")
@@ -736,6 +735,22 @@ func (h *Handler) PutApiV1OrganizationsOrganizationIDUsersUserID(w http.Response
 
 func (h *Handler) quotasClient() *quotas.Client {
 	return quotas.New(h.client, h.namespace)
+}
+
+func (h *Handler) GetApiV1Quotas(w http.ResponseWriter, r *http.Request) {
+	if err := rbac.AllowGlobalScope(r.Context(), "identity:quotas:metadata", openapi.Read); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.quotasClient().GetMetadata(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setCacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDQuotas(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {

@@ -15,6 +15,7 @@ rules:
   - organizations
   - projects
   - quotas
+  - quotametadata
   - roles
   - serviceaccounts
   - users

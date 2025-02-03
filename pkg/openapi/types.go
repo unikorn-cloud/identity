@@ -442,6 +442,24 @@ type QuotaList = []Quota
 // QuotaListDetailed A list of quotas.
 type QuotaListDetailed = []QuotaDetailed
 
+// QuotaMetadata A single quota's metadata.
+type QuotaMetadata struct {
+	// Default The default value of the quota.
+	Default int `json:"default"`
+
+	// Description A verbose explanation of what the quota limits.
+	Description string `json:"description"`
+
+	// DisplayName The name that should be displayed to end users.
+	DisplayName string `json:"displayName"`
+
+	// Name The internal quota name.
+	Name string `json:"name"`
+}
+
+// QuotaMetadataRead A list of quota metadata.
+type QuotaMetadataRead = []QuotaMetadata
+
 // QuotasRead A list of quotas, free resources and a detailed view of allocated ones.
 type QuotasRead struct {
 	// Allocated A list of quotas.
@@ -704,6 +722,9 @@ type ProjectResponse = ProjectRead
 
 // ProjectsResponse A list of projects.
 type ProjectsResponse = Projects
+
+// QuotaMetadataResponse A list of quota metadata.
+type QuotaMetadataResponse = QuotaMetadataRead
 
 // QuotasResponse A list of quotas, free resources and a detailed view of allocated ones.
 type QuotasResponse = QuotasRead

@@ -160,6 +160,23 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/quotas:
+    description: |-
+      Shows all quotas available on the system.
+    get:
+      description: |-
+        Return a list of quotas and their metadata.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/quotaMetadataResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -1634,6 +1651,32 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/userRead'
+    quotaMetadata:
+      description: A single quota's metadata.
+      type: object
+      required:
+      - name
+      - displayName
+      - description
+      - default
+      properties:
+        name:
+          description: The internal quota name.
+          type: string
+        displayName:
+          description: The name that should be displayed to end users.
+          type: string
+        description:
+          description: A verbose explanation of what the quota limits.
+          type: string
+        default:
+          description: The default value of the quota.
+          type: integer
+    quotaMetadataRead:
+      description: A list of quota metadata.
+      type: array
+      items:
+        $ref: '#/components/schemas/quotaMetadata'
     quota:
       description: A single quota.
       type: object
@@ -2228,6 +2271,17 @@ components:
               - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
             status:
               lastAcive: 2025-01-12T10:49:13Z
+    quotaMetadataResponse:
+      description: Queries the quotas available on the platform.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/quotaMetadataRead'
+          example:
+          - name: clusters
+            displayName: Clusters
+            description: All cluster types e.g. Kubernetes, compute, etc.
+            default: 5
     quotasResponse:
       description: Queries the quotas for an organizational unit.
       content:

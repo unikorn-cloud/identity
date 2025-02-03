@@ -1,0 +1,11 @@
+{{- range $name, $metadata := .Values.quotas }}
+---
+apiVersion: identity.unikorn-cloud.org/v1alpha1
+kind: QuotaMetadata
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "unikorn.labels" $ | nindent 4 }}
+spec:
+  {{- toYaml $metadata | nindent 2 }}
+{{- end }}

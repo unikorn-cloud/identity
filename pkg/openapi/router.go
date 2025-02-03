@@ -132,6 +132,9 @@ type ServerInterface interface {
 	// (PUT /api/v1/organizations/{organizationID}/users/{userID})
 	PutApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, userID UserIDParameter)
 
+	// (GET /api/v1/quotas)
+	GetApiV1Quotas(w http.ResponseWriter, r *http.Request)
+
 	// (GET /api/v1/signup)
 	GetApiV1Signup(w http.ResponseWriter, r *http.Request)
 
@@ -350,6 +353,11 @@ func (_ Unimplemented) DeleteApiV1OrganizationsOrganizationIDUsersUserID(w http.
 
 // (PUT /api/v1/organizations/{organizationID}/users/{userID})
 func (_ Unimplemented) PutApiV1OrganizationsOrganizationIDUsersUserID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, userID UserIDParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /api/v1/quotas)
+func (_ Unimplemented) GetApiV1Quotas(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1725,6 +1733,26 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationIDUsersUserI
 	handler.ServeHTTP(w, r)
 }
 
+// GetApiV1Quotas operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1Quotas(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1Quotas(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetApiV1Signup operation middleware
 func (siw *ServerInterfaceWrapper) GetApiV1Signup(w http.ResponseWriter, r *http.Request) {
 
@@ -2058,6 +2086,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/organizations/{organizationID}/users/{userID}", wrapper.PutApiV1OrganizationsOrganizationIDUsersUserID)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/quotas", wrapper.GetApiV1Quotas)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/signup", wrapper.GetApiV1Signup)
