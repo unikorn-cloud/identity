@@ -53,16 +53,22 @@ func convert(in *unikornv1.Group) *openapi.GroupRead {
 	out := &openapi.GroupRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.GroupSpec{
-			RoleIDs: in.Spec.RoleIDs,
+			RoleIDs:           openapi.StringList{},
+			UserIDs:           openapi.StringList{},
+			ServiceAccountIDs: openapi.StringList{},
 		},
 	}
 
-	if len(in.Spec.UserIDs) > 0 {
-		out.Spec.UserIDs = &in.Spec.UserIDs
+	if in.Spec.RoleIDs != nil {
+		out.Spec.RoleIDs = in.Spec.RoleIDs
 	}
 
-	if len(in.Spec.ServiceAccountIDs) > 0 {
-		out.Spec.ServiceAccountIDs = &in.Spec.ServiceAccountIDs
+	if in.Spec.UserIDs != nil {
+		out.Spec.UserIDs = in.Spec.UserIDs
+	}
+
+	if in.Spec.ServiceAccountIDs != nil {
+		out.Spec.ServiceAccountIDs = in.Spec.ServiceAccountIDs
 	}
 
 	return out
@@ -156,17 +162,11 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 	out := &unikornv1.Group{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.GroupSpec{
-			Tags:    conversion.GenerateTagList(in.Metadata.Tags),
-			RoleIDs: in.Spec.RoleIDs,
+			Tags:              conversion.GenerateTagList(in.Metadata.Tags),
+			RoleIDs:           in.Spec.RoleIDs,
+			UserIDs:           in.Spec.UserIDs,
+			ServiceAccountIDs: in.Spec.ServiceAccountIDs,
 		},
-	}
-
-	if in.Spec.UserIDs != nil {
-		out.Spec.UserIDs = *in.Spec.UserIDs
-	}
-
-	if in.Spec.ServiceAccountIDs != nil {
-		out.Spec.ServiceAccountIDs = *in.Spec.ServiceAccountIDs
 	}
 
 	return out, nil

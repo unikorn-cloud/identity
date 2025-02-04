@@ -78,31 +78,18 @@ func New(client client.Client, namespace, host string, oauth2 *oauth2.Authentica
 func convert(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi.ServiceAccountRead {
 	out := &openapi.ServiceAccountRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Spec: openapi.ServiceAccountSpec{
+			GroupIDs: make(openapi.GroupIDs, 0, len(groups.Items)),
+		},
 		Status: openapi.ServiceAccountStatus{
 			Expiry: in.Spec.Expiry.Time,
 		},
 	}
 
-	// NOTE: Deep copy as this may be reused and DeleteFunc will modify the underlying
-	// slice's array.
-	memberGroups := groups.DeepCopy()
-
-	memberGroups.Items = slices.DeleteFunc(memberGroups.Items, func(group unikornv1.Group) bool {
-		return !slices.Contains(group.Spec.ServiceAccountIDs, in.Name)
-	})
-
-	var memberGroupIDs openapi.GroupIDs
-
-	for _, group := range memberGroups.Items {
-		memberGroupIDs = append(memberGroupIDs, group.Name)
-	}
-
-	if len(memberGroupIDs) > 0 {
-		if out.Spec == nil {
-			out.Spec = &openapi.ServiceAccountSpec{}
+	for _, group := range groups.Items {
+		if slices.Contains(group.Spec.ServiceAccountIDs, in.Name) {
+			out.Spec.GroupIDs = append(out.Spec.GroupIDs, group.Name)
 		}
-
-		out.Spec.GroupIDs = &memberGroupIDs
 	}
 
 	return out
@@ -227,13 +214,13 @@ func (c *Client) listGroups(ctx context.Context, organization *organizations.Met
 
 // updateGroups takes a user name and a requested list of groups and adds to
 // the groups it should be a member of and removes itself from groups it shouldn't.
-func (c *Client) updateGroups(ctx context.Context, serviceAccountID string, groupIDs *openapi.GroupIDs, groups *unikornv1.GroupList) error {
+func (c *Client) updateGroups(ctx context.Context, serviceAccountID string, groupIDs openapi.GroupIDs, groups *unikornv1.GroupList) error {
 	for i := range groups.Items {
 		current := &groups.Items[i]
 
 		updated := current.DeepCopy()
 
-		if groupIDs != nil && slices.Contains(*groupIDs, current.Name) {
+		if slices.Contains(groupIDs, current.Name) {
 			// Add to a group where it should be a member but isn't.
 			if slices.Contains(current.Spec.ServiceAccountIDs, serviceAccountID) {
 				continue

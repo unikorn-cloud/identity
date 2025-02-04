@@ -210,10 +210,10 @@ type GroupSpec struct {
 	RoleIDs StringList `json:"roleIDs"`
 
 	// ServiceAccountIDs A list of strings.
-	ServiceAccountIDs *StringList `json:"serviceAccountIDs,omitempty"`
+	ServiceAccountIDs StringList `json:"serviceAccountIDs"`
 
 	// UserIDs A list of strings.
-	UserIDs *StringList `json:"userIDs,omitempty"`
+	UserIDs StringList `json:"userIDs"`
 }
 
 // GroupWrite A group when created or updated.
@@ -396,7 +396,7 @@ type ProjectRead struct {
 // ProjectSpec A project.
 type ProjectSpec struct {
 	// GroupIDs A list of group IDs.
-	GroupIDs *GroupIDs `json:"groupIDs,omitempty"`
+	GroupIDs GroupIDs `json:"groupIDs"`
 }
 
 // ProjectWrite A project when created or updated.
@@ -507,7 +507,7 @@ type ServiceAccountCreate struct {
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A service account specification.
-	Spec *ServiceAccountSpec `json:"spec,omitempty"`
+	Spec ServiceAccountSpec `json:"spec"`
 
 	// Status A service account status.
 	Status ServiceAccountStatus `json:"status"`
@@ -518,7 +518,7 @@ type ServiceAccountRead struct {
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A service account specification.
-	Spec *ServiceAccountSpec `json:"spec,omitempty"`
+	Spec ServiceAccountSpec `json:"spec"`
 
 	// Status A service account status.
 	Status ServiceAccountStatus `json:"status"`
@@ -527,7 +527,7 @@ type ServiceAccountRead struct {
 // ServiceAccountSpec A service account specification.
 type ServiceAccountSpec struct {
 	// GroupIDs A list of group IDs.
-	GroupIDs *GroupIDs `json:"groupIDs,omitempty"`
+	GroupIDs GroupIDs `json:"groupIDs"`
 }
 
 // ServiceAccountStatus A service account status.
@@ -545,7 +545,7 @@ type ServiceAccountWrite struct {
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A service account specification.
-	Spec *ServiceAccountSpec `json:"spec,omitempty"`
+	Spec ServiceAccountSpec `json:"spec"`
 }
 
 // ServiceAccounts A list of service accounts.
