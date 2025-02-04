@@ -19,6 +19,7 @@ package quotas
 import (
 	"context"
 	goerrors "errors"
+	"slices"
 
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
@@ -54,7 +55,7 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func generateQuota(in *openapi.Quota) *unikornv1.ResourceQuota {
+func generateQuota(in *openapi.QuotaWrite) *unikornv1.ResourceQuota {
 	out := &unikornv1.ResourceQuota{
 		Kind:     in.Kind,
 		Quantity: resource.NewQuantity(int64(in.Quantity), resource.DecimalSI),
@@ -63,7 +64,7 @@ func generateQuota(in *openapi.Quota) *unikornv1.ResourceQuota {
 	return out
 }
 
-func generateQuotaList(in openapi.QuotaList) []unikornv1.ResourceQuota {
+func generateQuotaList(in openapi.QuotaWriteList) []unikornv1.ResourceQuota {
 	out := make([]unikornv1.ResourceQuota, len(in))
 
 	for i := range in {
@@ -86,7 +87,7 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 	out := &unikornv1.Quota{
 		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
 		Spec: unikornv1.QuotaSpec{
-			Quotas: generateQuotaList(in.Capacity),
+			Quotas: generateQuotaList(in.Quotas),
 		},
 	}
 
@@ -99,10 +100,10 @@ type allocation struct {
 }
 
 func (c *Client) convert(ctx context.Context, in *unikornv1.Quota, organizationID string) (*openapi.QuotasRead, error) {
-	out := &openapi.QuotasRead{
-		Capacity:  make(openapi.QuotaList, len(in.Spec.Quotas)),
-		Free:      make(openapi.QuotaList, len(in.Spec.Quotas)),
-		Allocated: make(openapi.QuotaListDetailed, len(in.Spec.Quotas)),
+	metadata := &unikornv1.QuotaMetadataList{}
+
+	if err := c.client.List(ctx, metadata, &client.ListOptions{Namespace: c.namespace}); err != nil {
+		return nil, err
 	}
 
 	// Grab the totals across all allocations.
@@ -127,44 +128,32 @@ func (c *Client) convert(ctx context.Context, in *unikornv1.Quota, organizationI
 		}
 	}
 
+	out := &openapi.QuotasRead{
+		Quotas: make(openapi.QuotaReadList, len(in.Spec.Quotas)),
+	}
+
 	for i := range in.Spec.Quotas {
-		capacity := &in.Spec.Quotas[i]
+		quota := &in.Spec.Quotas[i]
 
-		out.Capacity[i] = openapi.Quota{
-			Kind:     capacity.Kind,
-			Quantity: int(capacity.Quantity.Value()),
-		}
+		metaIndex := slices.IndexFunc(metadata.Items, func(m unikornv1.QuotaMetadata) bool {
+			return m.Name == quota.Kind
+		})
 
-		out.Free[i] = openapi.Quota{
-			Kind:     capacity.Kind,
-			Quantity: int(capacity.Quantity.Value() - (allocated[capacity.Kind].committed + allocated[capacity.Kind].reserved)),
-		}
+		meta := &metadata.Items[metaIndex]
 
-		out.Allocated[i] = openapi.QuotaDetailed{
-			Kind:      capacity.Kind,
-			Committed: int(allocated[capacity.Kind].committed),
-			Reserved:  int(allocated[capacity.Kind].reserved),
-		}
-	}
+		used := allocated[quota.Kind].committed + allocated[quota.Kind].reserved
+		free := quota.Quantity.Value() - used
 
-	return out, nil
-}
-
-func (c *Client) GetMetadata(ctx context.Context) (openapi.QuotaMetadataRead, error) {
-	result := &unikornv1.QuotaMetadataList{}
-
-	if err := c.client.List(ctx, result, &client.ListOptions{Namespace: c.namespace}); err != nil {
-		return nil, errors.OAuth2InvalidRequest("unnable to read quota metadata").WithError(err)
-	}
-
-	out := make(openapi.QuotaMetadataRead, len(result.Items))
-
-	for i := range result.Items {
-		out[i] = openapi.QuotaMetadata{
-			Name:        result.Items[i].Name,
-			DisplayName: result.Items[i].Spec.DisplayName,
-			Description: result.Items[i].Spec.Description,
-			Default:     int(result.Items[i].Spec.Default.Value()),
+		out.Quotas[i] = openapi.QuotaRead{
+			Kind:        quota.Kind,
+			Quantity:    int(quota.Quantity.Value()),
+			Used:        int(used),
+			Free:        int(free),
+			Committed:   int(allocated[quota.Kind].committed),
+			Reserved:    int(allocated[quota.Kind].reserved),
+			DisplayName: meta.Spec.DisplayName,
+			Description: meta.Spec.Description,
+			Default:     int(meta.Spec.Default.Value()),
 		}
 	}
 

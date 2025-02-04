@@ -160,7 +160,7 @@ type AllocationRead struct {
 // AllocationSpec A set of resource allocations.
 type AllocationSpec struct {
 	// Allocations A list of quotas.
-	Allocations QuotaListDetailed `json:"allocations"`
+	Allocations ResourceAllocationList `json:"allocations"`
 
 	// Id The resource ID that owns this allocation.
 	Id string `json:"id"`
@@ -415,17 +415,65 @@ type Projects = []ProjectRead
 // e.g. Google/Microsoft, when organization, us an organization scoped provider.
 type ProviderScope string
 
-// Quota A single quota.
-type Quota struct {
+// QuotaRead A single quota.
+type QuotaRead struct {
+	// Committed Tha amount of that resource always in use.
+	Committed int `json:"committed"`
+
+	// Default The default value of the quota.
+	Default int `json:"default"`
+
+	// Description A verbose explanation of what the quota limits.
+	Description string `json:"description"`
+
+	// DisplayName The name that should be displayed to end users.
+	DisplayName string `json:"displayName"`
+
+	// Free The amount of that resource that is free.
+	Free int `json:"free"`
+
 	// Kind The kind of resource.
 	Kind string `json:"kind"`
 
-	// Quantity Tha amount of that resource.
+	// Quantity Tha maximum amount of that resource.
+	Quantity int `json:"quantity"`
+
+	// Reserved The amount of that resource that may be used e.g. autoscaled.
+	Reserved int `json:"reserved"`
+
+	// Used The amount of that resource that is used.
+	Used int `json:"used"`
+}
+
+// QuotaReadList A list of quotas.
+type QuotaReadList = []QuotaRead
+
+// QuotaWrite A single quota.
+type QuotaWrite struct {
+	// Kind The kind of resource.
+	Kind string `json:"kind"`
+
+	// Quantity Tha maximum amount of that resource.
 	Quantity int `json:"quantity"`
 }
 
-// QuotaDetailed A single quota but taking into account dynamic allocation.
-type QuotaDetailed struct {
+// QuotaWriteList A list of quotas.
+type QuotaWriteList = []QuotaWrite
+
+// QuotasRead A list of quotas.
+type QuotasRead struct {
+	// Quotas A list of quotas.
+	Quotas QuotaReadList `json:"quotas"`
+}
+
+// QuotasWrite A list of quotas.
+type QuotasWrite struct {
+	// Quotas A list of quotas.
+	Quotas QuotaWriteList `json:"quotas"`
+}
+
+// ResourceAllocation A single quota but taking into account dynamic allocation.
+type ResourceAllocation struct {
 	// Committed Tha amount of that resource always in use.
 	Committed int `json:"committed"`
 
@@ -436,47 +484,8 @@ type QuotaDetailed struct {
 	Reserved int `json:"reserved"`
 }
 
-// QuotaList A list of quotas.
-type QuotaList = []Quota
-
-// QuotaListDetailed A list of quotas.
-type QuotaListDetailed = []QuotaDetailed
-
-// QuotaMetadata A single quota's metadata.
-type QuotaMetadata struct {
-	// Default The default value of the quota.
-	Default int `json:"default"`
-
-	// Description A verbose explanation of what the quota limits.
-	Description string `json:"description"`
-
-	// DisplayName The name that should be displayed to end users.
-	DisplayName string `json:"displayName"`
-
-	// Name The internal quota name.
-	Name string `json:"name"`
-}
-
-// QuotaMetadataRead A list of quota metadata.
-type QuotaMetadataRead = []QuotaMetadata
-
-// QuotasRead A list of quotas, free resources and a detailed view of allocated ones.
-type QuotasRead struct {
-	// Allocated A list of quotas.
-	Allocated QuotaListDetailed `json:"allocated"`
-
-	// Capacity A list of quotas.
-	Capacity QuotaList `json:"capacity"`
-
-	// Free A list of quotas.
-	Free QuotaList `json:"free"`
-}
-
-// QuotasWrite A set of quotas to apply.
-type QuotasWrite struct {
-	// Capacity A list of quotas.
-	Capacity QuotaList `json:"capacity"`
-}
+// ResourceAllocationList A list of quotas.
+type ResourceAllocationList = []ResourceAllocation
 
 // ResponseType Supported response types.
 type ResponseType string
@@ -723,10 +732,7 @@ type ProjectResponse = ProjectRead
 // ProjectsResponse A list of projects.
 type ProjectsResponse = Projects
 
-// QuotaMetadataResponse A list of quota metadata.
-type QuotaMetadataResponse = QuotaMetadataRead
-
-// QuotasResponse A list of quotas, free resources and a detailed view of allocated ones.
+// QuotasResponse A list of quotas.
 type QuotasResponse = QuotasRead
 
 // RolesResponse A list of roles.
@@ -768,7 +774,7 @@ type CreateProjectRequest = ProjectWrite
 // Oauth2ProviderRequest An OAuth2 provider when created or updated.
 type Oauth2ProviderRequest = Oauth2ProviderWrite
 
-// QuotasRequest A set of quotas to apply.
+// QuotasRequest A list of quotas.
 type QuotasRequest = QuotasWrite
 
 // ServiceAccountCreateRequest A service account creation request.
