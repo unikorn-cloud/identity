@@ -160,23 +160,6 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/quotas:
-    description: |-
-      Shows all quotas available on the system.
-    get:
-      description: |-
-        Return a list of quotas and their metadata.
-      security:
-      - oauth2Authentication: []
-      responses:
-        '200':
-          $ref: '#/components/responses/quotaMetadataResponse'
-        '401':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
-        '403':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
-        '500':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations:
     description: |-
       Allows management of organizations.  Organizations are identified by an
@@ -1656,13 +1639,43 @@ components:
       type: object
       required:
       - name
+    quotaMetadataRead:
+      description: A list of quota metadata.
+      type: array
+      items:
+        $ref: '#/components/schemas/quotaMetadata'
+    quotaRead:
+      description: A single quota.
+      type: object
+      required:
+      - kind
+      - quantity
+      - used
+      - free
+      - committed
+      - reserved
       - displayName
       - description
       - default
       properties:
-        name:
-          description: The internal quota name.
+        kind:
+          description: The kind of resource.
           type: string
+        quantity:
+          description: Tha maximum amount of that resource.
+          type: integer
+        used:
+          description: The amount of that resource that is used.
+          type: integer
+        free:
+          description: The amount of that resource that is free.
+          type: integer
+        committed:
+          description: Tha amount of that resource always in use.
+          type: integer
+        reserved:
+          description: The amount of that resource that may be used e.g. autoscaled.
+          type: integer
         displayName:
           description: The name that should be displayed to end users.
           type: string
@@ -1672,12 +1685,7 @@ components:
         default:
           description: The default value of the quota.
           type: integer
-    quotaMetadataRead:
-      description: A list of quota metadata.
-      type: array
-      items:
-        $ref: '#/components/schemas/quotaMetadata'
-    quota:
+    quotaWrite:
       description: A single quota.
       type: object
       required:
@@ -1688,14 +1696,35 @@ components:
           description: The kind of resource.
           type: string
         quantity:
-          description: Tha amount of that resource.
+          description: Tha maximum amount of that resource.
           type: integer
-    quotaList:
+    quotaReadList:
       description: A list of quotas.
       type: array
       items:
-        $ref: '#/components/schemas/quota'
-    quotaDetailed:
+        $ref: '#/components/schemas/quotaRead'
+    quotaWriteList:
+      description: A list of quotas.
+      type: array
+      items:
+        $ref: '#/components/schemas/quotaWrite'
+    quotasRead:
+      description: A list of quotas.
+      type: object
+      required:
+      - quotas
+      properties:
+        quotas:
+          $ref: '#/components/schemas/quotaReadList'
+    quotasWrite:
+      description: A list of quotas.
+      type: object
+      required:
+      - quotas
+      properties:
+        quotas:
+          $ref: '#/components/schemas/quotaWriteList'
+    resourceAllocation:
       description: A single quota but taking into account dynamic allocation.
       type: object
       required:
@@ -1712,33 +1741,11 @@ components:
         reserved:
           description: The amount of that resource that may be used e.g. autoscaled.
           type: integer
-    quotaListDetailed:
+    resourceAllocationList:
       description: A list of quotas.
       type: array
       items:
-        $ref: '#/components/schemas/quotaDetailed'
-    quotasRead:
-      description: A list of quotas, free resources and a detailed view of allocated ones.
-      type: object
-      required:
-      - capacity
-      - free
-      - allocated
-      properties:
-        capacity:
-          $ref: '#/components/schemas/quotaList'
-        free:
-          $ref: '#/components/schemas/quotaList'
-        allocated:
-          $ref: '#/components/schemas/quotaListDetailed'
-    quotasWrite:
-      description: A set of quotas to apply.
-      type: object
-      required:
-      - capacity
-      properties:
-        capacity:
-          $ref: '#/components/schemas/quotaList'
+        $ref: '#/components/schemas/resourceAllocation'
     allocationSpec:
       description: A set of resource allocations.
       type: object
@@ -1754,7 +1761,7 @@ components:
           description: The resource ID that owns this allocation.
           type: string
         allocations:
-          $ref: '#/components/schemas/quotaListDetailed'
+          $ref: '#/components/schemas/resourceAllocationList'
     allocationRead:
       description: An allocation of resources.
       type: object
@@ -1899,7 +1906,7 @@ components:
           schema:
             $ref: '#/components/schemas/quotasWrite'
           example:
-            capacity:
+            quotas:
             - kind: clusters
               quantity: 2
             - kind: servers
@@ -2271,17 +2278,6 @@ components:
               - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
             status:
               lastAcive: 2025-01-12T10:49:13Z
-    quotaMetadataResponse:
-      description: Queries the quotas available on the platform.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/quotaMetadataRead'
-          example:
-          - name: clusters
-            displayName: Clusters
-            description: All cluster types e.g. Kubernetes, compute, etc.
-            default: 5
     quotasResponse:
       description: Queries the quotas for an organizational unit.
       content:
@@ -2289,23 +2285,16 @@ components:
           schema:
             $ref: '#/components/schemas/quotasRead'
           example:
-            capacity:
+            quotas:
             - kind: clusters
               quantity: 2
-            - kind: servers
-              quantity: 10
-            free:
-            - kind: clusters
-              quantity: 1
-            - kind: servers
-              quantity: 4
-            allocated:
-            - kind: clusters
+              used: 1
+              free: 1
               committed: 1
               reserved: 0
-            - kind: servers
-              committed: 3
-              reserved: 3
+              displayName: Clusters
+              description: All cluster types e.g. Kubernetes, compute, etc.
+              default: 5
     allocationsResponse:
       description: A list of allocations.
       content:
@@ -2354,7 +2343,6 @@ components:
               - kind: servers
                 committed: 3
                 reserved: 10
-
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth2 bearer token authentication.

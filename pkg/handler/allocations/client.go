@@ -59,8 +59,8 @@ func New(client client.Client, namespace string) *Client {
 	}
 }
 
-func convertAllocation(in *unikornv1.ResourceAllocation) *openapi.QuotaDetailed {
-	out := &openapi.QuotaDetailed{
+func convertAllocation(in *unikornv1.ResourceAllocation) *openapi.ResourceAllocation {
+	out := &openapi.ResourceAllocation{
 		Kind:      in.Kind,
 		Committed: int(in.Committed.Value()),
 		Reserved:  int(in.Reserved.Value()),
@@ -69,8 +69,8 @@ func convertAllocation(in *unikornv1.ResourceAllocation) *openapi.QuotaDetailed 
 	return out
 }
 
-func convertAllocationList(in []unikornv1.ResourceAllocation) openapi.QuotaListDetailed {
-	out := make(openapi.QuotaListDetailed, len(in))
+func convertAllocationList(in []unikornv1.ResourceAllocation) openapi.ResourceAllocationList {
+	out := make(openapi.ResourceAllocationList, len(in))
 
 	for i := range in {
 		out[i] = *convertAllocation(&in[i])
@@ -102,7 +102,7 @@ func convertList(in *unikornv1.AllocationList) openapi.Allocations {
 	return out
 }
 
-func generateAllocation(in *openapi.QuotaDetailed) *unikornv1.ResourceAllocation {
+func generateAllocation(in *openapi.ResourceAllocation) *unikornv1.ResourceAllocation {
 	out := &unikornv1.ResourceAllocation{
 		Kind:      in.Kind,
 		Committed: resource.NewQuantity(int64(in.Committed), resource.DecimalSI),
@@ -112,7 +112,7 @@ func generateAllocation(in *openapi.QuotaDetailed) *unikornv1.ResourceAllocation
 	return out
 }
 
-func generateAllocationList(in openapi.QuotaListDetailed) []unikornv1.ResourceAllocation {
+func generateAllocationList(in openapi.ResourceAllocationList) []unikornv1.ResourceAllocation {
 	out := make([]unikornv1.ResourceAllocation, len(in))
 
 	for i := range in {
