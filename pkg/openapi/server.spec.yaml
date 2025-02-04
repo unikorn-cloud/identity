@@ -1439,6 +1439,8 @@ components:
       description: A group.
       type: object
       required:
+      - userIDs
+      - serviceAccountIDs
       - roleIDs
       properties:
         userIDs:
@@ -1483,6 +1485,8 @@ components:
     projectSpec:
       description: A project.
       type: object
+      required:
+      - groupIDs
       properties:
         groupIDs:
           $ref: '#/components/schemas/groupIDs'
@@ -1516,6 +1520,8 @@ components:
     serviceAccountSpec:
       description: A service account specification.
       type: object
+      required:
+      - groupIDs
       properties:
         groupIDs:
           $ref: '#/components/schemas/groupIDs'
@@ -1537,6 +1543,7 @@ components:
       type: object
       required:
       - metadata
+      - spec
       - status
       properties:
         metadata:
@@ -1550,6 +1557,7 @@ components:
       type: object
       required:
       - metadata
+      - spec
       - status
       properties:
         metadata:
@@ -1568,6 +1576,7 @@ components:
       type: object
       required:
       - metadata
+      - spec
       properties:
         metadata:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
@@ -1831,6 +1840,9 @@ components:
             metadata:
               name: my-service-account
               description: A service account for doing stuff.
+            spec:
+              groupIDs:
+              - 0aaba80d-67ef-4799-b6d9-59f37e2ce2ad
     userCreateRequest:
       description: Body required to create a user.
       required: true
@@ -1883,7 +1895,7 @@ components:
             metadata:
               name: my-project
             spec:
-              groups:
+              groupIDs:
               - ddde69ef-bb52-4815-9e9e-aed856c6057f
     updateProjectRequest:
       description: Project request parameters.
@@ -1896,7 +1908,7 @@ components:
             metadata:
               name: my-project
             spec:
-              groups:
+              groupIDs:
               - ddde69ef-bb52-4815-9e9e-aed856c6057f
     quotasRequest:
       description: Allows the setting of quotas.
@@ -2137,8 +2149,10 @@ components:
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
             spec:
-              usersIDs:
+              userIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
+              serviceAccountIDs:
+              - a0e9c93a-3a47-4ea1-9caf-22757428a810
               roleIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
     groupsResponse:
@@ -2158,6 +2172,8 @@ components:
             spec:
               userIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
+              serviceAccountIDs:
+              - a0e9c93a-3a47-4ea1-9caf-22757428a810
               roleIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
     projectsResponse:
@@ -2174,7 +2190,7 @@ components:
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
             spec:
-              groups:
+              groupIDs:
               - ef509cd1-c7e6-42f8-aae7-a01164dc60dc
     projectResponse:
       description: A project.
@@ -2190,7 +2206,7 @@ components:
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
             spec:
-              groups:
+              groupIDs:
               - ef509cd1-c7e6-42f8-aae7-a01164dc60dc
     serviceAccountResponse:
       description: A service accounts.
@@ -2205,6 +2221,9 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+            spec:
+              groupIDs:
+              - f2000047-19f8-426e-93b9-9f0a5bfa0edd
             status:
               expiry: 2025-03-14T16:10:00Z
     serviceAccountsResponse:
@@ -2220,6 +2239,9 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+            spec:
+              groupIDs:
+              - f2000047-19f8-426e-93b9-9f0a5bfa0edd
             status:
               expiry: 2025-03-14T16:10:00Z
     serviceAccountCreateResponse:
@@ -2235,6 +2257,9 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+            spec:
+              groupIDs:
+              - f2000047-19f8-426e-93b9-9f0a5bfa0edd
             status:
               expiry: 2025-03-14T16:10:00Z
               accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c

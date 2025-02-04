@@ -219,8 +219,9 @@ func convert(in *unikornv1.User, groups *unikornv1.GroupList) *openapi.UserRead 
 	out := &openapi.UserRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.UserSpec{
-			Subject: in.Spec.Subject,
-			State:   convertUserState(in.Spec.State),
+			Subject:  in.Spec.Subject,
+			State:    convertUserState(in.Spec.State),
+			GroupIDs: make(openapi.GroupIDs, 0, len(groups.Items)),
 		},
 	}
 

@@ -62,10 +62,13 @@ func convert(in *unikornv1.Project) *openapi.ProjectRead {
 
 	out := &openapi.ProjectRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, provisioningStatus),
+		Spec: openapi.ProjectSpec{
+			GroupIDs: openapi.GroupIDs{},
+		},
 	}
 
 	if in.Spec.GroupIDs != nil {
-		out.Spec.GroupIDs = &in.Spec.GroupIDs
+		out.Spec.GroupIDs = in.Spec.GroupIDs
 	}
 
 	return out
@@ -136,24 +139,22 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 
 	out := &unikornv1.Project{
 		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
+		Spec: unikornv1.ProjectSpec{
+			Tags:     conversion.GenerateTagList(in.Metadata.Tags),
+			GroupIDs: in.Spec.GroupIDs,
+		},
 	}
 
-	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
+	for _, groupID := range in.Spec.GroupIDs {
+		var resource unikornv1.Group
 
-	if in.Spec.GroupIDs != nil {
-		for _, groupID := range *in.Spec.GroupIDs {
-			var resource unikornv1.Group
-
-			if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: groupID}, &resource); err != nil {
-				if kerrors.IsNotFound(err) {
-					return nil, errors.OAuth2InvalidRequest(fmt.Sprintf("group ID %s does not exist", groupID)).WithError(err)
-				}
-
-				return nil, errors.OAuth2ServerError("failed to validate group ID").WithError(err)
+		if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: groupID}, &resource); err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil, errors.OAuth2InvalidRequest(fmt.Sprintf("group ID %s does not exist", groupID)).WithError(err)
 			}
-		}
 
-		out.Spec.GroupIDs = *in.Spec.GroupIDs
+			return nil, errors.OAuth2ServerError("failed to validate group ID").WithError(err)
+		}
 	}
 
 	return out, nil
