@@ -112,7 +112,7 @@ func (c *Client) GetQuota(ctx context.Context, organizationID string) (*unikornv
 	}
 
 	if len(resources.Items) > 1 {
-		return nil, false, fmt.Errorf("%w: expected to find 1 project namespace", ErrConsistency)
+		return nil, false, fmt.Errorf("%w: expected to find 1 organization quota", ErrConsistency)
 	}
 
 	// We are going to lazily create the quota and any new quota items that come

@@ -1932,7 +1932,7 @@ components:
             $ref: '#/components/schemas/allocationWrite'
           example:
             metadata:
-              name: unused
+              name: undefined
             spec:
               kind: kubernetescluster
               id: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
@@ -2272,7 +2272,7 @@ components:
           example:
           - metadata:
               id: ee45f34b-9685-40d8-8724-23c31252ca46
-              name: unused
+              name: undefined
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
@@ -2292,7 +2292,7 @@ components:
           example:
             metadata:
               id: ee45f34b-9685-40d8-8724-23c31252ca46
-              name: unused
+              name: undefined
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
@@ -2329,7 +2329,7 @@ components:
           example:
           - metadata:
               id: ee45f34b-9685-40d8-8724-23c31252ca46
-              name: unused
+              name: undefined
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               projectId: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
               creationTime: 2024-05-31T14:11:00Z
@@ -2353,7 +2353,7 @@ components:
           example:
             metadata:
               id: ee45f34b-9685-40d8-8724-23c31252ca46
-              name: unused
+              name: undefined
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               projectId: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
               creationTime: 2024-05-31T14:11:00Z

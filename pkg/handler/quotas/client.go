@@ -21,6 +21,7 @@ import (
 	goerrors "errors"
 	"slices"
 
+	"github.com/unikorn-cloud/core/pkg/constants"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -81,7 +82,7 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 	}
 
 	metadata := &coreopenapi.ResourceWriteMetadata{
-		Name: "undefined",
+		Name: constants.UndefinedName,
 	}
 
 	out := &unikornv1.Quota{

@@ -184,7 +184,7 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 	}
 
 	metadata := &coreopenapi.ResourceWriteMetadata{
-		Name: "undefined",
+		Name: constants.UndefinedName,
 	}
 
 	out := &unikornv1.User{
