@@ -30,6 +30,7 @@ func GetCommand(factory *factory.Factory) *cobra.Command {
 
 	cmd.AddCommand(
 		getCreateOrganization(factory),
+		getCreateUser(factory),
 		getCreateGroup(factory),
 	)
 

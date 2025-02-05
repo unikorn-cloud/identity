@@ -80,7 +80,7 @@ func (f *Factory) ResourceNameCompletionFunc(resourceType, namespace string) fun
 
 func (f *Factory) UserSubjectCompletionFunc(resourceType, namespace string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		template := `{{ range .items }}{{ .spec.subjtect }} {{ end }}`
+		template := `{{ range .items }}{{ .spec.subject }} {{ end }}`
 
 		return utilcomp.CompGetFromTemplate(&template, f.factory, namespace, []string{resourceType}, toComplete), cobra.ShellCompDirectiveNoFileComp
 	}

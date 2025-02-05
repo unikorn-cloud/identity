@@ -221,6 +221,9 @@ providers:
     issuer: https://accounts.google.com
     clientID: <string> # provided by the identity provider, see above
     clientSecret: <string> # provider by the identity provider, see above
+platformAdministrators:
+  subjects:
+  - wile.e.coyote@acme.com
 ```
 
 Install the Helm repository:
@@ -275,8 +278,17 @@ We provide CLI integration to perform initial user onboarding, first create an o
 ```shell
 kubectl unikorn create organization \
     --namespace unikorn-identity \
-    --name acme.com \
+    --name acme \
     --description "A place for Looney Tunes!"
+```
+
+Create the user:
+
+```shell
+kubectl unikorn create user \
+    --namespace unikorn-identity \
+    --organization acme.com \
+    --user wile.e.coyote@acme.com
 ```
 
 Then create a group linking a user to a role:
@@ -285,9 +297,9 @@ Then create a group linking a user to a role:
 kubectl unikorn create group \
     --namespace unikorn-identity \
     --organization acme.com \
-    --name platform-administrators \
-    --description "Platform super users" \
-    --role platform-administrator \
+    --name administrators \
+    --description "Organization administrators" \
+    --role administrator \
     --user wile.e.coyote@acme.com
 ```
 
@@ -312,6 +324,15 @@ kubectl unikorn create organization \
     --namespace unikorn-identity \
     --name system \
     --description "System service accounts"
+```
+
+Create the user:
+    
+```shell
+kubectl unikorn create user \
+    --namespace unikorn-identity \
+    --organization system \ 
+    --user unikorn-kubernetes
 ```
 
 Then create groups to link services to roles:

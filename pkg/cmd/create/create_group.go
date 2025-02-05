@@ -25,11 +25,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
-	"github.com/unikorn-cloud/core/pkg/util"
+	coreutil "github.com/unikorn-cloud/core/pkg/util"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/cmd/errors"
 	"github.com/unikorn-cloud/identity/pkg/cmd/factory"
 	"github.com/unikorn-cloud/identity/pkg/cmd/flags"
+	"github.com/unikorn-cloud/identity/pkg/cmd/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -94,35 +95,13 @@ func (o *createGroupOptions) AddFlags(cmd *cobra.Command, factory *factory.Facto
 
 // validateOrganization ensures the organization doesn't already exist.
 func (o *createGroupOptions) validateOrganization(ctx context.Context, cli client.Client) error {
-	requirement, err := labels.NewRequirement(constants.NameLabel, selection.Equals, []string{o.organization.String()})
+	organization, err := util.GetOrganization(ctx, cli, *o.ConfigFlags.Namespace, o.organization.String())
 	if err != nil {
 		return err
 	}
 
-	selector := labels.NewSelector()
-	selector = selector.Add(*requirement)
-
-	options := &client.ListOptions{
-		Namespace:     *o.ConfigFlags.Namespace,
-		LabelSelector: selector,
-	}
-
-	var resources unikornv1.OrganizationList
-
-	if err := cli.List(ctx, &resources, options); err != nil {
-		return err
-	}
-
-	if len(resources.Items) != 1 {
-		return fmt.Errorf("%w: unable to find organization with name %s", errors.ErrValidation, o.name.String())
-	}
-
-	if resources.Items[0].Status.Namespace == "" {
-		return fmt.Errorf("%w: unable to find organization namespace", errors.ErrValidation)
-	}
-
-	o.organizationID = resources.Items[0].Name
-	o.organizationNamespace = resources.Items[0].Status.Namespace
+	o.organizationID = organization.Name
+	o.organizationNamespace = organization.Status.Namespace
 
 	return nil
 }
@@ -196,7 +175,7 @@ func (o *createGroupOptions) validateUsers(ctx context.Context, cli client.Clien
 	o.users = slices.Compact(o.users)
 
 	options := &client.ListOptions{
-		Namespace: *o.ConfigFlags.Namespace,
+		Namespace: o.organizationNamespace,
 	}
 
 	var resources unikornv1.UserList
@@ -244,7 +223,7 @@ func (o *createGroupOptions) execute(ctx context.Context, cli client.Client) err
 	group := &unikornv1.Group{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: o.organizationNamespace,
-			Name:      util.GenerateResourceID(),
+			Name:      coreutil.GenerateResourceID(),
 			Labels: map[string]string{
 				constants.OrganizationLabel: o.organizationID,
 				constants.NameLabel:         o.name.String(),
