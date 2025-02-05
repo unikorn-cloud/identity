@@ -23,6 +23,8 @@ import (
 	"slices"
 	"time"
 
+	"github.com/spf13/pflag"
+
 	"github.com/unikorn-cloud/core/pkg/constants"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
@@ -40,17 +42,29 @@ var (
 	ErrResourceReference = errors.New("resource reference error")
 )
 
+type Options struct {
+	PlatformAdministratorRoleID   string
+	PlatformAdministratorSubjects []string
+}
+
+func (o *Options) AddFlags(f *pflag.FlagSet) {
+	f.StringVar(&o.PlatformAdministratorRoleID, "platform-administrator-role-id", "", "Platform administrator role ID.")
+	f.StringSliceVar(&o.PlatformAdministratorSubjects, "platform-administrator-subjects", []string{}, "Platform administrators.")
+}
+
 // RBAC contains all the scoping rules for services across the platform.
 type RBAC struct {
 	client    client.Client
 	namespace string
+	options   *Options
 }
 
 // New creates a new RBAC client.
-func New(client client.Client, namespace string) *RBAC {
+func New(client client.Client, namespace string, options *Options) *RBAC {
 	return &RBAC{
 		client:    client,
 		namespace: namespace,
+		options:   options,
 	}
 }
 
@@ -302,7 +316,7 @@ func (r *RBAC) accumulatePermissions(groups map[string]*unikornv1.Group, roles m
 // GetACL returns a granular set of permissions for a user based on their scope.
 // This is used for API level access control and UX.
 //
-//nolint:cyclop
+//nolint:cyclop,gocognit
 func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl, error) {
 	// All the tokens introspecition info is in the context...
 	info, err := authorization.FromContext(ctx)
@@ -355,8 +369,7 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 			return nil, err
 		}
 	} else {
-		// A subject may be part of any organization's group, and may have global endpoints
-		// defined, if so add them.
+		// A subject may be part of any organization's group.
 		users, err := r.GetActiveUsers(ctx, info.Userinfo.Sub)
 		if err != nil {
 			return nil, err
@@ -364,6 +377,15 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 
 		for i := range users.Items {
 			user := &users.Items[i]
+
+			// Handle platform adinistrator accounts.
+			// These purposefully cannot be granted via the API and must be
+			// conferred by the operations team.
+			if slices.Contains(r.options.PlatformAdministratorSubjects, user.Spec.Subject) {
+				if role, ok := roles[r.options.PlatformAdministratorRoleID]; ok {
+					addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
+				}
+			}
 
 			subjectOrganizationID, ok := user.Labels[constants.OrganizationLabel]
 			if !ok {

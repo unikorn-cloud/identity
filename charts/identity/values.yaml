@@ -74,6 +74,16 @@ issuer:
 #     # The client secret assigned by the identity provider.
 #     clientSecret:  GOCSPX-akjfdns3238r328r9832rewjbds
 
+# platformAdministratorRole is a role that can be implicitly added to users
+# and service accounts.
+platformAdministrators:
+  # Protected role as defined below to grant.
+  role: platform-administrator
+
+  # Subjects the role applies to, must be the canonical name from the IdP
+  # and not an alias.
+  subjects: []
+
 # A static list of roles.
 # Any unscoped API resources are to be managed by the platform operator
 # and are assumed to be read only for all.  Global permissions are applied
@@ -83,6 +93,7 @@ roles:
   # A platform-admin can do anything anywhere.
   platform-administrator:
     description: Platform administrator
+    protected: true
     scopes:
       global:
         identity:organizations: [create,read,update,delete]

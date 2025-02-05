@@ -69,6 +69,9 @@ type Server struct {
 
 	// OTelOptions are for tracing.
 	OTelOptions otel.Options
+
+	// RBACOptions are for RBAC related things.
+	RBACOptions rbac.Options
 }
 
 func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
@@ -80,6 +83,7 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.OAuth2Options.AddFlags(flags)
 	s.CORSOptions.AddFlags(flags)
 	s.OTelOptions.AddFlags(flags)
+	s.RBACOptions.AddFlags(flags)
 }
 
 func (s *Server) SetupLogging() {
@@ -113,7 +117,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		return nil, err
 	}
 
-	rbac := rbac.New(client, s.Options.Namespace)
+	rbac := rbac.New(client, s.Options.Namespace, &s.RBACOptions)
 	oauth2 := oauth2.New(&s.OAuth2Options, s.Options.Namespace, client, issuer, rbac)
 
 	// Setup middleware.

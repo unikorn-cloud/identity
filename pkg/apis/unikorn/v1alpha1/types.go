@@ -158,6 +158,8 @@ type Role struct {
 type RoleSpec struct {
 	// Tags are aribrary user data.
 	Tags unikornv1core.TagList `json:"tags,omitempty"`
+	// Protected means this is an unexported internal role.
+	Protected bool `json:"protected,omitempty"`
 	// Scopes are a list of uniquely named scopes for the role.
 	Scopes RoleScopes `json:"scopes,omitempty"`
 }
