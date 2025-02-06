@@ -72,7 +72,7 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Roles
 	}
 
 	result.Items = slices.DeleteFunc(result.Items, func(role unikornv1.Role) bool {
-		return rbac.AllowRole(ctx, &role, organizationID) != nil
+		return role.Spec.Protected || rbac.AllowRole(ctx, &role, organizationID) != nil
 	})
 
 	return convertList(result), nil
