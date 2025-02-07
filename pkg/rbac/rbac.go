@@ -45,11 +45,13 @@ var (
 type Options struct {
 	PlatformAdministratorRoleID   string
 	PlatformAdministratorSubjects []string
+	SystemAccountRoleIDs          map[string]string
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.StringVar(&o.PlatformAdministratorRoleID, "platform-administrator-role-id", "", "Platform administrator role ID.")
-	f.StringSliceVar(&o.PlatformAdministratorSubjects, "platform-administrator-subjects", []string{}, "Platform administrators.")
+	f.StringSliceVar(&o.PlatformAdministratorSubjects, "platform-administrator-subjects", nil, "Platform administrators.")
+	f.StringToStringVar(&o.SystemAccountRoleIDs, "system-account-roles-ids", nil, "System accounts map the X.509 Common Name to a role ID.")
 }
 
 // RBAC contains all the scoping rules for services across the platform.
@@ -348,8 +350,26 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 
 	var projectACLs []openapi.AclScopedEndpoints
 
-	//nolint:nestif
-	if info.ServiceAccount {
+	switch {
+	case info.SystemAccount:
+		// System accounts act on behalf of users, so by definition need globally
+		// scoped roles.  As such they are explcitly mapped by the operations team
+		// when deploying.
+		roleID, ok := r.options.SystemAccountRoleIDs[info.Userinfo.Sub]
+		if !ok {
+			return nil, fmt.Errorf("%w: system account '%s' not registered", ErrResourceReference, info.Userinfo.Sub)
+		}
+
+		role, ok := roles[roleID]
+		if !ok {
+			return nil, fmt.Errorf("%w: system account '%s' references undefined role ID", ErrResourceReference, info.Userinfo.Sub)
+		}
+
+		addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
+
+	case info.ServiceAccount:
+		// Service accounts are bound to an organization, so we get groups from the organization
+		// it's part of and not the one supplied via the API.
 		serviceAccount, err := r.GetServiceAccount(ctx, info.Userinfo.Sub)
 		if err != nil {
 			return nil, err
@@ -368,7 +388,8 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 		if err := r.accumulatePermissions(groups, roles, projects, organizationID, subjectOrganizationID, &globalACL, &organizationACL, &projectACLs); err != nil {
 			return nil, err
 		}
-	} else {
+
+	default:
 		// A subject may be part of any organization's group.
 		users, err := r.GetActiveUsers(ctx, info.Userinfo.Sub)
 		if err != nil {

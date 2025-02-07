@@ -35,6 +35,9 @@ type Info struct {
 	// the session, and can be used to route errors to the correct
 	// endpoint.
 	ClientID string
+	// SystemAccount means this belongs to a system account that is
+	// authenticated with X.509.
+	SystemAccount bool
 	// ServiceAccount means this belongs explicitly to a service account.
 	ServiceAccount bool
 }

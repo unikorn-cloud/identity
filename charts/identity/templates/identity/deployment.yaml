@@ -27,6 +27,11 @@ spec:
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
         - --platform-administrator-role-id={{ include "resource.id" .Values.platformAdministrators.role }}
         - --platform-administrator-subjects={{ join "," .Values.platformAdministrators.subjects }}
+        {{- $systemAccounts := list }}
+        {{- range $k, $v := .Values.systemAccounts }}
+          {{- $systemAccounts = append $systemAccounts (printf "%s=%s" $k (include "resource.id" $v)) }}
+        {{- end }}
+        - --system-account-roles-ids={{ join "," $systemAccounts }}
         {{- with $signup := .Values.signup }}
           {{- if $signup.enabled }}
         - --user-email-verification
