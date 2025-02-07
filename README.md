@@ -224,6 +224,9 @@ providers:
 platformAdministrators:
   subjects:
   - wile.e.coyote@acme.com
+systemAccounts:
+  unikorn-kubernetes: infra-manager-service
+  unikorn-compute: infra-manager-service
 ```
 
 Install the Helm repository:
@@ -267,91 +270,56 @@ Download the following artefacts an install them in your path:
 * `kubectl-unikorn`
 * `kubectl_complete-unikorn`
 
-### Creating an Organization
+### User Onboarding
 
-Organizations allow users to actually log in.
-A user must be mapped to an organization to be permitted access.
-Organizations are typically manged via a back channel after email verification, billing and other tests.
+Typically your deployment will have a small select few engineers who are able to see and do everything, including creating organizations.
+At present self-signup is not possible.
 
-We provide CLI integration to perform initial user onboarding, first create an organization:
+In the earlier `values.yaml` manifest, the following section was defined:
 
-```shell
-kubectl unikorn create organization \
-    --namespace unikorn-identity \
-    --name acme \
-    --description "A place for Looney Tunes!"
+```yaml
+platformAdministrators:
+  subjects:
+  - wile.e.coyote@acme.com
 ```
 
-Create the user:
+This forms an implicit mapping from a user to a special role that grants access to all-the-things.
 
-```shell
-kubectl unikorn create user \
-    --namespace unikorn-identity \
-    --organization acme.com \
-    --user wile.e.coyote@acme.com
+In order to actually login, you will need a user account creating:
+
+```yaml
++kubectl unikorn create user \
+     --namespace unikorn-identity \
+     --user wile.e.coyote@acme.com
 ```
 
-Then create a group linking a user to a role:
+If your user's email address can be authenticated by any of the supported OIDC integrations, that's all you need to do, otherwise read on...
 
-```shell
-kubectl unikorn create group \
-    --namespace unikorn-identity \
-    --organization acme.com \
-    --name administrators \
-    --description "Organization administrators" \
-    --role administrator \
-    --user wile.e.coyote@acme.com
-```
-
-### Service Organization
-
-When using an integration such as the [Unikorn Kubernetes Service](https://github.com/unikorn-cloud/kubernetes) you will need to create a service organization and groups in order for them to function.
-
-Taking Kubernetes cluster provisioning as an example, the provisioner is a Kubernetes controller that needs access to the region API in order to check the provisioning status of cloud identities, and possibly physical networks, before proceeding.
-Additionally it needs provider specific information from those resources to pass to the cluster provisioner.
-
-As these APIs are protected by oauth2 it needs a way to first acquire an access token, as it has no access to the requesting user's.
-To solve this problem we use the oauth2 `client_credentials` grant to authenticate the Kubernetes service against the Identity service.
-This takes the form of mutual-TLS authentication as defined by RFC-8705.
-
-When the access token is then passed to the Region service, it will authenticate the token against the Identity service, then it needs to retrieve the ACL to perform RBAC related checks on the API endpoints.
-For that reason, we need an organization and a group containing the client service user, mapping to a role that allows API access.
-
-The steps to create a service organization are exactly as described above, first create an organization:
-
-```shell
-kubectl unikorn create organization \
-    --namespace unikorn-identity \
-    --name system \
-    --description "System service accounts"
-```
-
-Create the user:
-    
-```shell
-kubectl unikorn create user \
-    --namespace unikorn-identity \
-    --organization system \ 
-    --user unikorn-kubernetes
-```
-
-Then create groups to link services to roles:
-
-```shell
-kubectl unikorn create group \
-    --namespace unikorn-identity \
-    --organization system \
-    --name region-services \
-    --description "Services that require access to regions for infrastructure provisioning." \
-    --role infra-manager-service \
-    --user unikorn-kubernetes \
-    --user unikorn-compute
-```
+#### Creating an Organization and OIDC Integration
 
 > [!NOTE]
-> The group contains explicit user names e.g. `unikorn-kubernetes` as defined in the X.509 client certificate's common name (CN).
-> Individual services will document their CN and role requirements.
-> All official Unikorn Cloud services will have their roles pre-defined by this repository.
+> This needs writing and tooling provided.
+> If you are brave you can:
+> * Create an `organization` with domain scoping.
+> * Create an `oauth2provider` in that organization that provides authentication for that domain.
+
+### 3rd Party Service Integration
+
+When using an integration such as the [Unikorn Kubernetes Service](https://github.com/unikorn-cloud/kubernetes) you will need to configure system account to RBAC mappings.
+3rd party services usually act on behalf of a user, and as such need elevated global privileges, so as to avoid giving the end user permission to sensitive endpoints.
+
+In the earlier `values.yaml` manifest, the following section was defined:
+
+```yaml
+systemAccounts:
+  unikorn-kubernetes: infra-manager-service
+  unikorn-compute: infra-manager-service
+```
+
+In very simple terms, when you create a 3rd party service, that will need to generate an X.509 certifictae in order to authenticate with the tokens endpoint and issue an access token to talk to other Uniorn service APIs.
+That certificate will need to be signed by the trusted client CA (typically signed by the `unikorn-client-issuer` managed by cert-manager).
+The X.509 Common Name (CN) encoded in the certificate is the key to this mapping e.g. `unikorn-kubernetes`.
+The value references a role name that is either installed by default, or created specifically for your service.
 
 ## What Next?
 

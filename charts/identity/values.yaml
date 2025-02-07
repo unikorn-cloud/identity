@@ -84,6 +84,11 @@ platformAdministrators:
   # and not an alias.
   subjects: []
 
+# System accounts map X.509 Common Names to roles.
+systemAccounts:
+  unikorn-kubernetes: infra-manager-service
+  unikorn-compute: infra-manager-service
+
 # A static list of roles.
 # Any unscoped API resources are to be managed by the platform operator
 # and are assumed to be read only for all.  Global permissions are applied
@@ -104,6 +109,7 @@ roles:
         identity:groups: [create,read,update,delete]
         identity:projects: [create,read,update,delete]
         identity:quotas: [create,read,update,delete]
+        identity:allocations: [create,read,update,delete]
         region:regions: [create,read,update,delete]
         region:flavors: [create,read,update,delete]
         region:images: [create,read,update,delete]
@@ -125,8 +131,10 @@ roles:
   # services that can manage identities and physical networks on behalf of a cluster.
   infra-manager-service:
     decription: Infrastructure manager service
+    protected: true
     scopes:
       global:
+        identity:allocations: [create,read,update,delete]
         region:identities: [create,read,delete]
         region:regions: [read]
         region:flavors: [read]
@@ -140,6 +148,7 @@ roles:
   # on to.
   application-manager-service:
     description: Application manager service
+    protected: true
     scopes:
       global:
         kubernetes:clusters: [read]

@@ -128,6 +128,8 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 		if thumbprint != *claims.Config.X509Thumbprint {
 			return nil, errors.OAuth2AccessDenied("client certificate mismatch for bound token")
 		}
+
+		info.SystemAccount = true
 	}
 
 	return info, nil
