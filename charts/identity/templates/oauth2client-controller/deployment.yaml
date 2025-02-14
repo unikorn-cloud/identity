@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: unikorn-oauth2client-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: unikorn-oauth2client-controller
+  template:
+    metadata:
+      labels:
+        app: unikorn-oauth2client-controller
+    spec:
+      containers:
+      - name: unikorn-oauth2client-controller
+        image: {{ include "unikorn.oauth2clientControllerImage" . }}
+        args:
+        {{- include "unikorn.core.flags" . | nindent 8 }}
+        {{- include "unikorn.otlp.flags" . | nindent 8 }}
+        resources:
+          requests:
+            cpu: 50m
+            memory: 50Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          readOnlyRootFilesystem: true
+      serviceAccountName: unikorn-oauth2client-controller
+      securityContext:
+        runAsNonRoot: true

@@ -117,6 +117,7 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 			openapi.ResponseTypeCode,
 		},
 		TokenEndpointAuthMethodsSupported: []openapi.AuthMethod{
+			openapi.ClientSecretBasic,
 			openapi.ClientSecretPost,
 			openapi.TlsClientAuth,
 		},
