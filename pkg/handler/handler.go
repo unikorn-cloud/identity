@@ -168,6 +168,17 @@ func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 	util.WriteJSONResponse(w, r, http.StatusOK, info.Userinfo)
 }
 
+func (h *Handler) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
+	info, err := authorization.FromContext(r.Context())
+	if err != nil {
+		errors.HandleError(w, r, errors.OAuth2ServerError("userinfo is not set").WithError(err))
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, info.Userinfo)
+}
+
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {
 	result, _, err := h.issuer.GetJSONWebKeySet(r.Context())
 	if err != nil {
