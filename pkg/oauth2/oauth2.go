@@ -178,6 +178,9 @@ type Code struct {
 	// authenticate we are handing the authorization token back to the
 	// correct client.
 	ClientCodeChallenge string `json:"ccc"`
+	// ClientCodeChallengeMethod remembers how to process the PKCE code
+	// challenge during token exchange.
+	ClientCodeChallengeMethod openapi.CodeChallengeMethod
 	// ClientScope records the requested client scope.
 	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
@@ -382,6 +385,8 @@ func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWrite
 func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client) bool {
 	query := r.URL.Query()
 
+	codeChallengeMethod := openapi.CodeChallengeMethod(query.Get("code_challenge_method"))
+
 	var kind Error
 
 	var description string
@@ -390,9 +395,9 @@ func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, 
 	case query.Get("response_type") != "code":
 		kind = ErrorUnsupportedResponseType
 		description = "response_type must be 'code'"
-	case query.Get("code_challenge_method") != "S256":
+	case codeChallengeMethod != openapi.S256 && codeChallengeMethod != openapi.Plain:
 		kind = ErrorInvalidRequest
-		description = "code_challenge_method must be 'S256'"
+		description = "code_challenge_method unsupported'"
 	case query.Get("code_challenge") == "":
 		kind = ErrorInvalidRequest
 		description = "code_challenge must be specified"
@@ -778,8 +783,15 @@ func tokenValidateCode(code *Code, r *http.Request) error {
 		return errors.OAuth2InvalidGrant("redirect_uri mismatch")
 	}
 
-	if code.ClientCodeChallenge != encodeCodeChallengeS256(r.Form.Get("code_verifier")) {
-		return errors.OAuth2InvalidClient("code_verfier invalid")
+	switch code.ClientCodeChallengeMethod {
+	case openapi.Plain:
+		if code.ClientCodeChallenge != r.Form.Get("code_verifier") {
+			return errors.OAuth2InvalidClient("code_verfier invalid")
+		}
+	case openapi.S256:
+		if code.ClientCodeChallenge != encodeCodeChallengeS256(r.Form.Get("code_verifier")) {
+			return errors.OAuth2InvalidClient("code_verfier invalid")
+		}
 	}
 
 	return nil
@@ -833,6 +845,41 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 	return &idToken, nil
 }
 
+func (a *Authenticator) validateClientSecret(r *http.Request, code *Code) error {
+	client, err := a.lookupClient(r.Context(), code.ClientID)
+	if err != nil {
+		return errors.OAuth2ServerError("failed to lookup client").WithError(err)
+	}
+
+	if client.Status.Secret == "" {
+		return errors.OAuth2ServerError("client secret not set")
+	}
+
+	switch {
+	case r.Form.Has("client_secret"):
+		if client.Status.Secret != r.Form.Get("client_secret") {
+			return errors.OAuth2InvalidRequest("client secret invalid")
+		}
+	case r.Header.Get("Authorization") != "":
+		parts := strings.Split(r.Header.Get("Authorization"), " ")
+		if len(parts) != 2 {
+			return errors.OAuth2InvalidRequest("malformed Authorization header")
+		}
+
+		if parts[0] != "Basic" {
+			return errors.OAuth2InvalidRequest("malformed Authorization header")
+		}
+
+		if client.Status.Secret != parts[1] {
+			return errors.OAuth2InvalidRequest("client secret invalid")
+		}
+	default:
+		return errors.OAuth2InvalidRequest("client secret not specified")
+	}
+
+	return nil
+}
+
 // TokenAuthorizationCode issues a token based on whether the provided code is correct and
 // the client code verifier (PKCS) matches.
 func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
@@ -850,13 +897,8 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		return nil, err
 	}
 
-	client, err := a.lookupClient(r.Context(), code.ClientID)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to lookup client").WithError(err)
-	}
-
-	if client.Status.Secret == "" || client.Status.Secret != r.Form.Get("client_secret") {
-		return nil, errors.OAuth2InvalidRequest("client secret invalid")
+	if err := a.validateClientSecret(r, code); err != nil {
+		return nil, err
 	}
 
 	info := &IssueInfo{

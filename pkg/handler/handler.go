@@ -130,6 +130,7 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 			openapi.ES512,
 		},
 		CodeChallengeMethodsSupported: []openapi.CodeChallengeMethod{
+			openapi.Plain,
 			openapi.S256,
 		},
 	}
