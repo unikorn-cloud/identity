@@ -259,6 +259,9 @@ type ClientInterface interface {
 	// GetOauth2V2Userinfo request
 	GetOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostOauth2V2Userinfo request
+	PostOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOidcCallback request
 	GetOidcCallback(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
@@ -997,6 +1000,18 @@ func (c *Client) PostOauth2V2TokenWithFormdataBody(ctx context.Context, body Pos
 
 func (c *Client) GetOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOauth2V2UserinfoRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2V2UserinfoRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2833,6 +2848,33 @@ func NewGetOauth2V2UserinfoRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPostOauth2V2UserinfoRequest generates requests for PostOauth2V2Userinfo
+func NewPostOauth2V2UserinfoRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth2/v2/userinfo")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetOidcCallbackRequest generates requests for GetOidcCallback
 func NewGetOidcCallbackRequest(server string) (*http.Request, error) {
 	var err error
@@ -3071,6 +3113,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetOauth2V2UserinfoWithResponse request
 	GetOauth2V2UserinfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2UserinfoResponse, error)
+
+	// PostOauth2V2UserinfoWithResponse request
+	PostOauth2V2UserinfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error)
 
 	// GetOidcCallbackWithResponse request
 	GetOidcCallbackWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOidcCallbackResponse, error)
@@ -4196,6 +4241,29 @@ func (r GetOauth2V2UserinfoResponse) StatusCode() int {
 	return 0
 }
 
+type PostOauth2V2UserinfoResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserinfoResponse
+	JSON401      *externalRef0.UnauthorizedResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOauth2V2UserinfoResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOauth2V2UserinfoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetOidcCallbackResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4757,6 +4825,15 @@ func (c *ClientWithResponses) GetOauth2V2UserinfoWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetOauth2V2UserinfoResponse(rsp)
+}
+
+// PostOauth2V2UserinfoWithResponse request returning *PostOauth2V2UserinfoResponse
+func (c *ClientWithResponses) PostOauth2V2UserinfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error) {
+	rsp, err := c.PostOauth2V2Userinfo(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2V2UserinfoResponse(rsp)
 }
 
 // GetOidcCallbackWithResponse request returning *GetOidcCallbackResponse
@@ -6815,6 +6892,39 @@ func ParseGetOauth2V2UserinfoResponse(rsp *http.Response) (*GetOauth2V2UserinfoR
 	}
 
 	response := &GetOauth2V2UserinfoResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserinfoResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostOauth2V2UserinfoResponse parses an HTTP response from a PostOauth2V2UserinfoWithResponse call
+func ParsePostOauth2V2UserinfoResponse(rsp *http.Response) (*PostOauth2V2UserinfoResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOauth2V2UserinfoResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

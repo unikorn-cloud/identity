@@ -86,6 +86,16 @@ paths:
           $ref: '#/components/responses/userinfoResponse'
         '401':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+    post:
+      x-no-body: true
+      description: Returns introspection information about an access token.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/userinfoResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
   /oidc/callback:
     description: |-
       Implements the OIDC response code callback.

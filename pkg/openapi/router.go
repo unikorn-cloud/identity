@@ -150,6 +150,9 @@ type ServerInterface interface {
 	// (GET /oauth2/v2/userinfo)
 	GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request)
 
+	// (POST /oauth2/v2/userinfo)
+	PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request)
+
 	// (GET /oidc/callback)
 	GetOidcCallback(w http.ResponseWriter, r *http.Request)
 }
@@ -380,6 +383,11 @@ func (_ Unimplemented) PostOauth2V2Token(w http.ResponseWriter, r *http.Request)
 
 // (GET /oauth2/v2/userinfo)
 func (_ Unimplemented) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /oauth2/v2/userinfo)
+func (_ Unimplemented) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1815,6 +1823,26 @@ func (siw *ServerInterfaceWrapper) GetOauth2V2Userinfo(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// PostOauth2V2Userinfo operation middleware
+func (siw *ServerInterfaceWrapper) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostOauth2V2Userinfo(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetOidcCallback operation middleware
 func (siw *ServerInterfaceWrapper) GetOidcCallback(w http.ResponseWriter, r *http.Request) {
 
@@ -2076,6 +2104,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oauth2/v2/userinfo", wrapper.GetOauth2V2Userinfo)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/oauth2/v2/userinfo", wrapper.PostOauth2V2Userinfo)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/oidc/callback", wrapper.GetOidcCallback)
