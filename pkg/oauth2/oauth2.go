@@ -763,7 +763,6 @@ func tokenValidate(r *http.Request) error {
 	}
 
 	required := []string{
-		"client_id",
 		"client_secret",
 		"redirect_uri",
 		"code",
@@ -786,7 +785,7 @@ func tokenValidateCode(code *Code, r *http.Request) error {
 		return nil
 	}
 
-	if code.ClientID != r.Form.Get("client_id") {
+	if r.Form.Has("client_id") && code.ClientID != r.Form.Get("client_id") {
 		return errors.OAuth2InvalidGrant("client_id mismatch")
 	}
 
