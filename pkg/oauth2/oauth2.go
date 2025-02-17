@@ -753,6 +753,7 @@ func tokenValidate(r *http.Request) error {
 
 	required := []string{
 		"client_id",
+		"client_secret",
 		"redirect_uri",
 		"code",
 		"code_verifier",
@@ -847,6 +848,15 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 
 	if err := tokenValidateCode(code, r); err != nil {
 		return nil, err
+	}
+
+	client, err := a.lookupClient(r.Context(), code.ClientID)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to lookup client").WithError(err)
+	}
+
+	if client.Status.Secret == "" || client.Status.Secret != r.Form.Get("client_secret") {
+		return nil, errors.OAuth2InvalidRequest("client secret invalid")
 	}
 
 	info := &IssueInfo{

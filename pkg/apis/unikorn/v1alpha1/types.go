@@ -47,8 +47,10 @@ type OAuth2ClientList struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/name']"
 // +kubebuilder:printcolumn:name="redirect uri",type="string",JSONPath=".spec.redirectUri"
+// +kubebuilder:printcolumn:name="secret",type="string",JSONPath=".status.secret"
 // +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
 type OAuth2Client struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -73,6 +75,10 @@ type OAuth2ClientSpec struct {
 
 // OAuth2ClientStatus defines the status of the client.
 type OAuth2ClientStatus struct {
+	// Secret is the generated client secret.
+	Secret string `json:"secret,omitempty"`
+	// Current service state of the resource.
+	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
 }
 
 // OAuth2ProviderList is a typed list of backend servers.

@@ -1,0 +1,22 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: unikorn-oauth2client-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+rules:
+# Manage oauth2clients (my job).
+- apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - oauth2clients
+  verbs:
+  - list
+  - watch
+  - update
+- apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - oauth2clients/status
+  verbs:
+  - update

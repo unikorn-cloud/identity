@@ -22,6 +22,11 @@ organizationController:
   # Allows override of the global default image.
   image:
 
+# Oauth2 client controller specific configuration.
+oauth2clientController:
+  # Allows override of the global default image.
+  image:
+
 # Project controller specific configuration.
 projectController:
   # Allows override of the global default image.
