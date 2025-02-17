@@ -226,6 +226,10 @@ func authorizationError(w http.ResponseWriter, r *http.Request, redirectURI stri
 	values.Set("error", string(kind))
 	values.Set("error_description", description)
 
+	if r.URL.Query().Has("state") {
+		values.Set("state", r.URL.Query().Get("state"))
+	}
+
 	http.Redirect(w, r, redirectURI+"?"+values.Encode(), http.StatusFound)
 }
 
@@ -385,7 +389,12 @@ func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWrite
 func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client) bool {
 	query := r.URL.Query()
 
-	codeChallengeMethod := openapi.CodeChallengeMethod(query.Get("code_challenge_method"))
+	// Default to "plain"
+	codeChallengeMethod := openapi.Plain
+
+	if query.Has("code_challenge_method") {
+		codeChallengeMethod = openapi.CodeChallengeMethod(query.Get("code_challenge_method"))
+	}
 
 	var kind Error
 
@@ -398,9 +407,6 @@ func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, 
 	case codeChallengeMethod != openapi.S256 && codeChallengeMethod != openapi.Plain:
 		kind = ErrorInvalidRequest
 		description = "code_challenge_method unsupported'"
-	case query.Get("code_challenge") == "":
-		kind = ErrorInvalidRequest
-		description = "code_challenge must be specified"
 	default:
 		return true
 	}
@@ -775,6 +781,11 @@ func tokenValidate(r *http.Request) error {
 
 // tokenValidateCode validates the request against the parsed code.
 func tokenValidateCode(code *Code, r *http.Request) error {
+	// PKCE is optional, but highly recommended!
+	if code.ClientCodeChallenge == "" {
+		return nil
+	}
+
 	if code.ClientID != r.Form.Get("client_id") {
 		return errors.OAuth2InvalidGrant("client_id mismatch")
 	}
