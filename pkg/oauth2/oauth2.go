@@ -783,10 +783,6 @@ func tokenValidateCode(code *Code, r *http.Request) error {
 		return nil
 	}
 
-	if r.Form.Has("client_id") && code.ClientID != r.Form.Get("client_id") {
-		return errors.OAuth2InvalidGrant("client_id mismatch")
-	}
-
 	if code.ClientRedirectURI != r.Form.Get("redirect_uri") {
 		return errors.OAuth2InvalidGrant("redirect_uri mismatch")
 	}
@@ -854,6 +850,20 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 }
 
 func (a *Authenticator) validateClientSecret(r *http.Request, code *Code) error {
+	clientID, clientSecret, ok := r.BasicAuth()
+	if !ok {
+		if !r.Form.Has("client_id") || !r.Form.Has("client_secret") {
+			return errors.OAuth2ServerError("client ID secret not set in request body")
+		}
+
+		clientID = r.Form.Get("client_id")
+		clientSecret = r.Form.Get("client_secret")
+	}
+
+	if code.ClientID != clientID {
+		return errors.OAuth2InvalidGrant("client_id mismatch")
+	}
+
 	client, err := a.lookupClient(r.Context(), code.ClientID)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup client").WithError(err)
@@ -863,26 +873,8 @@ func (a *Authenticator) validateClientSecret(r *http.Request, code *Code) error 
 		return errors.OAuth2ServerError("client secret not set")
 	}
 
-	switch {
-	case r.Form.Has("client_secret"):
-		if client.Status.Secret != r.Form.Get("client_secret") {
-			return errors.OAuth2InvalidRequest("client secret invalid")
-		}
-	case r.Header.Get("Authorization") != "":
-		parts := strings.Split(r.Header.Get("Authorization"), " ")
-		if len(parts) != 2 {
-			return errors.OAuth2InvalidRequest("malformed Authorization header")
-		}
-
-		if parts[0] != "Basic" {
-			return errors.OAuth2InvalidRequest("malformed Authorization header")
-		}
-
-		if client.Status.Secret != parts[1] {
-			return errors.OAuth2InvalidRequest("client secret invalid")
-		}
-	default:
-		return errors.OAuth2InvalidRequest("client secret not specified")
+	if client.Status.Secret != clientSecret {
+		return errors.OAuth2InvalidRequest("client secret invalid")
 	}
 
 	return nil
