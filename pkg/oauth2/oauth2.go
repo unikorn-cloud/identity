@@ -763,10 +763,8 @@ func tokenValidate(r *http.Request) error {
 	}
 
 	required := []string{
-		"client_secret",
 		"redirect_uri",
 		"code",
-		"code_verifier",
 	}
 
 	for _, parameter := range required {
