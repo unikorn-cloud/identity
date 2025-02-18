@@ -243,6 +243,9 @@ type ClientInterface interface {
 	// GetOauth2V2Authorization request
 	GetOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostOauth2V2Authorization request
+	PostOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOauth2V2Jwks request
 	GetOauth2V2Jwks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -928,6 +931,18 @@ func (c *Client) GetApiV1Signup(ctx context.Context, reqEditors ...RequestEditor
 
 func (c *Client) GetOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetOauth2V2AuthorizationRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOauth2V2Authorization(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2V2AuthorizationRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -2714,6 +2729,33 @@ func NewGetOauth2V2AuthorizationRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPostOauth2V2AuthorizationRequest generates requests for PostOauth2V2Authorization
+func NewPostOauth2V2AuthorizationRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/oauth2/v2/authorization")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetOauth2V2JwksRequest generates requests for GetOauth2V2Jwks
 func NewGetOauth2V2JwksRequest(server string) (*http.Request, error) {
 	var err error
@@ -3097,6 +3139,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetOauth2V2AuthorizationWithResponse request
 	GetOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2AuthorizationResponse, error)
+
+	// PostOauth2V2AuthorizationWithResponse request
+	PostOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2V2AuthorizationResponse, error)
 
 	// GetOauth2V2JwksWithResponse request
 	GetOauth2V2JwksWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2JwksResponse, error)
@@ -4149,6 +4194,27 @@ func (r GetOauth2V2AuthorizationResponse) StatusCode() int {
 	return 0
 }
 
+type PostOauth2V2AuthorizationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PostOauth2V2AuthorizationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostOauth2V2AuthorizationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetOauth2V2JwksResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -4773,6 +4839,15 @@ func (c *ClientWithResponses) GetOauth2V2AuthorizationWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseGetOauth2V2AuthorizationResponse(rsp)
+}
+
+// PostOauth2V2AuthorizationWithResponse request returning *PostOauth2V2AuthorizationResponse
+func (c *ClientWithResponses) PostOauth2V2AuthorizationWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2V2AuthorizationResponse, error) {
+	rsp, err := c.PostOauth2V2Authorization(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2V2AuthorizationResponse(rsp)
 }
 
 // GetOauth2V2JwksWithResponse request returning *GetOauth2V2JwksResponse
@@ -6780,6 +6855,22 @@ func ParseGetOauth2V2AuthorizationResponse(rsp *http.Response) (*GetOauth2V2Auth
 	}
 
 	response := &GetOauth2V2AuthorizationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParsePostOauth2V2AuthorizationResponse parses an HTTP response from a PostOauth2V2AuthorizationWithResponse call
+func ParsePostOauth2V2AuthorizationResponse(rsp *http.Response) (*PostOauth2V2AuthorizationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostOauth2V2AuthorizationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

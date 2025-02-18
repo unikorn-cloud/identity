@@ -146,6 +146,10 @@ func (h *Handler) GetOauth2V2Authorization(w http.ResponseWriter, r *http.Reques
 	h.oauth2.Authorization(w, r)
 }
 
+func (h *Handler) PostOauth2V2Authorization(w http.ResponseWriter, r *http.Request) {
+	h.oauth2.Authorization(w, r)
+}
+
 func (h *Handler) PostOauth2V2Login(w http.ResponseWriter, r *http.Request) {
 	h.oauth2.Login(w, r)
 }
