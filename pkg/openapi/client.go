@@ -246,6 +246,8 @@ type ClientInterface interface {
 	// PostOauth2V2AuthorizationWithBody request with any body
 	PostOauth2V2AuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	PostOauth2V2AuthorizationWithFormdataBody(ctx context.Context, body PostOauth2V2AuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetOauth2V2Jwks request
 	GetOauth2V2Jwks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -943,6 +945,18 @@ func (c *Client) GetOauth2V2Authorization(ctx context.Context, reqEditors ...Req
 
 func (c *Client) PostOauth2V2AuthorizationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostOauth2V2AuthorizationRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOauth2V2AuthorizationWithFormdataBody(ctx context.Context, body PostOauth2V2AuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2V2AuthorizationRequestWithFormdataBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2729,6 +2743,17 @@ func NewGetOauth2V2AuthorizationRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewPostOauth2V2AuthorizationRequestWithFormdataBody calls the generic PostOauth2V2Authorization builder with application/x-www-form-urlencoded body
+func NewPostOauth2V2AuthorizationRequestWithFormdataBody(server string, body PostOauth2V2AuthorizationFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewPostOauth2V2AuthorizationRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
+}
+
 // NewPostOauth2V2AuthorizationRequestWithBody generates requests for PostOauth2V2Authorization with any type of body
 func NewPostOauth2V2AuthorizationRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
@@ -3144,6 +3169,8 @@ type ClientWithResponsesInterface interface {
 
 	// PostOauth2V2AuthorizationWithBodyWithResponse request with any body
 	PostOauth2V2AuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2V2AuthorizationResponse, error)
+
+	PostOauth2V2AuthorizationWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2V2AuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2V2AuthorizationResponse, error)
 
 	// GetOauth2V2JwksWithResponse request
 	GetOauth2V2JwksWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2JwksResponse, error)
@@ -4846,6 +4873,14 @@ func (c *ClientWithResponses) GetOauth2V2AuthorizationWithResponse(ctx context.C
 // PostOauth2V2AuthorizationWithBodyWithResponse request with arbitrary body returning *PostOauth2V2AuthorizationResponse
 func (c *ClientWithResponses) PostOauth2V2AuthorizationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2V2AuthorizationResponse, error) {
 	rsp, err := c.PostOauth2V2AuthorizationWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2V2AuthorizationResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostOauth2V2AuthorizationWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2V2AuthorizationFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2V2AuthorizationResponse, error) {
+	rsp, err := c.PostOauth2V2AuthorizationWithFormdataBody(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

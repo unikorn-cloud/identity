@@ -909,6 +909,9 @@ type PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody = UserWrite
 // PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDUsersUserID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody = UserWrite
 
+// PostOauth2V2AuthorizationFormdataRequestBody defines body for PostOauth2V2Authorization for application/x-www-form-urlencoded ContentType.
+type PostOauth2V2AuthorizationFormdataRequestBody = AuthenticationRequestOptions
+
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions
 
