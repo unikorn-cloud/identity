@@ -187,28 +187,28 @@ type AuthMethod string
 // AuthenticationRequestOptions aith2/OIDC authorization endpoint request.
 type AuthenticationRequestOptions struct {
 	// AcrValues Requested content class reference values.
-	AcrValues *string `json:"acr_values,omitempty"`
+	AcrValues *string `json:"acr_values"`
 
 	// ClientId The client identifier.
 	ClientId string `json:"client_id"`
 
 	// Display How to display the login prompt.
-	Display *string `json:"display,omitempty"`
+	Display *string `json:"display"`
 
 	// IdTokenHint A previously issued ID token.
-	IdTokenHint *string `json:"id_token_hint,omitempty"`
+	IdTokenHint *string `json:"id_token_hint"`
 
 	// LoginHint A login hint e.g. user name.
-	LoginHint *string `json:"login_hint,omitempty"`
+	LoginHint *string `json:"login_hint"`
 
 	// MaxAge Max age of the login.
-	MaxAge *string `json:"max_age,omitempty"`
+	MaxAge *string `json:"max_age"`
 
 	// Nonce OIDC nonce.
-	Nonce *string `json:"nonce,omitempty"`
+	Nonce *string `json:"nonce"`
 
 	// Prompt OIDC prompt.
-	Prompt *string `json:"prompt,omitempty"`
+	Prompt *string `json:"prompt"`
 
 	// RedirectUri The registered callback address.
 	RedirectUri string `json:"redirect_uri"`
@@ -217,13 +217,13 @@ type AuthenticationRequestOptions struct {
 	ResponseType ResponseType `json:"response_type"`
 
 	// Scope Authorization scope.
-	Scope *string `json:"scope,omitempty"`
+	Scope *string `json:"scope"`
 
 	// State Client state information.
-	State *string `json:"state,omitempty"`
+	State *string `json:"state"`
 
 	// UiLocales Language options.
-	UiLocales *string `json:"ui_locales,omitempty"`
+	UiLocales *string `json:"ui_locales"`
 }
 
 // Claim Supported claims.

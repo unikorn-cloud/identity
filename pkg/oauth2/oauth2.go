@@ -929,7 +929,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	codeRaw := r.Form.Get("code")
 
 	if _, ok := a.codeCache.Get(codeRaw); !ok {
-		return nil, errors.OAuth2InvalidRequest("code is not valid")
+		return nil, errors.OAuth2InvalidGrant("code is not present in cache")
 	}
 
 	a.codeCache.Remove(codeRaw)
