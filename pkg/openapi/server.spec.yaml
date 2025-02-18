@@ -1135,33 +1135,43 @@ components:
         scope:
           description: Authorization scope.
           type: string
+          nullable: true
         state:
           description: Client state information.
           type: string
+          nullable: true
         nonce:
           description: OIDC nonce.
           type: string
+          nullable: true
         max_age:
           description: Max age of the login.
           type: string
+          nullable: true
         display:
           description: How to display the login prompt.
           type: string
+          nullable: true
         prompt:
           description: OIDC prompt.
           type: string
+          nullable: true
         ui_locales:
           description: Language options.
           type: string
+          nullable: true
         id_token_hint:
           description: A previously issued ID token.
           type: string
+          nullable: true
         login_hint:
           description: A login hint e.g. user name.
           type: string
+          nullable: true
         acr_values:
           description: Requested content class reference values.
           type: string
+          nullable: true
     tokenRequestOptions:
       description: oauth2 token endpoint.
       type: object
