@@ -819,7 +819,8 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 
 	claims := &oidc.IDToken{
 		Claims: jwt.Claims{
-			Issuer:  "https://" + r.Host,
+			Issuer: "https://" + r.Host,
+			// TODO: we should use the user ID.
 			Subject: code.IDToken.Email.Email,
 			Audience: []string{
 				code.ClientID,
@@ -833,6 +834,9 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 		},
 	}
 
+	// NOTE: the scope here is intended to defined what happens when you call the
+	// userinfo endpoint (and probably the "code id_token" grant type), but Google
+	// etc. all do this, so why not...
 	if slices.Contains(code.ClientScope, "email") {
 		claims.Email = code.IDToken.Email
 	}
@@ -904,6 +908,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	info := &IssueInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
+		// TODO: we should probably use the user ID here.
 		Subject:  code.IDToken.Email.Email,
 		ClientID: code.ClientID,
 		Federated: &Federated{
@@ -912,6 +917,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 			RefreshToken: code.RefreshToken,
 			Expiry:       code.AccessTokenExpiry,
 		},
+		Scope: code.ClientScope,
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -936,6 +942,36 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	return result, nil
 }
 
+// validateRefreshToken checks the refresh token ID is still valid (unused) and clears it
+// from the user record.
+func (a *Authenticator) validateRefreshToken(ctx context.Context, claims *RefreshTokenClaims) error {
+	users, err := a.rbac.GetActiveUsers(ctx, claims.Claims.Subject)
+	if err != nil {
+		return errors.OAuth2ServerError("failed to lookup user for refresh token").WithError(err)
+	}
+
+	for i := range users.Items {
+		user := &users.Items[i]
+
+		items := len(user.Spec.RefreshTokens)
+
+		user.Spec.RefreshTokens = slices.DeleteFunc(user.Spec.RefreshTokens, func(token unikornv1.UserRefreshToken) bool {
+			return token.ID == claims.Claims.ID
+		})
+
+		// If nothing was deleted, then the token may have been used already.
+		if len(user.Spec.RefreshTokens) == items {
+			return errors.OAuth2InvalidGrant("refresh token is not valid for user")
+		}
+
+		if err := a.client.Update(ctx, user); err != nil {
+			return errors.OAuth2ServerError("failed to update user for refresh token").WithError(err)
+		}
+	}
+
+	return nil
+}
+
 // TokenRefreshToken issues a token if the provided refresh token is valid.
 func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
 	// Validate the refresh token and extract the claims.
@@ -943,6 +979,10 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 
 	if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("refresh_token"), claims, jose.TokenTypeRefreshToken); err != nil {
 		return nil, errors.OAuth2InvalidGrant("refresh token is invalid or has expired").WithError(err)
+	}
+
+	if err := a.validateRefreshToken(r.Context(), claims); err != nil {
+		return nil, err
 	}
 
 	// Lookup the provider details, then do a token refresh against that to update

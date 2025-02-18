@@ -294,6 +294,8 @@ type UserSpec struct {
 	LastActive *metav1.Time `json:"lastActive,omitempty"`
 	// Signup is set when the user is being verified.
 	Signup *UserSignup `json:"signup,omitempty"`
+	// RefreshTokens allows us to handle one time use of oauth2 refresh tokens.
+	RefreshTokens []UserRefreshToken `json:"refreshTokens,omitempty"`
 }
 
 type UserSignup struct {
@@ -305,6 +307,11 @@ type UserSignup struct {
 	// place so that we can link to per-client email templates and error
 	// handling dialogs.
 	ClientID string `json:"clientID"`
+}
+
+type UserRefreshToken struct {
+	// ID encoded in the refresh token.
+	ID string `json:"id"`
 }
 
 type UserStatus struct {

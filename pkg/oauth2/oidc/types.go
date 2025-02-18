@@ -80,7 +80,8 @@ type Email struct {
 	EmailVerified bool `json:"email_verified,omitempty"`
 }
 
-// IDToken defines an  id_token.
+// IDToken defines an id_token.
+// Reference https://openid.net/specs/openid-connect-core-1_0.html#IDToken.
 type IDToken struct {
 	// Claims are the standard claims expected in a JWT.
 	jwt.Claims `json:",inline"`

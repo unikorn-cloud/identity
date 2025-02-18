@@ -646,26 +646,56 @@ type UserWrite struct {
 
 // Userinfo Access token introspection data.
 type Userinfo struct {
-	// Aud The intended token audience.
-	Aud *string `json:"aud,omitempty"`
+	// Birthdate The users' birth date formatted according to ISO8601.  The year portion may be 0000 if they choose not to reveal they are really old.
+	Birthdate *time.Time `json:"birthdate,omitempty"`
 
-	// Exp The token expiry time.
-	Exp *int `json:"exp,omitempty"`
+	// Email The user's email address.
+	Email *string `json:"email,omitempty"`
 
-	// Iat When the token was issued.
-	Iat *int `json:"iat,omitempty"`
+	// EmailVerified Whether the email address has been verified.
+	EmailVerified *bool `json:"email_verified,omitempty"`
 
-	// Iss The token issuer.
-	Iss *string `json:"iss,omitempty"`
+	// FamilyName The user's surname.
+	FamilyName *string `json:"family_name,omitempty"`
 
-	// Jti The token ID.
-	Jti *string `json:"jti,omitempty"`
+	// Gender The user's gender.
+	Gender *string `json:"gender,omitempty"`
 
-	// Nbf The token start time.
-	Nbf *int `json:"nbf,omitempty"`
+	// GivenName The user's forename.
+	GivenName *string `json:"given_name,omitempty"`
+
+	// Locale The user's RFC5646 language tag.
+	Locale *string `json:"locale,omitempty"`
+
+	// MiddleName The user's middle name(s).
+	MiddleName *string `json:"middle_name,omitempty"`
+
+	// Name The user's full name.
+	Name *string `json:"name,omitempty"`
+
+	// Nickname The user's nickname.
+	Nickname *string `json:"nickname,omitempty"`
+
+	// Picture URL to the user's picture.
+	Picture *string `json:"picture,omitempty"`
+
+	// PreferredUsername How the user chooses to be addressed.
+	PreferredUsername *string `json:"preferred_username,omitempty"`
+
+	// Profile URL to the user's profile page.
+	Profile *string `json:"profile,omitempty"`
 
 	// Sub The access token's subject.
 	Sub string `json:"sub"`
+
+	// UpdatedAt Then the user's profile was last updated.
+	UpdatedAt *string `json:"updated_at,omitempty"`
+
+	// Website URL to the user's website.
+	Website *string `json:"website,omitempty"`
+
+	// Zoneinfo The user's IANA assigned timezone.
+	Zoneinfo *string `json:"zoneinfo,omitempty"`
 }
 
 // Users A list of users.
