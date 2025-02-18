@@ -360,9 +360,7 @@ func (a *Authenticator) lookupProviderByID(ctx context.Context, id string, organ
 // OAuth2AuthorizationValidateNonRedirecting checks authorization request parameters
 // are valid that directly control the ability to redirect, and returns some helpful
 // debug in HTML.
-func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWriter, r *http.Request) (*unikornv1.OAuth2Client, bool) {
-	query := r.URL.Query()
-
+func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWriter, r *http.Request, query url.Values) (*unikornv1.OAuth2Client, bool) {
 	if !query.Has("client_id") {
 		htmlError(w, r, http.StatusBadRequest, "client_id is not specified")
 
@@ -394,9 +392,7 @@ func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWrite
 // OAuth2AuthorizationValidateRedirecting checks autohorization request parameters after
 // the redirect URI has been validated.  If any of these fail, we redirect but with an
 // error query rather than a code for the client to pick up and run with.
-func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, client *unikornv1.OAuth2Client) bool {
-	query := r.URL.Query()
-
+func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, query url.Values, client *unikornv1.OAuth2Client) bool {
 	// Default to "plain"
 	codeChallengeMethod := openapi.Plain
 
@@ -462,14 +458,26 @@ type LoginStateClaims struct {
 func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	log := log.FromContext(r.Context())
 
-	query := r.URL.Query()
+	var query url.Values
 
-	client, ok := a.authorizationValidateNonRedirecting(w, r)
+	if r.Method == http.MethodGet {
+		query = r.URL.Query()
+	} else {
+		if err := r.ParseForm(); err != nil {
+			htmlError(w, r, http.StatusBadRequest, "failed to parse POST data")
+
+			return
+		}
+
+		query = r.Form
+	}
+
+	client, ok := a.authorizationValidateNonRedirecting(w, r, query)
 	if !ok {
 		return
 	}
 
-	if !a.authorizationValidateRedirecting(w, r, client) {
+	if !a.authorizationValidateRedirecting(w, r, query, client) {
 		return
 	}
 
