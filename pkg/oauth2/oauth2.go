@@ -48,6 +48,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/util"
 
 	"k8s.io/apimachinery/pkg/util/cache"
+	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -133,6 +134,7 @@ const (
 	ErrorUnsupportedResponseType Error = "unsupported_response_type"
 	ErrorInvalidScope            Error = "invalid_scope"
 	ErrorServerError             Error = "server_error"
+	ErrorLoginRequired           Error = "login_required"
 )
 
 // State records state across the call to the authorization server.
@@ -161,6 +163,9 @@ type State struct {
 	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
 	ClientNonce string `json:"cno,omitempty"`
+	// MaxAge is the maximum length of time in seconds the user
+	// has before they must log back in again.
+	MaxAge string `json:"ma"`
 }
 
 // Code is an authorization code to return to the client that can be
@@ -196,6 +201,9 @@ type Code struct {
 	// OAuth2Provider is the name of the provider configuration in
 	// use, this will reference the issuer and allow discovery.
 	OAuth2Provider string `json:"oap"`
+	// MaxAge is the maximum length of time in seconds the user
+	// has before they must log back in again.
+	MaxAge string `json:"ma"`
 }
 
 // htmlError is used in dire situations when we cannot return an error via
@@ -407,6 +415,9 @@ func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, 
 	case codeChallengeMethod != openapi.S256 && codeChallengeMethod != openapi.Plain:
 		kind = ErrorInvalidRequest
 		description = "code_challenge_method unsupported'"
+	case query.Get("prompt") == "none":
+		kind = ErrorLoginRequired
+		description = "a login prompt is required"
 	default:
 		return true
 	}
@@ -538,6 +549,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		ClientRedirectURI:   query.Get("redirect_uri"),
 		ClientState:         query.Get("state"),
 		ClientCodeChallenge: query.Get("code_challenge"),
+		MaxAge:              query.Get("max_age"),
 	}
 
 	// To implement OIDC we need a copy of the scopes.
@@ -734,6 +746,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		ClientScope:         state.ClientScope,
 		ClientNonce:         state.ClientNonce,
 		OAuth2Provider:      state.OAuth2Provider,
+		MaxAge:              state.MaxAge,
 		AccessToken:         tokens.AccessToken,
 		RefreshToken:        tokens.RefreshToken,
 		IDToken:             idToken,
@@ -832,6 +845,10 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 			Nonce:  code.ClientNonce,
 			ATHash: atHash,
 		},
+	}
+
+	if code.MaxAge != "" {
+		claims.Default.AuthTime = ptr.To(time.Now().Unix())
 	}
 
 	// NOTE: the scope here is intended to defined what happens when you call the

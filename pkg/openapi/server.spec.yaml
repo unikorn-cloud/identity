@@ -36,6 +36,22 @@ paths:
           $ref: '#/components/responses/htmlErrorResponse'
         '500':
           $ref: '#/components/responses/htmlErrorResponse'
+    post:
+      x-no-body: true
+      description: |-
+        Provides authentication and authorisation as per the OAuth2 specification.
+        This particular implementation requires a "code" type response, and PKCE.
+        You may specify the "openid" scope in order to have an OpenID Connect
+        identity token returned during code exchange.
+      responses:
+        '200':
+          $ref: '#/components/responses/authorizationResponse'
+        '302':
+          description: A redirect back to the validated callback URL.
+        '400':
+          $ref: '#/components/responses/htmlErrorResponse'
+        '500':
+          $ref: '#/components/responses/htmlErrorResponse'
   /oauth2/v2/token:
     description: |-
       Implements OAuth2 code exchange.

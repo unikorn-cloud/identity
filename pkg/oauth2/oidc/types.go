@@ -30,6 +30,8 @@ type Default struct {
 	// ATHash is a hash of the access_token and should be verified by the
 	// client before use.
 	ATHash string `json:"at_hash,omitempty"`
+	// AuthTime is when the token was issued if max_age was requested.
+	AuthTime *int64 `json:"auth_time,omitempty"`
 }
 
 // Profile are claims that may be returned by requesting the
