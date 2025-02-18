@@ -942,9 +942,44 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	return result, nil
 }
 
+func (a *Authenticator) validateClientSecretRefresh(r *http.Request, claims *RefreshTokenClaims) error {
+	clientID, clientSecret, ok := r.BasicAuth()
+	if !ok {
+		if !r.Form.Has("client_id") || !r.Form.Has("client_secret") {
+			return errors.OAuth2ServerError("client ID secret not set in request body")
+		}
+
+		clientID = r.Form.Get("client_id")
+		clientSecret = r.Form.Get("client_secret")
+	}
+
+	if claims.Custom.ClientID != clientID {
+		return errors.OAuth2InvalidGrant("client_id mismatch")
+	}
+
+	client, err := a.lookupClient(r.Context(), claims.Custom.ClientID)
+	if err != nil {
+		return errors.OAuth2ServerError("failed to lookup client").WithError(err)
+	}
+
+	if client.Status.Secret == "" {
+		return errors.OAuth2ServerError("client secret not set")
+	}
+
+	if client.Status.Secret != clientSecret {
+		return errors.OAuth2InvalidRequest("client secret invalid")
+	}
+
+	return nil
+}
+
 // validateRefreshToken checks the refresh token ID is still valid (unused) and clears it
 // from the user record.
-func (a *Authenticator) validateRefreshToken(ctx context.Context, claims *RefreshTokenClaims) error {
+func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Request, claims *RefreshTokenClaims) error {
+	if err := a.validateClientSecretRefresh(r, claims); err != nil {
+		return err
+	}
+
 	users, err := a.rbac.GetActiveUsers(ctx, claims.Claims.Subject)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup user for refresh token").WithError(err)
@@ -981,7 +1016,7 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 		return nil, errors.OAuth2InvalidGrant("refresh token is invalid or has expired").WithError(err)
 	}
 
-	if err := a.validateRefreshToken(r.Context(), claims); err != nil {
+	if err := a.validateRefreshToken(r.Context(), r, claims); err != nil {
 		return nil, err
 	}
 
