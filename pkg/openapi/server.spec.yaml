@@ -37,12 +37,13 @@ paths:
         '500':
           $ref: '#/components/responses/htmlErrorResponse'
     post:
-      x-no-body: true
       description: |-
         Provides authentication and authorisation as per the OAuth2 specification.
         This particular implementation requires a "code" type response, and PKCE.
         You may specify the "openid" scope in order to have an OpenID Connect
         identity token returned during code exchange.
+      requestBody:
+        $ref: '#/components/requestBodies/authorizationRequest'
       responses:
         '200':
           $ref: '#/components/responses/authorizationResponse'
@@ -1115,6 +1116,52 @@ components:
         state:
           description: The state string supplied by the authorization endpoint.
           type: string
+    authenticationRequestOptions:
+      description: aith2/OIDC authorization endpoint request.
+      type: object
+      required:
+      - response_type
+      - client_id
+      - redirect_uri
+      properties:
+        response_type:
+          $ref: '#/components/schemas/responseType'
+        client_id:
+          description: The client identifier.
+          type: string
+        redirect_uri:
+          description: The registered callback address.
+          type: string
+        scope:
+          description: Authorization scope.
+          type: string
+        state:
+          description: Client state information.
+          type: string
+        nonce:
+          description: OIDC nonce.
+          type: string
+        max_age:
+          description: Max age of the login.
+          type: string
+        display:
+          description: How to display the login prompt.
+          type: string
+        prompt:
+          description: OIDC prompt.
+          type: string
+        ui_locales:
+          description: Language options.
+          type: string
+        id_token_hint:
+          description: A previously issued ID token.
+          type: string
+        login_hint:
+          description: A login hint e.g. user name.
+          type: string
+        acr_values:
+          description: Requested content class reference values.
+          type: string
     tokenRequestOptions:
       description: oauth2 token endpoint.
       type: object
@@ -1856,6 +1903,19 @@ components:
         spec:
           $ref: '#/components/schemas/allocationSpec'
   requestBodies:
+    authorizationRequest:
+      description: OIDC authentication request.
+      required: true
+      content:
+        pplication/x-www-form-urlencoded:
+          schema:
+            $ref: '#/components/schemas/authenticationRequestOptions'
+          example:
+            response_type: code
+            client_id: c5b4c8b8-fa7b-49d4-a9ec-aaaef6f55105
+            redirect_uri: https://client.org.com/callback
+            nonce: bRSQrMrRRA
+            scope: openid
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
       required: true

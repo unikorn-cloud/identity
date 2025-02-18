@@ -184,6 +184,48 @@ type Allocations = []AllocationRead
 // AuthMethod Supported authentication methods.
 type AuthMethod string
 
+// AuthenticationRequestOptions aith2/OIDC authorization endpoint request.
+type AuthenticationRequestOptions struct {
+	// AcrValues Requested content class reference values.
+	AcrValues *string `json:"acr_values,omitempty"`
+
+	// ClientId The client identifier.
+	ClientId string `json:"client_id"`
+
+	// Display How to display the login prompt.
+	Display *string `json:"display,omitempty"`
+
+	// IdTokenHint A previously issued ID token.
+	IdTokenHint *string `json:"id_token_hint,omitempty"`
+
+	// LoginHint A login hint e.g. user name.
+	LoginHint *string `json:"login_hint,omitempty"`
+
+	// MaxAge Max age of the login.
+	MaxAge *string `json:"max_age,omitempty"`
+
+	// Nonce OIDC nonce.
+	Nonce *string `json:"nonce,omitempty"`
+
+	// Prompt OIDC prompt.
+	Prompt *string `json:"prompt,omitempty"`
+
+	// RedirectUri The registered callback address.
+	RedirectUri string `json:"redirect_uri"`
+
+	// ResponseType Supported response types.
+	ResponseType ResponseType `json:"response_type"`
+
+	// Scope Authorization scope.
+	Scope *string `json:"scope,omitempty"`
+
+	// State Client state information.
+	State *string `json:"state,omitempty"`
+
+	// UiLocales Language options.
+	UiLocales *string `json:"ui_locales,omitempty"`
+}
+
 // Claim Supported claims.
 type Claim string
 
