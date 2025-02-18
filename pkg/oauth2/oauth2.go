@@ -81,6 +81,9 @@ type Options struct {
 	// checks.  This bounds the memory use to prevent DoS attacks.
 	TokenCacheSize int
 
+	// CodeCacheSize is used to set the number of authorization code in flight.
+	CodeCacheSize int
+
 	// Bool to indicate whether sign up is allowed
 	AuthenticateUnknownUsers bool
 }
@@ -91,6 +94,7 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.TokenVerificationLeeway, "token-verification-leeway", 0, "How mush leeway to permit for verification of token validity.")
 	f.DurationVar(&o.TokenLeewayDuration, "token-leeway", time.Minute, "How long to remove from the provider token expiry to account for network and processing latency.")
 	f.IntVar(&o.TokenCacheSize, "token-cache-size", 8192, "How many token cache entries to allow.")
+	f.IntVar(&o.CodeCacheSize, "code-cache-size", 8192, "How many code cache entries to allow.")
 	f.BoolVar(&o.AuthenticateUnknownUsers, "authenticate-unknown-users", false, "Authenticate unknown users, allow new user organizations to be created.")
 }
 
@@ -110,6 +114,9 @@ type Authenticator struct {
 	// tokenCache is used to enhance interaction as the validation is a
 	// very expensive operation.
 	tokenCache *cache.LRUExpireCache
+
+	// codeCache is used to protect against authorization code reuse.
+	codeCache *cache.LRUExpireCache
 }
 
 // New returns a new authenticator with required fields populated.
@@ -122,6 +129,7 @@ func New(options *Options, namespace string, client client.Client, issuer *jose.
 		issuer:     issuer,
 		rbac:       rbac,
 		tokenCache: cache.NewLRUExpireCache(options.TokenCacheSize),
+		codeCache:  cache.NewLRUExpireCache(options.CodeCacheSize),
 	}
 }
 
@@ -774,6 +782,8 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		q.Set("state", state.ClientState)
 	}
 
+	a.codeCache.Add(code, nil, time.Minute)
+
 	http.Redirect(w, r, state.ClientRedirectURI+"?"+q.Encode(), http.StatusFound)
 }
 
@@ -916,9 +926,17 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		return nil, err
 	}
 
+	codeRaw := r.Form.Get("code")
+
+	if _, ok := a.codeCache.Get(codeRaw); !ok {
+		return nil, errors.OAuth2InvalidRequest("code is not valid")
+	}
+
+	a.codeCache.Remove(codeRaw)
+
 	code := &Code{}
 
-	if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("code"), code, jose.TokenTypeAuthorizationCode); err != nil {
+	if err := a.issuer.DecodeJWEToken(r.Context(), codeRaw, code, jose.TokenTypeAuthorizationCode); err != nil {
 		return nil, errors.OAuth2InvalidRequest("failed to parse code: " + err.Error())
 	}
 

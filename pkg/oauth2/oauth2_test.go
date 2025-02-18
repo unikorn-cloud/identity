@@ -78,6 +78,7 @@ func TestTokens(t *testing.T) {
 		RefreshTokenDuration: refreshTokenDuration,
 		TokenLeewayDuration:  accessTokenDuration,
 		TokenCacheSize:       1024,
+		CodeCacheSize:        1024,
 	}
 
 	authenticator := oauth2.New(options, josetesting.Namespace, client, issuer, rbac)
