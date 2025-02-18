@@ -1187,26 +1187,57 @@ components:
       required:
       - sub
       properties:
-        iss:
-          description: The token issuer.
-          type: string
         sub:
           description: The access token's subject.
           type: string
-        aud:
-          description: The intended token audience.
+        email:
+          description: The user's email address.
           type: string
-        exp:
-          description: The token expiry time.
-          type: integer
-        nbf:
-          description: The token start time.
-          type: integer
-        iat:
-          description: When the token was issued.
-          type: integer
-        jti:
-          description: The token ID.
+        email_verified:
+          description: Whether the email address has been verified.
+          type: boolean
+        name:
+          description: The user's full name.
+          type: string
+        given_name:
+          description: The user's forename.
+          type: string
+        family_name:
+          description: The user's surname.
+          type: string
+        middle_name:
+          description: The user's middle name(s).
+          type: string
+        nickname:
+          description: The user's nickname.
+          type: string
+        preferred_username:
+          description: How the user chooses to be addressed.
+          type: string
+        profile:
+          description: URL to the user's profile page.
+          type: string
+        picture:
+          description: URL to the user's picture.
+          type: string
+        website:
+          description: URL to the user's website.
+          type: string
+        gender:
+          description: The user's gender.
+          type: string
+        birthdate:
+          description: The users' birth date formatted according to ISO8601.  The year portion may be 0000 if they choose not to reveal they are really old.
+          type: string
+          format: date-time
+        zoneinfo:
+          description: The user's IANA assigned timezone.
+          type: string
+        locale:
+          description: The user's RFC5646 language tag.
+          type: string
+        updated_at:
+          description: Then the user's profile was last updated.
           type: string
     jsonWebKeySet:
       description: |-

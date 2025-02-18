@@ -87,6 +87,10 @@ func (h *Handler) setUncacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", "no-cache")
 }
 
+func (h *Handler) setUncacheableNoStore(w http.ResponseWriter) {
+	w.Header().Add("Cache-Control", "no-store")
+}
+
 func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http.Request) {
 	result := &openapi.OpenidConfiguration{
 		Issuer:                h.options.Host,
@@ -153,7 +157,8 @@ func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.setUncacheable(w)
+	// See OIDC 1.0 Section 3.1.3.3.
+	h.setUncacheableNoStore(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 

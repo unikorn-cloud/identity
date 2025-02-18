@@ -20,6 +20,7 @@ package local
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -30,6 +31,8 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	"github.com/unikorn-cloud/identity/pkg/util"
+
+	"k8s.io/utils/ptr"
 )
 
 // Authorizer provides OpenAPI based authorization middleware.
@@ -63,6 +66,8 @@ func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
+//
+//nolint:cyclop
 func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, error) {
 	authorizationScheme, token, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
@@ -85,21 +90,22 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 		return nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
 	}
 
-	exp := int(claims.Expiry.Time().Unix())
-	nbf := int(claims.NotBefore.Time().Unix())
-	iat := int(claims.IssuedAt.Time().Unix())
+	userinfo := &openapi.Userinfo{
+		Sub: claims.Subject,
+	}
+
+	if slices.Contains(claims.Custom.Scope, "email") {
+		userinfo.Email = ptr.To(claims.Subject)
+		userinfo.EmailVerified = ptr.To(true)
+	}
+
+	// Need to expand the user information...
+	// if slices.Contains(claims.Custom.Scope, "profile") {
+	// }
 
 	info := &authorization.Info{
-		Token: token,
-		Userinfo: &openapi.Userinfo{
-			Iss: &claims.Issuer,
-			Sub: claims.Subject,
-			Aud: &claims.Audience[0],
-			Exp: &exp,
-			Nbf: &nbf,
-			Iat: &iat,
-			Jti: &claims.ID,
-		},
+		Token:    token,
+		Userinfo: userinfo,
 	}
 
 	if claims.Custom != nil {

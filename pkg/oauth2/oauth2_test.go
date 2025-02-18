@@ -27,6 +27,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/jose"
 	josetesting "github.com/unikorn-cloud/identity/pkg/jose/testing"
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
+	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -70,6 +71,8 @@ func TestTokens(t *testing.T) {
 
 	require.NoError(t, issuer.Run(ctx, &josetesting.FakeCoordinationClientGetter{}))
 
+	rbac := rbac.New(client, josetesting.Namespace, &rbac.Options{})
+
 	options := &oauth2.Options{
 		AccessTokenDuration:  accessTokenDuration,
 		RefreshTokenDuration: refreshTokenDuration,
@@ -77,7 +80,7 @@ func TestTokens(t *testing.T) {
 		TokenCacheSize:       1024,
 	}
 
-	authenticator := oauth2.New(options, josetesting.Namespace, client, issuer, nil)
+	authenticator := oauth2.New(options, josetesting.Namespace, client, issuer, rbac)
 
 	time.Sleep(2 * josetesting.RefreshPeriod)
 

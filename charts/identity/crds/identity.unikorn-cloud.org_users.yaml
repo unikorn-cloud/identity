@@ -56,6 +56,18 @@ spec:
                   access token.
                 format: date-time
                 type: string
+              refreshTokens:
+                description: RefreshTokens allows us to handle one time use of oauth2
+                  refresh tokens.
+                items:
+                  properties:
+                    id:
+                      description: ID encoded in the refresh token.
+                      type: string
+                  required:
+                  - id
+                  type: object
+                type: array
               signup:
                 description: Signup is set when the user is being verified.
                 properties:

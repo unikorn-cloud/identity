@@ -62,6 +62,9 @@ type CustomAccessTokenClaims struct {
 	OrganizationID string `json:"oid"`
 	// ClientID is the oauth2 client that the user is using.
 	ClientID string `json:"cid"`
+	// Scope is the set of scopes requested by the client, and is used to
+	// populate the userinfo response.
+	Scope Scope `json:"sco"`
 }
 
 // AccessTokenClaims is an application specific set of claims.
@@ -143,6 +146,9 @@ type IssueInfo struct {
 	X509Thumbprint string
 	// ClientID is the oauth2 client that the user is using.
 	ClientID string
+	// Scope is the set of scopes requested by the client, and is used to
+	// populate the userinfo response.
+	Scope Scope
 }
 
 // expiry calculates when the token should expire.  By default we use the duration
@@ -174,6 +180,7 @@ func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *Issue
 			Provider:    info.Federated.Provider,
 			AccessToken: info.Federated.AccessToken,
 			ClientID:    info.ClientID,
+			Scope:       info.Scope,
 		}
 
 	case info.ServiceAccount != nil:
@@ -254,6 +261,24 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 		}
 
 		tokens.RefreshToken = &rt
+
+		// Register the ID with the user so we can only use the token once.
+		users, err := a.rbac.GetActiveUsers(ctx, info.Subject)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range users.Items {
+			user := &users.Items[i]
+
+			user.Spec.RefreshTokens = append(user.Spec.RefreshTokens, unikornv1.UserRefreshToken{
+				ID: rtClaims.Claims.ID,
+			})
+
+			if err := a.client.Update(ctx, user); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return tokens, nil
