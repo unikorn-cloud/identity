@@ -94,7 +94,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 		Sub: claims.Subject,
 	}
 
-	if slices.Contains(claims.Custom.Scope, "email") {
+	if claims.Custom != nil && slices.Contains(claims.Custom.Scope, "email") {
 		userinfo.Email = ptr.To(claims.Subject)
 		userinfo.EmailVerified = ptr.To(true)
 	}
