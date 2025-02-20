@@ -143,6 +143,7 @@ const (
 	ErrorInvalidScope            Error = "invalid_scope"
 	ErrorServerError             Error = "server_error"
 	ErrorLoginRequired           Error = "login_required"
+	ErrorRequestNotSupported     Error = "request_not_supported"
 )
 
 // State records state across the call to the authorization server.
@@ -413,6 +414,9 @@ func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, 
 	var description string
 
 	switch {
+	case query.Has("request"):
+		kind = ErrorRequestNotSupported
+		description = "request object by value not supported"
 	case query.Get("response_type") != "code":
 		kind = ErrorUnsupportedResponseType
 		description = "response_type must be 'code'"
