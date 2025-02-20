@@ -104,10 +104,9 @@ paths:
         '401':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
     post:
-      x-no-body: true
       description: Returns introspection information about an access token.
-      security:
-      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/userinfoRequest'
       responses:
         '200':
           $ref: '#/components/responses/userinfoResponse'
@@ -1116,7 +1115,7 @@ components:
         state:
           description: The state string supplied by the authorization endpoint.
           type: string
-    authenticationRequestOptions:
+    authorizationRequestOptions:
       description: aith2/OIDC authorization endpoint request.
       type: object
       required:
@@ -1172,6 +1171,15 @@ components:
           description: Requested content class reference values.
           type: string
           nullable: true
+    userinfoRequestOptions:
+      description: A userinfo POST request.
+      type: object
+      required:
+      - access_token
+      properties:
+        access_token:
+          description: The oauth2 access token.
+          type: string
     tokenRequestOptions:
       description: oauth2 token endpoint.
       type: object
@@ -1919,13 +1927,22 @@ components:
       content:
         application/x-www-form-urlencoded:
           schema:
-            $ref: '#/components/schemas/authenticationRequestOptions'
+            $ref: '#/components/schemas/authorizationRequestOptions'
           example:
             response_type: code
             client_id: c5b4c8b8-fa7b-49d4-a9ec-aaaef6f55105
             redirect_uri: https://client.org.com/callback
             nonce: bRSQrMrRRA
             scope: openid
+    userinfoRequest:
+      description: OIDC userinfo.
+      required: true
+      content:
+        application/x-www-form-urlencoded:
+          schema:
+            $ref: '#/components/schemas/userinfoRequestOptions'
+          example:
+            access_token: foo
     loginRequest:
       description: Information necessary to resolve a federated SSO provider.
       required: true

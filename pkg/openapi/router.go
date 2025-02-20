@@ -1848,12 +1848,6 @@ func (siw *ServerInterfaceWrapper) GetOauth2V2Userinfo(w http.ResponseWriter, r 
 // PostOauth2V2Userinfo operation middleware
 func (siw *ServerInterfaceWrapper) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostOauth2V2Userinfo(w, r)
 	}))

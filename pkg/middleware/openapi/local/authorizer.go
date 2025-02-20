@@ -20,7 +20,6 @@ package local
 import (
 	"context"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -31,8 +30,6 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	"github.com/unikorn-cloud/identity/pkg/util"
-
-	"k8s.io/utils/ptr"
 )
 
 // Authorizer provides OpenAPI based authorization middleware.
@@ -66,8 +63,6 @@ func getHTTPAuthenticationScheme(r *http.Request) (string, string, error) {
 }
 
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
-//
-//nolint:cyclop
 func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, error) {
 	authorizationScheme, token, err := getHTTPAuthenticationScheme(r)
 	if err != nil {
@@ -78,30 +73,10 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 		return nil, errors.OAuth2InvalidRequest("authorization scheme not allowed").WithValues("scheme", authorizationScheme)
 	}
 
-	verifyInfo := &oauth2.VerifyInfo{
-		Issuer:   "https://" + r.Host,
-		Audience: r.Host,
-		Token:    token,
-	}
-
-	// Check the token is from us, for us, and in date.
-	claims, err := a.authenticator.Verify(r.Context(), verifyInfo)
+	userinfo, claims, err := a.authenticator.GetUserinfo(r.Context(), r, token)
 	if err != nil {
-		return nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
+		return nil, err
 	}
-
-	userinfo := &openapi.Userinfo{
-		Sub: claims.Subject,
-	}
-
-	if claims.Custom != nil && slices.Contains(claims.Custom.Scope, "email") {
-		userinfo.Email = ptr.To(claims.Subject)
-		userinfo.EmailVerified = ptr.To(true)
-	}
-
-	// Need to expand the user information...
-	// if slices.Contains(claims.Custom.Scope, "profile") {
-	// }
 
 	info := &authorization.Info{
 		Token:    token,

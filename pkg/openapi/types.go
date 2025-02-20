@@ -184,8 +184,8 @@ type Allocations = []AllocationRead
 // AuthMethod Supported authentication methods.
 type AuthMethod string
 
-// AuthenticationRequestOptions aith2/OIDC authorization endpoint request.
-type AuthenticationRequestOptions struct {
+// AuthorizationRequestOptions aith2/OIDC authorization endpoint request.
+type AuthorizationRequestOptions struct {
 	// AcrValues Requested content class reference values.
 	AcrValues *string `json:"acr_values"`
 
@@ -740,6 +740,12 @@ type Userinfo struct {
 	Zoneinfo *string `json:"zoneinfo,omitempty"`
 }
 
+// UserinfoRequestOptions A userinfo POST request.
+type UserinfoRequestOptions struct {
+	// AccessToken The oauth2 access token.
+	AccessToken string `json:"access_token"`
+}
+
 // Users A list of users.
 type Users = []UserRead
 
@@ -910,10 +916,13 @@ type PostApiV1OrganizationsOrganizationIDUsersJSONRequestBody = UserWrite
 type PutApiV1OrganizationsOrganizationIDUsersUserIDJSONRequestBody = UserWrite
 
 // PostOauth2V2AuthorizationFormdataRequestBody defines body for PostOauth2V2Authorization for application/x-www-form-urlencoded ContentType.
-type PostOauth2V2AuthorizationFormdataRequestBody = AuthenticationRequestOptions
+type PostOauth2V2AuthorizationFormdataRequestBody = AuthorizationRequestOptions
 
 // PostOauth2V2LoginFormdataRequestBody defines body for PostOauth2V2Login for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2LoginFormdataRequestBody = LoginRequestOptions
 
 // PostOauth2V2TokenFormdataRequestBody defines body for PostOauth2V2Token for application/x-www-form-urlencoded ContentType.
 type PostOauth2V2TokenFormdataRequestBody = TokenRequestOptions
+
+// PostOauth2V2UserinfoFormdataRequestBody defines body for PostOauth2V2Userinfo for application/x-www-form-urlencoded ContentType.
+type PostOauth2V2UserinfoFormdataRequestBody = UserinfoRequestOptions

@@ -178,14 +178,19 @@ func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
-	info, err := authorization.FromContext(r.Context())
+	if err := r.ParseForm(); err != nil {
+		errors.HandleError(w, r, errors.OAuth2InvalidRequest("unable to parse form data").WithError(err))
+		return
+	}
+
+	userinfo, _, err := h.oauth2.GetUserinfo(r.Context(), r, r.Form.Get("access_token"))
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("userinfo is not set").WithError(err))
+		errors.HandleError(w, r, errors.OAuth2ServerError("access token is not set").WithError(err))
 		return
 	}
 
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, info.Userinfo)
+	util.WriteJSONResponse(w, r, http.StatusOK, userinfo)
 }
 
 func (h *Handler) GetOauth2V2Jwks(w http.ResponseWriter, r *http.Request) {

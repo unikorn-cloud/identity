@@ -1185,3 +1185,33 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 
 	return nil, errors.OAuth2InvalidRequest("token grant type is not supported")
 }
+
+// GetUserinfo does access token introspection.
+func (a *Authenticator) GetUserinfo(ctx context.Context, r *http.Request, token string) (*openapi.Userinfo, *AccessTokenClaims, error) {
+	verifyInfo := &VerifyInfo{
+		Issuer:   "https://" + r.Host,
+		Audience: r.Host,
+		Token:    token,
+	}
+
+	// Check the token is from us, for us, and in date.
+	claims, err := a.Verify(ctx, verifyInfo)
+	if err != nil {
+		return nil, nil, errors.OAuth2AccessDenied("token validation failed").WithError(err)
+	}
+
+	userinfo := &openapi.Userinfo{
+		Sub: claims.Subject,
+	}
+
+	if claims.Custom != nil && slices.Contains(claims.Custom.Scope, "email") {
+		userinfo.Email = ptr.To(claims.Subject)
+		userinfo.EmailVerified = ptr.To(true)
+	}
+
+	// Need to expand the user information...
+	// if slices.Contains(claims.Custom.Scope, "profile") {
+	// }
+
+	return userinfo, claims, nil
+}

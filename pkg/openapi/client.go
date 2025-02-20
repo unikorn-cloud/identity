@@ -264,8 +264,10 @@ type ClientInterface interface {
 	// GetOauth2V2Userinfo request
 	GetOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostOauth2V2Userinfo request
-	PostOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostOauth2V2UserinfoWithBody request with any body
+	PostOauth2V2UserinfoWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostOauth2V2UserinfoWithFormdataBody(ctx context.Context, body PostOauth2V2UserinfoFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetOidcCallback request
 	GetOidcCallback(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1039,8 +1041,20 @@ func (c *Client) GetOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostOauth2V2Userinfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostOauth2V2UserinfoRequest(c.Server)
+func (c *Client) PostOauth2V2UserinfoWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2V2UserinfoRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostOauth2V2UserinfoWithFormdataBody(ctx context.Context, body PostOauth2V2UserinfoFormdataRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostOauth2V2UserinfoRequestWithFormdataBody(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2917,8 +2931,19 @@ func NewGetOauth2V2UserinfoRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewPostOauth2V2UserinfoRequest generates requests for PostOauth2V2Userinfo
-func NewPostOauth2V2UserinfoRequest(server string) (*http.Request, error) {
+// NewPostOauth2V2UserinfoRequestWithFormdataBody calls the generic PostOauth2V2Userinfo builder with application/x-www-form-urlencoded body
+func NewPostOauth2V2UserinfoRequestWithFormdataBody(server string, body PostOauth2V2UserinfoFormdataRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyStr, err := runtime.MarshalForm(body, nil)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = strings.NewReader(bodyStr.Encode())
+	return NewPostOauth2V2UserinfoRequestWithBody(server, "application/x-www-form-urlencoded", bodyReader)
+}
+
+// NewPostOauth2V2UserinfoRequestWithBody generates requests for PostOauth2V2Userinfo with any type of body
+func NewPostOauth2V2UserinfoRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2936,10 +2961,12 @@ func NewPostOauth2V2UserinfoRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -3188,8 +3215,10 @@ type ClientWithResponsesInterface interface {
 	// GetOauth2V2UserinfoWithResponse request
 	GetOauth2V2UserinfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOauth2V2UserinfoResponse, error)
 
-	// PostOauth2V2UserinfoWithResponse request
-	PostOauth2V2UserinfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error)
+	// PostOauth2V2UserinfoWithBodyWithResponse request with any body
+	PostOauth2V2UserinfoWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error)
+
+	PostOauth2V2UserinfoWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2V2UserinfoFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error)
 
 	// GetOidcCallbackWithResponse request
 	GetOidcCallbackWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOidcCallbackResponse, error)
@@ -4939,9 +4968,17 @@ func (c *ClientWithResponses) GetOauth2V2UserinfoWithResponse(ctx context.Contex
 	return ParseGetOauth2V2UserinfoResponse(rsp)
 }
 
-// PostOauth2V2UserinfoWithResponse request returning *PostOauth2V2UserinfoResponse
-func (c *ClientWithResponses) PostOauth2V2UserinfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error) {
-	rsp, err := c.PostOauth2V2Userinfo(ctx, reqEditors...)
+// PostOauth2V2UserinfoWithBodyWithResponse request with arbitrary body returning *PostOauth2V2UserinfoResponse
+func (c *ClientWithResponses) PostOauth2V2UserinfoWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error) {
+	rsp, err := c.PostOauth2V2UserinfoWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostOauth2V2UserinfoResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostOauth2V2UserinfoWithFormdataBodyWithResponse(ctx context.Context, body PostOauth2V2UserinfoFormdataRequestBody, reqEditors ...RequestEditorFn) (*PostOauth2V2UserinfoResponse, error) {
+	rsp, err := c.PostOauth2V2UserinfoWithFormdataBody(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
