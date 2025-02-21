@@ -29,6 +29,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/oauth2"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 
@@ -55,7 +56,18 @@ func getScheme(t *testing.T) *runtime.Scheme {
 func TestTokens(t *testing.T) {
 	t.Parallel()
 
-	client := fake.NewClientBuilder().WithScheme(getScheme(t)).Build()
+	user := &unikornv1.User{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: josetesting.Namespace,
+			Name:      "fake",
+		},
+		Spec: unikornv1.UserSpec{
+			Subject: "barry@foo.com",
+			State:   unikornv1.UserStateActive,
+		},
+	}
+
+	client := fake.NewClientBuilder().WithScheme(getScheme(t)).WithObjects(user).Build()
 
 	josetesting.RotateCertificate(t, client)
 

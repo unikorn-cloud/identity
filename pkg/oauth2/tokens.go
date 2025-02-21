@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
@@ -196,6 +197,45 @@ func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *Issue
 	}
 }
 
+// updateSession updates the user record to indicate the current access token and single-use refresh
+// token bound to a specific client.  This ensures only a single session can be active per-client
+// at a time, tokens are automatically revoked when reissued etc.
+func (a *Authenticator) updateSession(ctx context.Context, info *IssueInfo, accessToken, refreshToken string) error {
+	users, err := a.rbac.GetActiveUsers(ctx, info.Subject)
+	if err != nil {
+		return err
+	}
+
+	// TODO: we need a single user record!!
+	for i := range users.Items {
+		user := &users.Items[i]
+
+		lookupSession := func(session unikornv1.UserSession) bool {
+			return session.ClientID == info.ClientID
+		}
+
+		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+		if index < 0 {
+			index = len(user.Spec.Sessions)
+
+			user.Spec.Sessions = append(user.Spec.Sessions, unikornv1.UserSession{
+				ClientID: info.ClientID,
+			})
+		} else {
+			a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
+		}
+
+		user.Spec.Sessions[index].AccessToken = accessToken
+		user.Spec.Sessions[index].RefreshToken = refreshToken
+
+		if err := a.client.Update(ctx, user); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Issue issues a new JWT access token.
 func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, error) {
 	now := time.Now()
@@ -262,22 +302,8 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 
 		tokens.RefreshToken = &rt
 
-		// Register the ID with the user so we can only use the token once.
-		users, err := a.rbac.GetActiveUsers(ctx, info.Subject)
-		if err != nil {
+		if err := a.updateSession(ctx, info, at, rt); err != nil {
 			return nil, err
-		}
-
-		for i := range users.Items {
-			user := &users.Items[i]
-
-			user.Spec.RefreshTokens = append(user.Spec.RefreshTokens, unikornv1.UserRefreshToken{
-				ID: rtClaims.Claims.ID,
-			})
-
-			if err := a.client.Update(ctx, user); err != nil {
-				return nil, err
-			}
 		}
 	}
 
@@ -329,6 +355,11 @@ func (a *Authenticator) Verify(ctx context.Context, info *VerifyInfo) (*AccessTo
 		return nil, err
 	}
 
+	// Ensure the access token is valid for the current user session...
+	if err := a.verifyUserSession(ctx, info, claims); err != nil {
+		return nil, err
+	}
+
 	// The cache entry needs a timeout as a federated user may have had their rights
 	// recinded and we don't know about it, and long lived tokens e.g. service accounts,
 	// could still be valid for months...
@@ -365,6 +396,42 @@ func (a *Authenticator) verifyCustomClaims(ctx context.Context, info *VerifyInfo
 
 		if info.Token != serviceAccount.Spec.AccessToken {
 			return fmt.Errorf("%w: service account token invalid", ErrTokenVerification)
+		}
+	}
+
+	return nil
+}
+
+func (a *Authenticator) verifyUserSession(ctx context.Context, info *VerifyInfo, claims *AccessTokenClaims) error {
+	if claims.Custom.Type != AccessTokenTypeFederated {
+		fmt.Println("not federeated")
+		return nil
+	}
+
+	users, err := a.rbac.GetActiveUsers(ctx, claims.Claims.Subject)
+	if err != nil {
+		return err
+	}
+
+	if len(users.Items) == 0 {
+		return fmt.Errorf("%w: no active user for token subject", ErrTokenVerification)
+	}
+
+	// TODO: we need a single user record!!
+	for i := range users.Items {
+		user := &users.Items[i]
+
+		lookupSession := func(session unikornv1.UserSession) bool {
+			return session.ClientID == claims.Custom.ClientID
+		}
+
+		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+		if index < 0 {
+			return fmt.Errorf("%w: no active session for token", ErrTokenVerification)
+		}
+
+		if user.Spec.Sessions[index].AccessToken != info.Token {
+			return fmt.Errorf("%w: token invalid for active session", ErrTokenVerification)
 		}
 	}
 

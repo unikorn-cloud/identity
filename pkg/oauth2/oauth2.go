@@ -1022,7 +1022,7 @@ func (a *Authenticator) validateClientSecretRefresh(r *http.Request, claims *Ref
 
 // validateRefreshToken checks the refresh token ID is still valid (unused) and clears it
 // from the user record.
-func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Request, claims *RefreshTokenClaims) error {
+func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Request, refreshToken string, claims *RefreshTokenClaims) error {
 	if err := a.validateClientSecretRefresh(r, claims); err != nil {
 		return err
 	}
@@ -1032,22 +1032,35 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 		return errors.OAuth2ServerError("failed to lookup user for refresh token").WithError(err)
 	}
 
+	if len(users.Items) == 0 {
+		return errors.OAuth2InvalidGrant("no active user record found")
+	}
+
+	// TODO: need a single user record!!
 	for i := range users.Items {
 		user := &users.Items[i]
 
-		items := len(user.Spec.RefreshTokens)
-
-		user.Spec.RefreshTokens = slices.DeleteFunc(user.Spec.RefreshTokens, func(token unikornv1.UserRefreshToken) bool {
-			return token.ID == claims.Claims.ID
-		})
-
-		// If nothing was deleted, then the token may have been used already.
-		if len(user.Spec.RefreshTokens) == items {
-			return errors.OAuth2InvalidGrant("refresh token is not valid for user")
+		lookupSession := func(session unikornv1.UserSession) bool {
+			return session.ClientID == claims.Custom.ClientID
 		}
 
+		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+		if index < 0 {
+			return errors.OAuth2InvalidGrant("no active session for user found")
+		}
+
+		if user.Spec.Sessions[index].RefreshToken != refreshToken {
+			return errors.OAuth2InvalidGrant("refresh token reuse")
+		}
+
+		// Things can still go wrong between here and issuing the new token, so invalidate
+		// the session now rather than relying on the reissue doing it for us.
+		a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
+
+		user.Spec.Sessions = append(user.Spec.Sessions[:index], user.Spec.Sessions[index+1:]...)
+
 		if err := a.client.Update(ctx, user); err != nil {
-			return errors.OAuth2ServerError("failed to update user for refresh token").WithError(err)
+			return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
 		}
 	}
 
@@ -1056,14 +1069,16 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 
 // TokenRefreshToken issues a token if the provided refresh token is valid.
 func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
+	refreshTokenRaw := r.Form.Get("refresh_token")
+
 	// Validate the refresh token and extract the claims.
 	claims := &RefreshTokenClaims{}
 
-	if err := a.issuer.DecodeJWEToken(r.Context(), r.Form.Get("refresh_token"), claims, jose.TokenTypeRefreshToken); err != nil {
+	if err := a.issuer.DecodeJWEToken(r.Context(), refreshTokenRaw, claims, jose.TokenTypeRefreshToken); err != nil {
 		return nil, errors.OAuth2InvalidGrant("refresh token is invalid or has expired").WithError(err)
 	}
 
-	if err := a.validateRefreshToken(r.Context(), r, claims); err != nil {
+	if err := a.validateRefreshToken(r.Context(), r, refreshTokenRaw, claims); err != nil {
 		return nil, err
 	}
 
