@@ -314,6 +314,9 @@ type UserSignup struct {
 type UserSession struct {
 	// ClientID is the client the session is bound to.
 	ClientID string `json:"clientID"`
+	// AuthorizationCodeID is the authorization code ID used to generate
+	// the tokens.
+	AuthorizationCodeID string `json:"authorizationCodeID"`
 	// AccessToken s the access token currently issued for the
 	// session.
 	AccessToken string `json:"accessToken"`
