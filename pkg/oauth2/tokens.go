@@ -150,6 +150,9 @@ type IssueInfo struct {
 	// Scope is the set of scopes requested by the client, and is used to
 	// populate the userinfo response.
 	Scope Scope
+	// AuthorizationCodeID is required when doing code exchange and records the
+	// lineage of a token.
+	AuthorizationCodeID *string
 }
 
 // expiry calculates when the token should expire.  By default we use the duration
@@ -200,7 +203,7 @@ func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *Issue
 // updateSession updates the user record to indicate the current access token and single-use refresh
 // token bound to a specific client.  This ensures only a single session can be active per-client
 // at a time, tokens are automatically revoked when reissued etc.
-func (a *Authenticator) updateSession(ctx context.Context, info *IssueInfo, accessToken, refreshToken string) error {
+func (a *Authenticator) updateSession(ctx context.Context, info *IssueInfo, accessToken, refreshToken string, authorizationCodeID *string) error {
 	users, err := a.rbac.GetActiveUsers(ctx, info.Subject)
 	if err != nil {
 		return err
@@ -223,6 +226,10 @@ func (a *Authenticator) updateSession(ctx context.Context, info *IssueInfo, acce
 			})
 		} else {
 			a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
+		}
+
+		if authorizationCodeID != nil {
+			user.Spec.Sessions[index].AuthorizationCodeID = *authorizationCodeID
 		}
 
 		user.Spec.Sessions[index].AccessToken = accessToken
@@ -302,7 +309,7 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 
 		tokens.RefreshToken = &rt
 
-		if err := a.updateSession(ctx, info, at, rt); err != nil {
+		if err := a.updateSession(ctx, info, at, rt, info.AuthorizationCodeID); err != nil {
 			return nil, err
 		}
 	}

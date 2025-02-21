@@ -65,6 +65,11 @@ spec:
                         AccessToken s the access token currently issued for the
                         session.
                       type: string
+                    authorizationCodeID:
+                      description: |-
+                        AuthorizationCodeID is the authorization code ID used to generate
+                        the tokens.
+                      type: string
                     clientID:
                       description: ClientID is the client the session is bound to.
                       type: string
@@ -75,6 +80,7 @@ spec:
                       type: string
                   required:
                   - accessToken
+                  - authorizationCodeID
                   - clientID
                   - refreshToken
                   type: object

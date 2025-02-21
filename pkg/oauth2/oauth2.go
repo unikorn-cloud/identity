@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 	"golang.org/x/oauth2"
 
@@ -181,9 +182,9 @@ type State struct {
 // exchanged for an access token.  Much like how we client things in the oauth2
 // state during the OIDC exchange, to mitigate problems with horizonal scaling
 // and sharing stuff, we do the same here.
-// WARNING: Don't make this too big, the ingress controller will barf if the
-// headers are too hefty.
 type Code struct {
+	// ID is a unique identifier for the code.
+	ID string `json:"id"`
 	// ClientID is the client identifier.
 	ClientID string `json:"cid"`
 	// ClientRedirectURI is the redirect URL requested by the client.
@@ -760,6 +761,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 	// NOTE: the email is the canonical one returned by the IdP, which removes
 	// aliases from the equation.
 	oauth2Code := &Code{
+		ID:                  uuid.New().String(),
 		ClientID:            state.ClientID,
 		ClientRedirectURI:   state.ClientRedirectURI,
 		ClientCodeChallenge: state.ClientCodeChallenge,
@@ -923,6 +925,44 @@ func (a *Authenticator) validateClientSecret(r *http.Request, code *Code) error 
 	return nil
 }
 
+// revokeSession revokes all tokens for a clientID.
+func (a *Authenticator) revokeSession(ctx context.Context, clientID, codeID, subject string) error {
+	users, err := a.rbac.GetActiveUsers(ctx, subject)
+	if err != nil {
+		return errors.OAuth2ServerError("failed to lookup user").WithError(err)
+	}
+
+	if len(users.Items) == 0 {
+		return errors.OAuth2InvalidGrant("no active user record found")
+	}
+
+	// TODO: need a single user record!!
+	for i := range users.Items {
+		user := &users.Items[i]
+
+		lookupSession := func(session unikornv1.UserSession) bool {
+			return session.ClientID == clientID && session.AuthorizationCodeID == codeID
+		}
+
+		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+		if index < 0 {
+			continue
+		}
+
+		// Things can still go wrong between here and issuing the new token, so invalidate
+		// the session now rather than relying on the reissue doing it for us.
+		a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
+
+		user.Spec.Sessions = append(user.Spec.Sessions[:index], user.Spec.Sessions[index+1:]...)
+
+		if err := a.client.Update(ctx, user); err != nil {
+			return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
+		}
+	}
+
+	return nil
+}
+
 // TokenAuthorizationCode issues a token based on whether the provided code is correct and
 // the client code verifier (PKCS) matches.
 func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Request) (*openapi.Token, error) {
@@ -931,12 +971,6 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	}
 
 	codeRaw := r.Form.Get("code")
-
-	if _, ok := a.codeCache.Get(codeRaw); !ok {
-		return nil, errors.OAuth2InvalidGrant("code is not present in cache")
-	}
-
-	a.codeCache.Remove(codeRaw)
 
 	code := &Code{}
 
@@ -952,6 +986,17 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		return nil, err
 	}
 
+	// RFC 6749 4.1.2 - code reuse should revoke any tokens associated with the
+	// authentication code, we just clear out anything associated with the client
+	// session.
+	if _, ok := a.codeCache.Get(codeRaw); !ok {
+		_ = a.revokeSession(r.Context(), code.ClientID, code.ID, code.IDToken.Email.Email)
+
+		return nil, errors.OAuth2InvalidGrant("code is not present in cache")
+	}
+
+	a.codeCache.Remove(codeRaw)
+
 	info := &IssueInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
@@ -964,7 +1009,8 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 			RefreshToken: code.RefreshToken,
 			Expiry:       code.AccessTokenExpiry,
 		},
-		Scope: code.ClientScope,
+		Scope:               code.ClientScope,
+		AuthorizationCodeID: &code.ID,
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -1029,7 +1075,7 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 
 	users, err := a.rbac.GetActiveUsers(ctx, claims.Claims.Subject)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to lookup user for refresh token").WithError(err)
+		return errors.OAuth2ServerError("failed to lookup user").WithError(err)
 	}
 
 	if len(users.Items) == 0 {
