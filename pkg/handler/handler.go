@@ -185,7 +185,7 @@ func (h *Handler) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 
 	userinfo, _, err := h.oauth2.GetUserinfo(r.Context(), r, r.Form.Get("access_token"))
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("access token is not set").WithError(err))
+		errors.HandleError(w, r, errors.OAuth2AccessDenied("access token is invalid").WithError(err))
 		return
 	}
 

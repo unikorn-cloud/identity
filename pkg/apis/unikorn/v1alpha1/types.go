@@ -294,8 +294,10 @@ type UserSpec struct {
 	LastActive *metav1.Time `json:"lastActive,omitempty"`
 	// Signup is set when the user is being verified.
 	Signup *UserSignup `json:"signup,omitempty"`
-	// RefreshTokens allows us to handle one time use of oauth2 refresh tokens.
-	RefreshTokens []UserRefreshToken `json:"refreshTokens,omitempty"`
+	// Sessions record active user sessions.
+	// +listType=map
+	// +listMapKey=clientID
+	Sessions []UserSession `json:"sessions,omitempty"`
 }
 
 type UserSignup struct {
@@ -309,9 +311,15 @@ type UserSignup struct {
 	ClientID string `json:"clientID"`
 }
 
-type UserRefreshToken struct {
-	// ID encoded in the refresh token.
-	ID string `json:"id"`
+type UserSession struct {
+	// ClientID is the client the session is bound to.
+	ClientID string `json:"clientID"`
+	// AccessToken s the access token currently issued for the
+	// session.
+	AccessToken string `json:"accessToken"`
+	// RefreshToken is the single-use refresh token currently
+	// issued for the session.
+	RefreshToken string `json:"refreshToken"`
 }
 
 type UserStatus struct {

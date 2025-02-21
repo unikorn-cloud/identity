@@ -56,18 +56,32 @@ spec:
                   access token.
                 format: date-time
                 type: string
-              refreshTokens:
-                description: RefreshTokens allows us to handle one time use of oauth2
-                  refresh tokens.
+              sessions:
+                description: Sessions record active user sessions.
                 items:
                   properties:
-                    id:
-                      description: ID encoded in the refresh token.
+                    accessToken:
+                      description: |-
+                        AccessToken s the access token currently issued for the
+                        session.
+                      type: string
+                    clientID:
+                      description: ClientID is the client the session is bound to.
+                      type: string
+                    refreshToken:
+                      description: |-
+                        RefreshToken is the single-use refresh token currently
+                        issued for the session.
                       type: string
                   required:
-                  - id
+                  - accessToken
+                  - clientID
+                  - refreshToken
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - clientID
+                x-kubernetes-list-type: map
               signup:
                 description: Signup is set when the user is being verified.
                 properties:
