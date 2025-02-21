@@ -251,9 +251,8 @@ type UserList struct {
 }
 
 // User represents an entity with a federated login credential.  Users are
-// scoped to an organization, and may exist in multiple organizations
-// at once.  At least one user must be in the "active" state to allow
-// authentication.
+// globally scoped, and may exist in multiple organizations at once.  The user
+// must be in the active state initially to allow login.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:printcolumn:name="subject",type="string",JSONPath=".spec.subject"
@@ -326,6 +325,35 @@ type UserSession struct {
 }
 
 type UserStatus struct {
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type OrganizationUserList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []OrganizationUser `json:"items"`
+}
+
+// OrganizationUser allows the user to be a member of an organization.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:printcolumn:name="state",type="string",JSONPath=".spec.state"
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:subresource:status
+type OrganizationUser struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              OrganizationUserSpec   `json:"spec"`
+	Status            OrganizationUserStatus `json:"status,omitempty"`
+}
+
+type OrganizationUserSpec struct {
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
+	// State controls what the user is allowed to do.
+	State UserState `json:"state"`
+}
+
+type OrganizationUserStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

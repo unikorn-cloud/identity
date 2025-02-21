@@ -55,6 +55,7 @@ func init() {
 	SchemeBuilder.Register(&Project{}, &ProjectList{})
 	SchemeBuilder.Register(&SigningKey{}, &SigningKeyList{})
 	SchemeBuilder.Register(&User{}, &UserList{})
+	SchemeBuilder.Register(&OrganizationUser{}, &OrganizationUserList{})
 	SchemeBuilder.Register(&ServiceAccount{}, &ServiceAccountList{})
 	SchemeBuilder.Register(&QuotaMetadata{}, &QuotaMetadataList{})
 	SchemeBuilder.Register(&Quota{}, &QuotaList{})

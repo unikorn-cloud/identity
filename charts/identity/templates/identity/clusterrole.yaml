@@ -19,6 +19,7 @@ rules:
   - roles
   - serviceaccounts
   - users
+  - organizationusers
   verbs:
   - list
   - watch

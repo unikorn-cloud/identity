@@ -169,6 +169,9 @@ type State struct {
 	// authenticate we are handing the authorization token back to the
 	// correct client.
 	ClientCodeChallenge string `json:"ccc"`
+	// ClientCodeChallengeMethod remembers how to process the PKCE code
+	// challenge during token exchange.
+	ClientCodeChallengeMethod openapi.CodeChallengeMethod `json:"cccm"`
 	// ClientScope records the requested client scope.
 	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
@@ -195,7 +198,7 @@ type Code struct {
 	ClientCodeChallenge string `json:"ccc"`
 	// ClientCodeChallengeMethod remembers how to process the PKCE code
 	// challenge during token exchange.
-	ClientCodeChallengeMethod openapi.CodeChallengeMethod
+	ClientCodeChallengeMethod openapi.CodeChallengeMethod `json:"cccm"`
 	// ClientScope records the requested client scope.
 	ClientScope Scope `json:"csc,omitempty"`
 	// ClientNonce is injected into a OIDC id_token.
@@ -399,16 +402,20 @@ func (a *Authenticator) authorizationValidateNonRedirecting(w http.ResponseWrite
 	return client, true
 }
 
+func getCodeChallengeMethod(query url.Values) openapi.CodeChallengeMethod {
+	if query.Has("code_challenge_method") {
+		return openapi.CodeChallengeMethod(query.Get("code_challenge_method"))
+	}
+
+	// Default to "plain"
+	return openapi.Plain
+}
+
 // OAuth2AuthorizationValidateRedirecting checks autohorization request parameters after
 // the redirect URI has been validated.  If any of these fail, we redirect but with an
 // error query rather than a code for the client to pick up and run with.
 func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, query url.Values, client *unikornv1.OAuth2Client) bool {
-	// Default to "plain"
-	codeChallengeMethod := openapi.Plain
-
-	if query.Has("code_challenge_method") {
-		codeChallengeMethod = openapi.CodeChallengeMethod(query.Get("code_challenge_method"))
-	}
+	codeChallengeMethod := getCodeChallengeMethod(query)
 
 	var kind Error
 
@@ -563,14 +570,15 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 	// requires persistent state at the minimum, and a database in the case of multi-head
 	// deployments, just encrypt it and send with the authoriation request.
 	oidcState := &State{
-		OAuth2Provider:      provider.Name,
-		Nonce:               nonce,
-		CodeVerifier:        codeVerifier,
-		ClientID:            query.Get("client_id"),
-		ClientRedirectURI:   query.Get("redirect_uri"),
-		ClientState:         query.Get("state"),
-		ClientCodeChallenge: query.Get("code_challenge"),
-		MaxAge:              query.Get("max_age"),
+		OAuth2Provider:            provider.Name,
+		Nonce:                     nonce,
+		CodeVerifier:              codeVerifier,
+		ClientID:                  query.Get("client_id"),
+		ClientRedirectURI:         query.Get("redirect_uri"),
+		ClientState:               query.Get("state"),
+		ClientCodeChallenge:       query.Get("code_challenge"),
+		ClientCodeChallengeMethod: getCodeChallengeMethod(query),
+		MaxAge:                    query.Get("max_age"),
 	}
 
 	// To implement OIDC we need a copy of the scopes.
@@ -761,19 +769,22 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 	// NOTE: the email is the canonical one returned by the IdP, which removes
 	// aliases from the equation.
 	oauth2Code := &Code{
-		ID:                  uuid.New().String(),
-		ClientID:            state.ClientID,
-		ClientRedirectURI:   state.ClientRedirectURI,
-		ClientCodeChallenge: state.ClientCodeChallenge,
-		ClientScope:         state.ClientScope,
-		ClientNonce:         state.ClientNonce,
-		OAuth2Provider:      state.OAuth2Provider,
-		MaxAge:              state.MaxAge,
-		AccessToken:         tokens.AccessToken,
-		RefreshToken:        tokens.RefreshToken,
-		IDToken:             idToken,
-		AccessTokenExpiry:   tokens.Expiry,
+		ID:                        uuid.New().String(),
+		ClientID:                  state.ClientID,
+		ClientRedirectURI:         state.ClientRedirectURI,
+		ClientCodeChallenge:       state.ClientCodeChallenge,
+		ClientCodeChallengeMethod: state.ClientCodeChallengeMethod,
+		ClientScope:               state.ClientScope,
+		ClientNonce:               state.ClientNonce,
+		OAuth2Provider:            state.OAuth2Provider,
+		MaxAge:                    state.MaxAge,
+		AccessToken:               tokens.AccessToken,
+		RefreshToken:              tokens.RefreshToken,
+		IDToken:                   idToken,
+		AccessTokenExpiry:         tokens.Expiry,
 	}
+
+	fmt.Println(oauth2Code)
 
 	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
 	if err != nil {
@@ -927,37 +938,28 @@ func (a *Authenticator) validateClientSecret(r *http.Request, code *Code) error 
 
 // revokeSession revokes all tokens for a clientID.
 func (a *Authenticator) revokeSession(ctx context.Context, clientID, codeID, subject string) error {
-	users, err := a.rbac.GetActiveUsers(ctx, subject)
+	user, err := a.rbac.GetActiveUser(ctx, subject)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup user").WithError(err)
 	}
 
-	if len(users.Items) == 0 {
-		return errors.OAuth2InvalidGrant("no active user record found")
+	lookupSession := func(session unikornv1.UserSession) bool {
+		return session.ClientID == clientID && session.AuthorizationCodeID == codeID
 	}
 
-	// TODO: need a single user record!!
-	for i := range users.Items {
-		user := &users.Items[i]
+	index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+	if index < 0 {
+		return nil
+	}
 
-		lookupSession := func(session unikornv1.UserSession) bool {
-			return session.ClientID == clientID && session.AuthorizationCodeID == codeID
-		}
+	// Things can still go wrong between here and issuing the new token, so invalidate
+	// the session now rather than relying on the reissue doing it for us.
+	a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
 
-		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
-		if index < 0 {
-			continue
-		}
+	user.Spec.Sessions = append(user.Spec.Sessions[:index], user.Spec.Sessions[index+1:]...)
 
-		// Things can still go wrong between here and issuing the new token, so invalidate
-		// the session now rather than relying on the reissue doing it for us.
-		a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
-
-		user.Spec.Sessions = append(user.Spec.Sessions[:index], user.Spec.Sessions[index+1:]...)
-
-		if err := a.client.Update(ctx, user); err != nil {
-			return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
-		}
+	if err := a.client.Update(ctx, user); err != nil {
+		return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
 	}
 
 	return nil
@@ -1073,41 +1075,32 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 		return err
 	}
 
-	users, err := a.rbac.GetActiveUsers(ctx, claims.Claims.Subject)
+	user, err := a.rbac.GetActiveUser(ctx, claims.Claims.Subject)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup user").WithError(err)
 	}
 
-	if len(users.Items) == 0 {
-		return errors.OAuth2InvalidGrant("no active user record found")
+	lookupSession := func(session unikornv1.UserSession) bool {
+		return session.ClientID == claims.Custom.ClientID
 	}
 
-	// TODO: need a single user record!!
-	for i := range users.Items {
-		user := &users.Items[i]
+	index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+	if index < 0 {
+		return errors.OAuth2InvalidGrant("no active session for user found")
+	}
 
-		lookupSession := func(session unikornv1.UserSession) bool {
-			return session.ClientID == claims.Custom.ClientID
-		}
+	if user.Spec.Sessions[index].RefreshToken != refreshToken {
+		return errors.OAuth2InvalidGrant("refresh token reuse")
+	}
 
-		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
-		if index < 0 {
-			return errors.OAuth2InvalidGrant("no active session for user found")
-		}
+	// Things can still go wrong between here and issuing the new token, so invalidate
+	// the session now rather than relying on the reissue doing it for us.
+	a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
 
-		if user.Spec.Sessions[index].RefreshToken != refreshToken {
-			return errors.OAuth2InvalidGrant("refresh token reuse")
-		}
+	user.Spec.Sessions = append(user.Spec.Sessions[:index], user.Spec.Sessions[index+1:]...)
 
-		// Things can still go wrong between here and issuing the new token, so invalidate
-		// the session now rather than relying on the reissue doing it for us.
-		a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
-
-		user.Spec.Sessions = append(user.Spec.Sessions[:index], user.Spec.Sessions[index+1:]...)
-
-		if err := a.client.Update(ctx, user); err != nil {
-			return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
-		}
+	if err := a.client.Update(ctx, user); err != nil {
+		return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
 	}
 
 	return nil

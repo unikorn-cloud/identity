@@ -28,9 +28,8 @@ spec:
       openAPIV3Schema:
         description: |-
           User represents an entity with a federated login credential.  Users are
-          scoped to an organization, and may exist in multiple organizations
-          at once.  At least one user must be in the "active" state to allow
-          authentication.
+          globally scoped, and may exist in multiple organizations at once.  The user
+          must be in the active state initially to allow login.
         properties:
           apiVersion:
             description: |-

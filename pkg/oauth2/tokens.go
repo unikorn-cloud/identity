@@ -203,41 +203,39 @@ func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *Issue
 // updateSession updates the user record to indicate the current access token and single-use refresh
 // token bound to a specific client.  This ensures only a single session can be active per-client
 // at a time, tokens are automatically revoked when reissued etc.
-func (a *Authenticator) updateSession(ctx context.Context, info *IssueInfo, accessToken, refreshToken string, authorizationCodeID *string) error {
-	users, err := a.rbac.GetActiveUsers(ctx, info.Subject)
+func (a *Authenticator) updateSession(ctx context.Context, info *IssueInfo, accessToken string, refreshToken *string, authorizationCodeID *string) error {
+	user, err := a.rbac.GetActiveUser(ctx, info.Subject)
 	if err != nil {
 		return err
 	}
 
-	// TODO: we need a single user record!!
-	for i := range users.Items {
-		user := &users.Items[i]
+	lookupSession := func(session unikornv1.UserSession) bool {
+		return session.ClientID == info.ClientID
+	}
 
-		lookupSession := func(session unikornv1.UserSession) bool {
-			return session.ClientID == info.ClientID
-		}
+	index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+	if index < 0 {
+		index = len(user.Spec.Sessions)
 
-		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
-		if index < 0 {
-			index = len(user.Spec.Sessions)
+		user.Spec.Sessions = append(user.Spec.Sessions, unikornv1.UserSession{
+			ClientID: info.ClientID,
+		})
+	} else {
+		a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
+	}
 
-			user.Spec.Sessions = append(user.Spec.Sessions, unikornv1.UserSession{
-				ClientID: info.ClientID,
-			})
-		} else {
-			a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
-		}
+	if authorizationCodeID != nil {
+		user.Spec.Sessions[index].AuthorizationCodeID = *authorizationCodeID
+	}
 
-		if authorizationCodeID != nil {
-			user.Spec.Sessions[index].AuthorizationCodeID = *authorizationCodeID
-		}
+	user.Spec.Sessions[index].AccessToken = accessToken
 
-		user.Spec.Sessions[index].AccessToken = accessToken
-		user.Spec.Sessions[index].RefreshToken = refreshToken
+	if refreshToken != nil {
+		user.Spec.Sessions[index].RefreshToken = *refreshToken
+	}
 
-		if err := a.client.Update(ctx, user); err != nil {
-			return err
-		}
+	if err := a.client.Update(ctx, user); err != nil {
+		return err
 	}
 
 	return nil
@@ -282,34 +280,36 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 	// Only supply a refresh token if the provider provided one.  We can then
 	// guarantee that all calls to refresh will then reauthenticate against
 	// the provider.
-	if info.Federated != nil && info.Federated.RefreshToken != "" {
-		rtClaims := &RefreshTokenClaims{
-			Claims: jwt.Claims{
-				ID:      uuid.New().String(),
-				Subject: info.Subject,
-				Audience: jwt.Audience{
-					info.Audience,
+	if info.Federated != nil {
+		if info.Federated.RefreshToken != "" {
+			rtClaims := &RefreshTokenClaims{
+				Claims: jwt.Claims{
+					ID:      uuid.New().String(),
+					Subject: info.Subject,
+					Audience: jwt.Audience{
+						info.Audience,
+					},
+					Issuer:    info.Issuer,
+					IssuedAt:  nowRFC7519,
+					NotBefore: nowRFC7519,
+					Expiry:    rtExpiresAtRFC7519,
 				},
-				Issuer:    info.Issuer,
-				IssuedAt:  nowRFC7519,
-				NotBefore: nowRFC7519,
-				Expiry:    rtExpiresAtRFC7519,
-			},
-			Custom: &CustomRefreshTokenClaims{
-				Provider:     info.Federated.Provider,
-				ClientID:     info.ClientID,
-				RefreshToken: info.Federated.RefreshToken,
-			},
+				Custom: &CustomRefreshTokenClaims{
+					Provider:     info.Federated.Provider,
+					ClientID:     info.ClientID,
+					RefreshToken: info.Federated.RefreshToken,
+				},
+			}
+
+			rt, err := a.issuer.EncodeJWEToken(ctx, rtClaims, jose.TokenTypeRefreshToken)
+			if err != nil {
+				return nil, err
+			}
+
+			tokens.RefreshToken = &rt
 		}
 
-		rt, err := a.issuer.EncodeJWEToken(ctx, rtClaims, jose.TokenTypeRefreshToken)
-		if err != nil {
-			return nil, err
-		}
-
-		tokens.RefreshToken = &rt
-
-		if err := a.updateSession(ctx, info, at, rt, info.AuthorizationCodeID); err != nil {
+		if err := a.updateSession(ctx, info, at, tokens.RefreshToken, info.AuthorizationCodeID); err != nil {
 			return nil, err
 		}
 	}
@@ -415,31 +415,22 @@ func (a *Authenticator) verifyUserSession(ctx context.Context, info *VerifyInfo,
 		return nil
 	}
 
-	users, err := a.rbac.GetActiveUsers(ctx, claims.Claims.Subject)
+	user, err := a.rbac.GetActiveUser(ctx, claims.Claims.Subject)
 	if err != nil {
 		return err
 	}
 
-	if len(users.Items) == 0 {
-		return fmt.Errorf("%w: no active user for token subject", ErrTokenVerification)
+	lookupSession := func(session unikornv1.UserSession) bool {
+		return session.ClientID == claims.Custom.ClientID
 	}
 
-	// TODO: we need a single user record!!
-	for i := range users.Items {
-		user := &users.Items[i]
+	index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
+	if index < 0 {
+		return fmt.Errorf("%w: no active session for token", ErrTokenVerification)
+	}
 
-		lookupSession := func(session unikornv1.UserSession) bool {
-			return session.ClientID == claims.Custom.ClientID
-		}
-
-		index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
-		if index < 0 {
-			return fmt.Errorf("%w: no active session for token", ErrTokenVerification)
-		}
-
-		if user.Spec.Sessions[index].AccessToken != info.Token {
-			return fmt.Errorf("%w: token invalid for active session", ErrTokenVerification)
-		}
+	if user.Spec.Sessions[index].AccessToken != info.Token {
+		return fmt.Errorf("%w: token invalid for active session", ErrTokenVerification)
 	}
 
 	return nil
