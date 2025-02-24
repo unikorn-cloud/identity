@@ -72,6 +72,10 @@ spec:
                     clientID:
                       description: ClientID is the client the session is bound to.
                       type: string
+                    lastAuthentication:
+                      description: LastAuthentication records when the user last authenticated.
+                      format: date-time
+                      type: string
                     refreshToken:
                       description: |-
                         RefreshToken is the single-use refresh token currently

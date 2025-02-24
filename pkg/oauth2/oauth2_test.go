@@ -97,16 +97,12 @@ func TestTokens(t *testing.T) {
 
 	time.Sleep(2 * josetesting.RefreshPeriod)
 
-	refreshToken := "bar"
-
 	issueInfo := &oauth2.IssueInfo{
 		Issuer:   "https://foo.com",
 		Audience: "foo.com",
 		Subject:  "barry@foo.com",
 		Federated: &oauth2.Federated{
-			AccessToken:  "foo",
-			RefreshToken: refreshToken,
-			Expiry:       time.Now().Add(2 * accessTokenDuration),
+			UserID: "fake",
 		},
 	}
 

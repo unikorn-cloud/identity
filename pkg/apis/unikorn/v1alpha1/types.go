@@ -322,6 +322,8 @@ type UserSession struct {
 	// RefreshToken is the single-use refresh token currently
 	// issued for the session.
 	RefreshToken string `json:"refreshToken"`
+	// LastAuthentication records when the user last authenticated.
+	LastAuthentication *metav1.Time `json:"lastAuthentication,omitempty"`
 }
 
 type UserStatus struct {

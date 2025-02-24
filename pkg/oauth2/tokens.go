@@ -30,6 +30,8 @@ import (
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/jose"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -55,10 +57,8 @@ const (
 type CustomAccessTokenClaims struct {
 	// Type is the type of access token this is.
 	Type AccessTokenType `json:"typ"`
-	// Provider is the provider name for the token (federated tokens only).
-	Provider string `json:"pr"`
-	// AccessToken as defined for the IdP (federated tokens only).
-	AccessToken string `json:"at"`
+	// UserID is set when the token is issued to a user.
+	UserID string `json:"uid"`
 	// OrganizationID is the identifier of the organization (service accounts only).
 	OrganizationID string `json:"oid"`
 	// ClientID is the oauth2 client that the user is using.
@@ -88,10 +88,10 @@ type AccessTokenConfigClaims struct {
 // CustomRefreshTokenClaims contains all application specific claims in a single
 // top-level claim that won't clash with the ones defined by IETF.
 type CustomRefreshTokenClaims struct {
+	// UserID is the user's ID.
+	UserID string `json:"uid"`
 	// Provider is the provider name for the token.
 	Provider string
-	// RefreshToken as defined for the IdP.
-	RefreshToken string `json:"rt"`
 	// ClientID is the oauth2 client that the user is using.
 	ClientID string `json:"cid"`
 }
@@ -107,17 +107,16 @@ type RefreshTokenClaims struct {
 
 // Tokens is the set of tokens and metadata returned by a token issue.
 type Tokens struct {
-	Expiry       time.Time
-	AccessToken  string
-	RefreshToken *string
+	Expiry                 time.Time
+	AccessToken            string
+	RefreshToken           *string
+	LastAuthenticationTime time.Time
 }
 
 // Federated is any information required to issue a federated access token.
 type Federated struct {
-	Provider     string
-	Expiry       time.Time
-	AccessToken  string
-	RefreshToken string
+	UserID   string
+	Provider string
 }
 
 // ServiceAccount is any information required to issue a service account access token.
@@ -153,6 +152,9 @@ type IssueInfo struct {
 	// AuthorizationCodeID is required when doing code exchange and records the
 	// lineage of a token.
 	AuthorizationCodeID *string
+	// Interactive declares whether this is an interactive login
+	// or not (e.g. cookie based).
+	Interactive bool `json:"int"`
 }
 
 // expiry calculates when the token should expire.  By default we use the duration
@@ -165,13 +167,7 @@ func (a *Authenticator) expiry(now time.Time, info *IssueInfo) time.Time {
 		return now.Add(*info.ServiceAccount.Duration)
 	}
 
-	expiry := now.Add(a.options.AccessTokenDuration)
-
-	if info.Federated != nil && info.Federated.Expiry.Before(expiry) {
-		expiry = info.Federated.Expiry
-	}
-
-	return expiry
+	return now.Add(a.options.AccessTokenDuration)
 }
 
 // applyCustomClaims adds any custom claims to the access token based on the
@@ -180,11 +176,10 @@ func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *Issue
 	switch {
 	case info.Federated != nil:
 		claims.Custom = &CustomAccessTokenClaims{
-			Type:        AccessTokenTypeFederated,
-			Provider:    info.Federated.Provider,
-			AccessToken: info.Federated.AccessToken,
-			ClientID:    info.ClientID,
-			Scope:       info.Scope,
+			Type:     AccessTokenTypeFederated,
+			UserID:   info.Federated.UserID,
+			ClientID: info.ClientID,
+			Scope:    info.Scope,
 		}
 
 	case info.ServiceAccount != nil:
@@ -203,42 +198,45 @@ func (a *Authenticator) applyCustomClaims(claims *AccessTokenClaims, info *Issue
 // updateSession updates the user record to indicate the current access token and single-use refresh
 // token bound to a specific client.  This ensures only a single session can be active per-client
 // at a time, tokens are automatically revoked when reissued etc.
-func (a *Authenticator) updateSession(ctx context.Context, info *IssueInfo, accessToken string, refreshToken *string, authorizationCodeID *string) error {
-	user, err := a.rbac.GetActiveUser(ctx, info.Subject)
+func (a *Authenticator) updateSession(ctx context.Context, user *unikornv1.User, info *IssueInfo, tokens *Tokens, authorizationCodeID *string) (time.Time, error) {
+	session, err := user.Session(info.ClientID)
 	if err != nil {
-		return err
-	}
-
-	lookupSession := func(session unikornv1.UserSession) bool {
-		return session.ClientID == info.ClientID
-	}
-
-	index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
-	if index < 0 {
-		index = len(user.Spec.Sessions)
-
 		user.Spec.Sessions = append(user.Spec.Sessions, unikornv1.UserSession{
 			ClientID: info.ClientID,
 		})
+
+		session = &user.Spec.Sessions[len(user.Spec.Sessions)-1]
 	} else {
-		a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
+		a.InvalidateToken(ctx, session.AccessToken)
 	}
 
 	if authorizationCodeID != nil {
-		user.Spec.Sessions[index].AuthorizationCodeID = *authorizationCodeID
+		session.AuthorizationCodeID = *authorizationCodeID
 	}
 
-	user.Spec.Sessions[index].AccessToken = accessToken
+	session.AccessToken = tokens.AccessToken
 
-	if refreshToken != nil {
-		user.Spec.Sessions[index].RefreshToken = *refreshToken
+	if tokens.RefreshToken != nil {
+		session.RefreshToken = *tokens.RefreshToken
+	}
+
+	if info.Interactive {
+		session.LastAuthentication = &metav1.Time{
+			Time: time.Now(),
+		}
 	}
 
 	if err := a.client.Update(ctx, user); err != nil {
-		return err
+		return time.Time{}, err
 	}
 
-	return nil
+	lastAuthenticationTime := time.Now()
+
+	if session.LastAuthentication != nil {
+		lastAuthenticationTime = session.LastAuthentication.Time
+	}
+
+	return lastAuthenticationTime, nil
 }
 
 // Issue issues a new JWT access token.
@@ -273,15 +271,17 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 	}
 
 	tokens := &Tokens{
-		AccessToken: at,
-		Expiry:      expiry,
+		AccessToken:            at,
+		Expiry:                 expiry,
+		LastAuthenticationTime: time.Now(),
 	}
 
-	// Only supply a refresh token if the provider provided one.  We can then
-	// guarantee that all calls to refresh will then reauthenticate against
-	// the provider.
+	//nolint:nestif
 	if info.Federated != nil {
-		if info.Federated.RefreshToken != "" {
+		// TODO: this is to handle the "broken" case where we allow people to
+		// authenticate without hanving a matching user record.
+		user, err := a.getUser(ctx, info.Federated.UserID)
+		if err == nil {
 			rtClaims := &RefreshTokenClaims{
 				Claims: jwt.Claims{
 					ID:      uuid.New().String(),
@@ -295,9 +295,9 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 					Expiry:    rtExpiresAtRFC7519,
 				},
 				Custom: &CustomRefreshTokenClaims{
-					Provider:     info.Federated.Provider,
-					ClientID:     info.ClientID,
-					RefreshToken: info.Federated.RefreshToken,
+					Provider: info.Federated.Provider,
+					UserID:   info.Federated.UserID,
+					ClientID: info.ClientID,
 				},
 			}
 
@@ -307,10 +307,13 @@ func (a *Authenticator) Issue(ctx context.Context, info *IssueInfo) (*Tokens, er
 			}
 
 			tokens.RefreshToken = &rt
-		}
 
-		if err := a.updateSession(ctx, info, at, tokens.RefreshToken, info.AuthorizationCodeID); err != nil {
-			return nil, err
+			authTime, err := a.updateSession(ctx, user, info, tokens, info.AuthorizationCodeID)
+			if err != nil {
+				return nil, err
+			}
+
+			tokens.LastAuthenticationTime = authTime
 		}
 	}
 

@@ -28,15 +28,14 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
-	"golang.org/x/oauth2"
 
-	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/html"
@@ -53,6 +52,10 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	SessionCookie = "unikorn-identity-session"
 )
 
 var (
@@ -158,27 +161,8 @@ type State struct {
 	// OAuth2Provider is the name of the provider configuration in
 	// use, this will reference the issuer and allow discovery.
 	OAuth2Provider string `json:"oap"`
-	// ClientID is the client identifier.
-	ClientID string `json:"cid"`
-	// ClientRedirectURI is the redirect URL requested by the client.
-	ClientRedirectURI string `json:"cri"`
-	// Client state records the client's OAuth state while we interact
-	// with the OIDC authorization server.
-	ClientState string `json:"cst,omitempty"`
-	// ClientCodeChallenge records the client code challenge so we can
-	// authenticate we are handing the authorization token back to the
-	// correct client.
-	ClientCodeChallenge string `json:"ccc"`
-	// ClientCodeChallengeMethod remembers how to process the PKCE code
-	// challenge during token exchange.
-	ClientCodeChallengeMethod openapi.CodeChallengeMethod `json:"cccm"`
-	// ClientScope records the requested client scope.
-	ClientScope Scope `json:"csc,omitempty"`
-	// ClientNonce is injected into a OIDC id_token.
-	ClientNonce string `json:"cno,omitempty"`
-	// MaxAge is the maximum length of time in seconds the user
-	// has before they must log back in again.
-	MaxAge string `json:"ma"`
+	// ClientQuery stores the full client query string.
+	ClientQuery string `json:"cq"`
 }
 
 // Code is an authorization code to return to the client that can be
@@ -188,35 +172,18 @@ type State struct {
 type Code struct {
 	// ID is a unique identifier for the code.
 	ID string `json:"id"`
-	// ClientID is the client identifier.
-	ClientID string `json:"cid"`
-	// ClientRedirectURI is the redirect URL requested by the client.
-	ClientRedirectURI string `json:"cri"`
-	// ClientCodeChallenge records the client code challenge so we can
-	// authenticate we are handing the authorization token back to the
-	// correct client.
-	ClientCodeChallenge string `json:"ccc"`
-	// ClientCodeChallengeMethod remembers how to process the PKCE code
-	// challenge during token exchange.
-	ClientCodeChallengeMethod openapi.CodeChallengeMethod `json:"cccm"`
-	// ClientScope records the requested client scope.
-	ClientScope Scope `json:"csc,omitempty"`
-	// ClientNonce is injected into a OIDC id_token.
-	ClientNonce string `json:"cno,omitempty"`
-	// AccessToken is the user's access token.
-	AccessToken string `json:"at"`
-	// RefreshToken is the users's refresh token.
-	RefreshToken string `json:"rt"`
-	// IDToken is the full set of claims returned by the provider.
-	IDToken *oidc.IDToken `json:"idt"`
-	// AccessTokenExpiry tells us how long the token will last for.
-	AccessTokenExpiry time.Time `json:"ate"`
 	// OAuth2Provider is the name of the provider configuration in
 	// use, this will reference the issuer and allow discovery.
 	OAuth2Provider string `json:"oap"`
-	// MaxAge is the maximum length of time in seconds the user
-	// has before they must log back in again.
-	MaxAge string `json:"ma"`
+	// UserID is the user that issued the code.
+	UserID string `json:"uid"`
+	// ClientQuery stores the full client query string.
+	ClientQuery string `json:"cq"`
+	// IDToken is the full set of claims returned by the provider.
+	IDToken *oidc.IDToken `json:"idt"`
+	// Interactive declares whether this is an interactive login
+	// or not (e.g. cookie based).
+	Interactive bool `json:"int"`
 }
 
 // htmlError is used in dire situations when we cannot return an error via
@@ -411,10 +378,10 @@ func getCodeChallengeMethod(query url.Values) openapi.CodeChallengeMethod {
 	return openapi.Plain
 }
 
-// OAuth2AuthorizationValidateRedirecting checks autohorization request parameters after
+// authorizationValidateRedirecting checks autohorization request parameters after
 // the redirect URI has been validated.  If any of these fail, we redirect but with an
 // error query rather than a code for the client to pick up and run with.
-func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, query url.Values, client *unikornv1.OAuth2Client) bool {
+func authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, query url.Values, client *unikornv1.OAuth2Client) bool {
 	codeChallengeMethod := getCodeChallengeMethod(query)
 
 	var kind Error
@@ -431,9 +398,6 @@ func (a *Authenticator) authorizationValidateRedirecting(w http.ResponseWriter, 
 	case codeChallengeMethod != openapi.S256 && codeChallengeMethod != openapi.Plain:
 		kind = ErrorInvalidRequest
 		description = "code_challenge_method unsupported'"
-	case query.Get("prompt") == "none":
-		kind = ErrorLoginRequired
-		description = "a login prompt is required"
 	default:
 		return true
 	}
@@ -470,11 +434,108 @@ type LoginStateClaims struct {
 	Query string `json:"query"`
 }
 
+func (a *Authenticator) getUser(ctx context.Context, id string) (*unikornv1.User, error) {
+	user := &unikornv1.User{}
+
+	if err := a.client.Get(ctx, client.ObjectKey{Namespace: a.namespace, Name: id}, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+//nolint:cyclop
+func (a *Authenticator) authorizationSilent(w http.ResponseWriter, r *http.Request, query url.Values, client *unikornv1.OAuth2Client) bool {
+	if !query.Has("max_age") {
+		return false
+	}
+
+	maxAge, err := strconv.Atoi(query.Get("max_age"))
+	if err != nil {
+		return false
+	}
+
+	if maxAge == 0 {
+		return false
+	}
+
+	cookie, err := r.Cookie(SessionCookie)
+	if err != nil {
+		return false
+	}
+
+	code := &Code{}
+
+	if err := a.issuer.DecodeJWEToken(r.Context(), cookie.Value, code, jose.TokenTypeAuthorizationCode); err != nil {
+		return false
+	}
+
+	clientQuery, err := url.ParseQuery(code.ClientQuery)
+	if err != nil {
+		return false
+	}
+
+	if clientQuery.Get("client_id") != query.Get("client_id") {
+		return false
+	}
+
+	if clientQuery.Get("redirect_uri") != query.Get("redirect_uri") {
+		return false
+	}
+
+	user, err := a.getUser(r.Context(), code.UserID)
+	if err != nil {
+		return false
+	}
+
+	session, err := user.Session(query.Get("client_id"))
+	if err != nil {
+		return false
+	}
+
+	if session.LastAuthentication == nil {
+		return false
+	}
+
+	if session.LastAuthentication.Add(time.Duration(maxAge) * time.Second).Before(time.Now()) {
+		return false
+	}
+
+	// Skip the nonsense!
+	oauth2Code := &Code{
+		ID:             uuid.New().String(),
+		UserID:         user.Name,
+		ClientQuery:    query.Encode(),
+		OAuth2Provider: code.OAuth2Provider,
+		IDToken:        code.IDToken,
+	}
+
+	newCode, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
+	if err != nil {
+		return false
+	}
+
+	q := &url.Values{}
+	q.Set("code", newCode)
+
+	if query.Has("state") {
+		q.Set("state", query.Get("state"))
+	}
+
+	a.codeCache.Add(newCode, nil, time.Minute)
+
+	http.Redirect(w, r, client.Spec.RedirectURI+"?"+q.Encode(), http.StatusFound)
+
+	return true
+}
+
 // Authorization redirects the client to the OIDC autorization endpoint
 // to get an authorization code.  Note that this function is responsible for
 // either returning an authorization grant or error via a HTTP 302 redirect,
 // or returning a HTML fragment for errors that cannot follow the provided
 // redirect URI.
+//
+//nolint:cyclop
 func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	log := log.FromContext(r.Context())
 
@@ -497,7 +558,11 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !a.authorizationValidateRedirecting(w, r, query, client) {
+	if !authorizationValidateRedirecting(w, r, query, client) {
+		return
+	}
+
+	if a.authorizationSilent(w, r, query, client) {
 		return
 	}
 
@@ -570,24 +635,10 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 	// requires persistent state at the minimum, and a database in the case of multi-head
 	// deployments, just encrypt it and send with the authoriation request.
 	oidcState := &State{
-		OAuth2Provider:            provider.Name,
-		Nonce:                     nonce,
-		CodeVerifier:              codeVerifier,
-		ClientID:                  query.Get("client_id"),
-		ClientRedirectURI:         query.Get("redirect_uri"),
-		ClientState:               query.Get("state"),
-		ClientCodeChallenge:       query.Get("code_challenge"),
-		ClientCodeChallengeMethod: getCodeChallengeMethod(query),
-		MaxAge:                    query.Get("max_age"),
-	}
-
-	// To implement OIDC we need a copy of the scopes.
-	if query.Has("scope") {
-		oidcState.ClientScope = NewScope(query.Get("scope"))
-	}
-
-	if query.Has("nonce") {
-		oidcState.ClientNonce = query.Get("nonce")
+		OAuth2Provider: provider.Name,
+		Nonce:          nonce,
+		CodeVerifier:   codeVerifier,
+		ClientQuery:    query.Encode(),
 	}
 
 	state, err := a.issuer.EncodeJWEToken(r.Context(), oidcState, jose.TokenTypeLoginState)
@@ -614,6 +665,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		State:         state,
 		CodeChallenge: encodeCodeChallengeS256(codeVerifier),
 		Email:         email,
+		Query:         query,
 	}
 
 	url, err := driver.AuthorizationURL(config, parameters)
@@ -720,19 +772,27 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clientQuery, err := url.ParseQuery(state.ClientQuery)
+	if err != nil {
+		htmlError(w, r, http.StatusBadRequest, "client query failed to decode")
+		return
+	}
+
+	redirectURI := clientQuery.Get("redirect_uri")
+
 	if query.Has("error") {
-		authorizationError(w, r, state.ClientRedirectURI, Error(query.Get("error")), query.Get("description"))
+		authorizationError(w, r, redirectURI, Error(query.Get("error")), query.Get("description"))
 		return
 	}
 
 	if !query.Has("code") {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "oidc callback does not contain an authorization code")
+		authorizationError(w, r, redirectURI, ErrorServerError, "oidc callback does not contain an authorization code")
 		return
 	}
 
 	provider, err := a.lookupProviderByID(r.Context(), state.OAuth2Provider, nil)
 	if err != nil {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to get oauth2 provider")
+		authorizationError(w, r, redirectURI, ErrorServerError, "failed to get oauth2 provider")
 		return
 	}
 
@@ -745,61 +805,59 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		CodeVerifier: state.CodeVerifier,
 	}
 
-	tokens, idToken, err := providers.New(provider.Spec.Type).CodeExchange(r.Context(), parameters)
+	_, idToken, err := providers.New(provider.Spec.Type).CodeExchange(r.Context(), parameters)
 	if err != nil {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "code exchange failed: "+err.Error())
+		authorizationError(w, r, redirectURI, ErrorServerError, "code exchange failed: "+err.Error())
 		return
 	}
 
-	// Only check rbac if we are not allowing unknown users.
-	if !a.options.AuthenticateUnknownUsers {
-		userExists, err := a.rbac.UserExists(r.Context(), idToken.Email.Email)
-
-		if err != nil {
-			authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to perform RBAC user lookup: "+err.Error())
-			return
-		}
-
-		if !userExists {
-			authorizationError(w, r, state.ClientRedirectURI, ErrorAccessDenied, "user does not exist in any organization")
-			return
-		}
+	user, err := a.rbac.GetActiveUser(r.Context(), idToken.Email.Email)
+	if err != nil && !a.options.AuthenticateUnknownUsers {
+		authorizationError(w, r, redirectURI, ErrorAccessDenied, "user does not exist or is inactive")
+		return
 	}
 
-	// NOTE: the email is the canonical one returned by the IdP, which removes
-	// aliases from the equation.
 	oauth2Code := &Code{
-		ID:                        uuid.New().String(),
-		ClientID:                  state.ClientID,
-		ClientRedirectURI:         state.ClientRedirectURI,
-		ClientCodeChallenge:       state.ClientCodeChallenge,
-		ClientCodeChallengeMethod: state.ClientCodeChallengeMethod,
-		ClientScope:               state.ClientScope,
-		ClientNonce:               state.ClientNonce,
-		OAuth2Provider:            state.OAuth2Provider,
-		MaxAge:                    state.MaxAge,
-		AccessToken:               tokens.AccessToken,
-		RefreshToken:              tokens.RefreshToken,
-		IDToken:                   idToken,
-		AccessTokenExpiry:         tokens.Expiry,
+		ID:             uuid.New().String(),
+		UserID:         user.Name,
+		ClientQuery:    state.ClientQuery,
+		OAuth2Provider: state.OAuth2Provider,
+		Interactive:    true,
+		IDToken:        idToken,
 	}
 
 	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
 	if err != nil {
-		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to encode authorization code: "+err.Error())
+		authorizationError(w, r, redirectURI, ErrorServerError, "failed to encode authorization code: "+err.Error())
 		return
 	}
 
 	q := &url.Values{}
 	q.Set("code", code)
 
-	if state.ClientState != "" {
-		q.Set("state", state.ClientState)
+	if clientQuery.Has("state") {
+		q.Set("state", clientQuery.Get("state"))
 	}
 
 	a.codeCache.Add(code, nil, time.Minute)
 
-	http.Redirect(w, r, state.ClientRedirectURI+"?"+q.Encode(), http.StatusFound)
+	// OIDC support silent re-authentication, the expectation is that the user will
+	// be able to reauthenticate for a period without a login prompt, up to the max_age
+	// specified in the authentication request.  To trust the user we store away a cookie
+	// we can use to establish trust, bind the to the client ID etc etc.
+	cookie := &http.Cookie{
+		Name:     SessionCookie,
+		Path:     "/",
+		Domain:   r.Host,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	cookie.Value = code
+
+	w.Header().Add("Set-Cookie", cookie.String())
+
+	http.Redirect(w, r, redirectURI+"?"+q.Encode(), http.StatusFound)
 }
 
 // tokenValidate does any request validation when issuing a token.
@@ -823,24 +881,22 @@ func tokenValidate(r *http.Request) error {
 }
 
 // tokenValidateCode validates the request against the parsed code.
-func tokenValidateCode(code *Code, r *http.Request) error {
-	// PKCE is optional, but highly recommended!
-	if code.ClientCodeChallenge == "" {
-		return nil
-	}
-
-	if code.ClientRedirectURI != r.Form.Get("redirect_uri") {
+func tokenValidateCode(r *http.Request, query url.Values) error {
+	if query.Get("redirect_uri") != r.Form.Get("redirect_uri") {
 		return errors.OAuth2InvalidGrant("redirect_uri mismatch")
 	}
 
-	switch code.ClientCodeChallengeMethod {
-	case openapi.Plain:
-		if code.ClientCodeChallenge != r.Form.Get("code_verifier") {
-			return errors.OAuth2InvalidClient("code_verfier invalid")
-		}
-	case openapi.S256:
-		if code.ClientCodeChallenge != encodeCodeChallengeS256(r.Form.Get("code_verifier")) {
-			return errors.OAuth2InvalidClient("code_verfier invalid")
+	// PKCE is optional, but highly recommended!
+	if query.Has("code_challenge") {
+		switch getCodeChallengeMethod(query) {
+		case openapi.Plain:
+			if query.Get("code_challenge") != r.Form.Get("code_verifier") {
+				return errors.OAuth2InvalidClient("code_verfier invalid")
+			}
+		case openapi.S256:
+			if query.Get("code_challenge") != encodeCodeChallengeS256(r.Form.Get("code_verifier")) {
+				return errors.OAuth2InvalidClient("code_verfier invalid")
+			}
 		}
 	}
 
@@ -857,9 +913,11 @@ func oidcHash(value string) string {
 }
 
 // oidcIDToken builds an OIDC ID token.
-func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Duration, atHash string) (*string, error) {
+func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, query url.Values, expiry time.Duration, atHash string, lastAuthenticationTime time.Time) (*string, error) {
+	scope := strings.Split(query.Get("scope"), " ")
+
 	//nolint:nilnil
-	if !slices.Contains(code.ClientScope, "openid") {
+	if !slices.Contains(scope, "openid") {
 		return nil, nil
 	}
 
@@ -869,29 +927,26 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 			// TODO: we should use the user ID.
 			Subject: code.IDToken.Email.Email,
 			Audience: []string{
-				code.ClientID,
+				query.Get("client_id"),
 			},
 			Expiry:   jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 		Default: oidc.Default{
-			Nonce:  code.ClientNonce,
-			ATHash: atHash,
+			Nonce:    query.Get("nonce"),
+			ATHash:   atHash,
+			AuthTime: ptr.To(lastAuthenticationTime.Unix()),
 		},
-	}
-
-	if code.MaxAge != "" {
-		claims.Default.AuthTime = ptr.To(time.Now().Unix())
 	}
 
 	// NOTE: the scope here is intended to defined what happens when you call the
 	// userinfo endpoint (and probably the "code id_token" grant type), but Google
 	// etc. all do this, so why not...
-	if slices.Contains(code.ClientScope, "email") {
+	if slices.Contains(scope, "email") {
 		claims.Email = code.IDToken.Email
 	}
 
-	if slices.Contains(code.ClientScope, "profile") {
+	if slices.Contains(scope, "profile") {
 		claims.Profile = code.IDToken.Profile
 	}
 
@@ -903,7 +958,7 @@ func (a *Authenticator) oidcIDToken(r *http.Request, code *Code, expiry time.Dur
 	return &idToken, nil
 }
 
-func (a *Authenticator) validateClientSecret(r *http.Request, code *Code) error {
+func (a *Authenticator) validateClientSecret(r *http.Request, query url.Values) error {
 	clientID, clientSecret, ok := r.BasicAuth()
 	if !ok {
 		if !r.Form.Has("client_id") || !r.Form.Has("client_secret") {
@@ -914,11 +969,11 @@ func (a *Authenticator) validateClientSecret(r *http.Request, code *Code) error 
 		clientSecret = r.Form.Get("client_secret")
 	}
 
-	if code.ClientID != clientID {
+	if query.Get("client_id") != clientID {
 		return errors.OAuth2InvalidGrant("client_id mismatch")
 	}
 
-	client, err := a.lookupClient(r.Context(), code.ClientID)
+	client, err := a.lookupClient(r.Context(), query.Get("client_id"))
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup client").WithError(err)
 	}
@@ -978,11 +1033,18 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		return nil, errors.OAuth2InvalidRequest("failed to parse code: " + err.Error())
 	}
 
-	if err := tokenValidateCode(code, r); err != nil {
+	clientQuery, err := url.ParseQuery(code.ClientQuery)
+	if err != nil {
+		return nil, errors.OAuth2InvalidRequest("failed to parse client query").WithError(err)
+	}
+
+	clientID := clientQuery.Get("client_id")
+
+	if err := tokenValidateCode(r, clientQuery); err != nil {
 		return nil, err
 	}
 
-	if err := a.validateClientSecret(r, code); err != nil {
+	if err := a.validateClientSecret(r, clientQuery); err != nil {
 		return nil, err
 	}
 
@@ -990,7 +1052,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	// authentication code, we just clear out anything associated with the client
 	// session.
 	if _, ok := a.codeCache.Get(codeRaw); !ok {
-		_ = a.revokeSession(r.Context(), code.ClientID, code.ID, code.IDToken.Email.Email)
+		_ = a.revokeSession(r.Context(), clientID, code.ID, code.IDToken.Email.Email)
 
 		return nil, errors.OAuth2InvalidGrant("code is not present in cache")
 	}
@@ -1002,15 +1064,14 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		Audience: r.Host,
 		// TODO: we should probably use the user ID here.
 		Subject:  code.IDToken.Email.Email,
-		ClientID: code.ClientID,
+		ClientID: clientID,
 		Federated: &Federated{
-			Provider:     code.OAuth2Provider,
-			AccessToken:  code.AccessToken,
-			RefreshToken: code.RefreshToken,
-			Expiry:       code.AccessTokenExpiry,
+			UserID:   code.UserID,
+			Provider: code.OAuth2Provider,
 		},
-		Scope:               code.ClientScope,
+		Scope:               NewScope(clientQuery.Get("scope")),
 		AuthorizationCodeID: &code.ID,
+		Interactive:         code.Interactive,
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -1019,7 +1080,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	}
 
 	// Handle OIDC.
-	idToken, err := a.oidcIDToken(r, code, a.options.AccessTokenDuration, oidcHash(tokens.AccessToken))
+	idToken, err := a.oidcIDToken(r, code, clientQuery, a.options.AccessTokenDuration, oidcHash(tokens.AccessToken), tokens.LastAuthenticationTime)
 	if err != nil {
 		return nil, err
 	}
@@ -1095,7 +1156,7 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 	// the session now rather than relying on the reissue doing it for us.
 	a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
 
-	user.Spec.Sessions = append(user.Spec.Sessions[:index], user.Spec.Sessions[index+1:]...)
+	user.Spec.Sessions[index].RefreshToken = ""
 
 	if err := a.client.Update(ctx, user); err != nil {
 		return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
@@ -1119,53 +1180,14 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 		return nil, err
 	}
 
-	// Lookup the provider details, then do a token refresh against that to update
-	// the access token.
-	provider, err := a.lookupProviderByID(r.Context(), claims.Custom.Provider, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	parameters := &types.ConfigParameters{
-		Host:     r.Host,
-		Provider: provider,
-	}
-
-	config, err := providers.New(provider.Spec.Type).Config(r.Context(), parameters)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to get oauth2 config").WithError(err)
-	}
-
-	refreshToken := &oauth2.Token{
-		Expiry:       time.Now(),
-		RefreshToken: claims.Custom.RefreshToken,
-	}
-
-	providerTokens, err := config.TokenSource(r.Context(), refreshToken).Token()
-	if err != nil {
-		var rerr *oauth2.RetrieveError
-
-		if goerrors.As(err, &rerr) && rerr.ErrorCode == string(coreopenapi.InvalidGrant) {
-			return nil, errors.OAuth2InvalidGrant("provider refresh token has expired").WithError(err)
-		}
-
-		return nil, err
-	}
-
-	if providerTokens.RefreshToken == "" {
-		return nil, errors.OAuth2ServerError("provider didn't supply a refresh token on refresh")
-	}
-
 	info := &IssueInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		Subject:  claims.Claims.Subject,
 		ClientID: claims.Custom.ClientID,
 		Federated: &Federated{
-			Provider:     claims.Custom.Provider,
-			AccessToken:  providerTokens.AccessToken,
-			RefreshToken: providerTokens.RefreshToken,
-			Expiry:       providerTokens.Expiry,
+			UserID:   claims.Custom.UserID,
+			Provider: claims.Custom.Provider,
 		},
 	}
 

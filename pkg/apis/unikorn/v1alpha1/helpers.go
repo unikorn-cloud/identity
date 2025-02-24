@@ -17,10 +17,17 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
+	"slices"
+
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+)
+
+var (
+	ErrReference = errors.New("resource reference error")
 )
 
 // Paused implements the ReconcilePauser interface.
@@ -46,4 +53,16 @@ func (c *OAuth2Client) StatusConditionWrite(t unikornv1core.ConditionType, statu
 func (c *OAuth2Client) ResourceLabels() (labels.Set, error) {
 	//nolint:nilnil
 	return nil, nil
+}
+
+func (u *User) Session(clientID string) (*UserSession, error) {
+	index := slices.IndexFunc(u.Spec.Sessions, func(session UserSession) bool {
+		return session.ClientID == clientID
+	})
+
+	if index < 0 {
+		return nil, ErrReference
+	}
+
+	return &u.Spec.Sessions[index], nil
 }
