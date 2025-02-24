@@ -79,15 +79,14 @@ func Login(state string) ([]byte, error) {
 }
 
 // WelcomeEmail returns a default welcome email.
-func WelcomeEmail(organization, verifyLink string) ([]byte, error) {
+func WelcomeEmail(verifyLink string) ([]byte, error) {
 	tmpl, err := template.New("welcome").Parse(welcomeEmailTemplate)
 	if err != nil {
 		return nil, err
 	}
 
 	templateContext := map[string]interface{}{
-		"organization": organization,
-		"verifyLink":   verifyLink,
+		"verifyLink": verifyLink,
 	}
 
 	var buffer bytes.Buffer

@@ -32,6 +32,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -186,17 +187,27 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organ
 		return nil, errors.OAuth2ServerError("failed to list organizations").WithError(err)
 	}
 
-	users, err := rbacClient.GetActiveUsers(ctx, info.Userinfo.Sub)
+	user, err := rbacClient.GetActiveUser(ctx, info.Userinfo.Sub)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to list active subjects").WithError(err)
 	}
 
-	result := unikornv1.OrganizationList{
-		Items: make([]unikornv1.Organization, len(users.Items)),
+	selector := labels.SelectorFromSet(map[string]string{
+		constants.UserLabel: user.Name,
+	})
+
+	organizationUsers := &unikornv1.OrganizationUserList{}
+
+	if err := c.client.List(ctx, organizationUsers, &client.ListOptions{LabelSelector: selector}); err != nil {
+		return nil, err
 	}
 
-	for i := range users.Items {
-		organizationID, ok := users.Items[i].Labels[constants.OrganizationLabel]
+	result := unikornv1.OrganizationList{
+		Items: make([]unikornv1.Organization, len(organizationUsers.Items)),
+	}
+
+	for i := range organizationUsers.Items {
+		organizationID, ok := organizationUsers.Items[i].Labels[constants.OrganizationLabel]
 		if !ok {
 			return nil, errors.OAuth2ServerError("failed to get organization ID for user")
 		}

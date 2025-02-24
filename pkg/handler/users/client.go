@@ -150,8 +150,8 @@ func (c *Client) updateGroups(ctx context.Context, userID string, groupIDs opena
 	return nil
 }
 
-func (c *Client) get(ctx context.Context, organization *organizations.Meta, userID string) (*unikornv1.User, error) {
-	result := &unikornv1.User{}
+func (c *Client) get(ctx context.Context, organization *organizations.Meta, userID string) (*unikornv1.OrganizationUser, error) {
+	result := &unikornv1.OrganizationUser{}
 
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: organization.Namespace, Name: userID}, result); err != nil {
 		if kerrors.IsNotFound(err) {
@@ -177,7 +177,7 @@ func generateUserState(in openapi.UserState) unikornv1.UserState {
 	return ""
 }
 
-func generate(ctx context.Context, organization *organizations.Meta, in *openapi.UserWrite) (*unikornv1.User, error) {
+func (c *Client) generateGlobalUser(ctx context.Context, in *openapi.UserWrite) (*unikornv1.User, error) {
 	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
@@ -188,7 +188,7 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 	}
 
 	out := &unikornv1.User{
-		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(metadata, c.namespace, info.Userinfo.Sub).Get(),
 		Spec: unikornv1.UserSpec{
 			Subject: in.Spec.Subject,
 			State:   generateUserState(in.Spec.State),
@@ -197,6 +197,26 @@ func generate(ctx context.Context, organization *organizations.Meta, in *openapi
 
 	if in.Metadata != nil {
 		out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
+	}
+
+	return out, nil
+}
+
+func generateOrganizationUser(ctx context.Context, organization *organizations.Meta, userID string) (*unikornv1.OrganizationUser, error) {
+	info, err := authorization.FromContext(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	}
+
+	metadata := &coreopenapi.ResourceWriteMetadata{
+		Name: constants.UndefinedName,
+	}
+
+	out := &unikornv1.OrganizationUser{
+		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).WithLabel(constants.UserLabel, userID).Get(),
+		Spec: unikornv1.OrganizationUserSpec{
+			State: unikornv1.UserStateActive,
+		},
 	}
 
 	return out, nil
@@ -215,18 +235,18 @@ func convertUserState(in unikornv1.UserState) openapi.UserState {
 	return ""
 }
 
-func convert(in *unikornv1.User, groups *unikornv1.GroupList) *openapi.UserRead {
+func convert(in *unikornv1.OrganizationUser, user *unikornv1.User, groups *unikornv1.GroupList) *openapi.UserRead {
 	out := &openapi.UserRead{
 		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
 		Spec: openapi.UserSpec{
-			Subject:  in.Spec.Subject,
+			Subject:  user.Spec.Subject,
 			State:    convertUserState(in.Spec.State),
 			GroupIDs: make(openapi.GroupIDs, 0, len(groups.Items)),
 		},
 	}
 
-	if in.Spec.LastActive != nil {
-		out.Status.LastActive = &in.Spec.LastActive.Time
+	if user.Spec.LastActive != nil {
+		out.Status.LastActive = &user.Spec.LastActive.Time
 	}
 
 	for _, group := range groups.Items {
@@ -238,18 +258,26 @@ func convert(in *unikornv1.User, groups *unikornv1.GroupList) *openapi.UserRead 
 	return out
 }
 
-func convertList(in *unikornv1.UserList, groups *unikornv1.GroupList) openapi.Users {
-	slices.SortStableFunc(in.Items, func(a, b unikornv1.User) int {
-		return strings.Compare(a.Spec.Subject, b.Spec.Subject)
-	})
-
+func convertList(in *unikornv1.OrganizationUserList, users *unikornv1.UserList, groups *unikornv1.GroupList) (openapi.Users, error) {
 	out := make(openapi.Users, len(in.Items))
 
 	for i := range in.Items {
-		out[i] = *convert(&in.Items[i], groups)
+		index := slices.IndexFunc(users.Items, func(user unikornv1.User) bool {
+			return user.Name == in.Items[i].Labels[constants.UserLabel]
+		})
+
+		if index < 0 {
+			return nil, errors.OAuth2ServerError("failed to lookup user")
+		}
+
+		out[i] = *convert(&in.Items[i], &users.Items[index], groups)
 	}
 
-	return out
+	slices.SortStableFunc(out, func(a, b openapi.UserRead) int {
+		return strings.Compare(a.Spec.Subject, b.Spec.Subject)
+	})
+
+	return out, nil
 }
 
 const (
@@ -263,9 +291,9 @@ type emailConfiguration struct {
 
 // getEmailVerification returns either the user defined subject and body,
 // which allows branding and marketing, or a default fallback.
-func (c *Client) getEmailVerification(ctx context.Context, organization, verifyLink string) (*emailConfiguration, error) {
+func (c *Client) getEmailVerification(ctx context.Context, verifyLink string) (*emailConfiguration, error) {
 	if c.options.emailVerificationTemplateConfigMap == "" {
-		defaultEmailVerificationBody, err := html.WelcomeEmail(organization, verifyLink)
+		defaultEmailVerificationBody, err := html.WelcomeEmail(verifyLink)
 		if err != nil {
 			return nil, err
 		}
@@ -300,8 +328,7 @@ func (c *Client) getEmailVerification(ctx context.Context, organization, verifyL
 	}
 
 	data := map[string]any{
-		"organization": organization,
-		"verifyLink":   verifyLink,
+		"verifyLink": verifyLink,
 	}
 
 	body := &bytes.Buffer{}
@@ -363,23 +390,17 @@ func (c *Client) getSMTPConfiguration(ctx context.Context) (*smtpConfiguration, 
 	return out, nil
 }
 
-// notifyUserCreation sends an email to the user asking them to click a link in order to
+// notifyGlobalUserCreation sends an email to the user asking them to click a link in order to
 // verify themselves.
-func (c *Client) notifyUserCreation(ctx context.Context, organizationMeta *organizations.Meta, user *unikornv1.User) error {
+func (c *Client) notifyGlobalUserCreation(ctx context.Context, user *unikornv1.User) error {
 	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return err
 	}
 
-	organization := &unikornv1.Organization{}
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: organizationMeta.ID}, organization); err != nil {
-		return err
-	}
-
 	verifyLink := fmt.Sprintf("https://%s/api/v1/signup?token=%s&clientID=%s", c.host, user.Spec.Signup.Token, info.ClientID)
 
-	email, err := c.getEmailVerification(ctx, organization.Labels[constants.NameLabel], verifyLink)
+	email, err := c.getEmailVerification(ctx, verifyLink)
 	if err != nil {
 		return err
 	}
@@ -405,13 +426,12 @@ func (c *Client) notifyUserCreation(ctx context.Context, organizationMeta *organ
 type SignupClaims struct {
 	jwt.Claims `json:",inline"`
 
-	OrganizationID string `json:"unikorn:oid"`
-	UserID         string `json:"unikorn:uid"`
+	UserID string `json:"unikorn:uid"`
 }
 
 // issueSignupToken creates a time limited, single use token that's valid for email account
 // verification.
-func (c *Client) issueSignupToken(ctx context.Context, organization *organizations.Meta, user *unikornv1.User) (string, error) {
+func (c *Client) issueSignupToken(ctx context.Context, user *unikornv1.User) (string, error) {
 	claims := &SignupClaims{
 		Claims: jwt.Claims{
 			Issuer:  "https://" + c.host,
@@ -422,8 +442,7 @@ func (c *Client) issueSignupToken(ctx context.Context, organization *organizatio
 			Expiry:   jwt.NewNumericDate(time.Now().Add(c.options.emailVerificationTokenDuration)),
 			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
-		OrganizationID: organization.ID,
-		UserID:         user.Name,
+		UserID: user.Name,
 	}
 
 	token, err := c.issuer.EncodeJWEToken(ctx, claims, jose.TokenTypeUserSignupToken)
@@ -502,15 +521,9 @@ func (c *Client) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	organization, err := organizations.New(c.client, c.namespace).GetMetadata(r.Context(), claims.OrganizationID)
-	if err != nil {
-		c.handleError(w, r, cli, "user signup failure", "error looking up organization")
-		return
-	}
-
 	user := &unikornv1.User{}
 
-	if err := c.client.Get(r.Context(), client.ObjectKey{Namespace: organization.Namespace, Name: claims.UserID}, user); err != nil {
+	if err := c.client.Get(r.Context(), client.ObjectKey{Namespace: c.namespace, Name: claims.UserID}, user); err != nil {
 		c.handleError(w, r, cli, "user signup failure", "error looking up user")
 		return
 	}
@@ -531,30 +544,50 @@ func (c *Client) Signup(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, *cli.Spec.HomeURI, http.StatusFound)
 }
 
-// Create makes a new user and issues an access token.
-//
-//nolint:cyclop
-func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.UserWrite) (*openapi.UserRead, error) {
+func (c *Client) getGlobalUserByID(ctx context.Context, id string) (*unikornv1.User, error) {
+	user := &unikornv1.User{}
+
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: id}, user); err != nil {
+		return nil, errors.OAuth2ServerError("failed to get user").WithError(err)
+	}
+
+	return user, nil
+}
+
+func (c *Client) getGlobalUser(ctx context.Context, subject string) (*unikornv1.User, error) {
+	users := &unikornv1.UserList{}
+
+	if err := c.client.List(ctx, users, &client.ListOptions{Namespace: c.namespace}); err != nil {
+		return nil, errors.OAuth2ServerError("failed to list users").WithError(err)
+	}
+
+	index := slices.IndexFunc(users.Items, func(user unikornv1.User) bool {
+		return user.Spec.Subject == subject
+	})
+
+	if index < 0 {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	return &users.Items[index], nil
+}
+
+func (c *Client) getOrCreateGlobalUser(ctx context.Context, request *openapi.UserWrite) (*unikornv1.User, error) {
 	log := log.FromContext(ctx)
 
-	// Any accounts that aren't email based must use kubectl-unikorn to create them,
-	// e.g. users for unikorn services.
-	if _, err := mail.ParseAddress(request.Spec.Subject); err != nil {
-		return nil, errors.OAuth2InvalidRequest("subject address invalid").WithError(err)
+	user, err := c.getGlobalUser(ctx, request.Spec.Subject)
+	if err == nil {
+		return user, nil
 	}
 
-	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
-	if err != nil {
-		return nil, err
-	}
-
-	resource, err := generate(ctx, organization, request)
+	resource, err := c.generateGlobalUser(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 
 	if c.options.emailVerification {
-		token, err := c.issueSignupToken(ctx, organization, resource)
+		token, err := c.issueSignupToken(ctx, resource)
 		if err != nil {
 			return nil, errors.OAuth2ServerError("failed to create user sigup token").WithError(err)
 		}
@@ -571,6 +604,42 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, errors.OAuth2ServerError("failed to create user").WithError(err)
 	}
 
+	if c.options.emailVerification {
+		if err := c.notifyGlobalUserCreation(ctx, resource); err != nil {
+			// TODO: perhaps consider deleting the user immediately.
+			log.Error(err, "failed to send user creation notification")
+		}
+	}
+
+	return resource, nil
+}
+
+// Create makes a new user.  This creates a new user in an organization, but they
+// reference a unique user resource, so we need to get or create the underlying record
+// first, then add to the organization.
+func (c *Client) Create(ctx context.Context, organizationID string, request *openapi.UserWrite) (*openapi.UserRead, error) {
+	// Any accounts that aren't email based must use kubectl-unikorn to create them,
+	// e.g. users for unikorn services.
+	if _, err := mail.ParseAddress(request.Spec.Subject); err != nil {
+		return nil, errors.OAuth2InvalidRequest("subject address invalid").WithError(err)
+	}
+
+	user, err := c.getOrCreateGlobalUser(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the organization user.
+	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	resource, err := generateOrganizationUser(ctx, organization, user.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	groups, err := c.listGroups(ctx, organization)
 	if err != nil {
 		return nil, err
@@ -580,14 +649,7 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, err
 	}
 
-	if c.options.emailVerification {
-		if err := c.notifyUserCreation(ctx, organization, resource); err != nil {
-			// TODO: perhaps consider deleting the user immediately.
-			log.Error(err, "failed to send user creation notification")
-		}
-	}
-
-	return convert(resource, groups), nil
+	return convert(resource, user, groups), nil
 }
 
 // List retrieves information about all users in the organization.
@@ -597,7 +659,13 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Users
 		return nil, err
 	}
 
-	result := &unikornv1.UserList{}
+	users := &unikornv1.UserList{}
+
+	if err := c.client.List(ctx, users, &client.ListOptions{Namespace: c.namespace}); err != nil {
+		return nil, errors.OAuth2ServerError("failed to list users").WithError(err)
+	}
+
+	result := &unikornv1.OrganizationUserList{}
 
 	if err := c.client.List(ctx, result, &client.ListOptions{Namespace: organization.Namespace}); err != nil {
 		return nil, errors.OAuth2ServerError("failed to list users").WithError(err)
@@ -608,13 +676,11 @@ func (c *Client) List(ctx context.Context, organizationID string) (openapi.Users
 		return nil, err
 	}
 
-	return convertList(result, groups), nil
+	return convertList(result, users, groups)
 }
 
 // Update modifies any metadata for the user if it exists.  If a matching account
 // doesn't exist it raises an error.
-//
-//nolint:cyclop
 func (c *Client) Update(ctx context.Context, organizationID, userID string, request *openapi.UserWrite) (*openapi.UserRead, error) {
 	organization, err := organizations.New(c.client, c.namespace).GetMetadata(ctx, organizationID)
 	if err != nil {
@@ -626,22 +692,19 @@ func (c *Client) Update(ctx context.Context, organizationID, userID string, requ
 		return nil, err
 	}
 
-	required, err := generate(ctx, organization, request)
+	user, err := c.getGlobalUserByID(ctx, current.Labels[constants.UserLabel])
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure users cannot bypass checks if enabled.
-	if current.Spec.State == unikornv1.UserStatePending && required.Spec.State != unikornv1.UserStatePending {
-		return nil, errors.OAuth2ServerError("user pending state cannot be removed via the API")
+	required, err := generateOrganizationUser(ctx, organization, current.Labels[constants.UserLabel])
+	if err != nil {
+		return nil, err
 	}
 
 	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {
 		return nil, errors.OAuth2ServerError("failed to merge metadata").WithError(err)
 	}
-
-	required.Spec.LastActive = current.Spec.LastActive
-	required.Spec.Signup = current.Spec.Signup
 
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
@@ -666,7 +729,7 @@ func (c *Client) Update(ctx context.Context, organizationID, userID string, requ
 		return nil, err
 	}
 
-	return convert(updated, groups), nil
+	return convert(updated, user, groups), nil
 }
 
 // Delete removes the user and revokes the access token.

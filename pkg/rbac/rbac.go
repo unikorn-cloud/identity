@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 
 	"github.com/spf13/pflag"
 
@@ -30,12 +29,10 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -70,43 +67,55 @@ func New(client client.Client, namespace string, options *Options) *RBAC {
 	}
 }
 
-// GetActiveUsers returns all users who match the subject across all organizations.
-func (r *RBAC) GetActiveUsers(ctx context.Context, subject string) (*unikornv1.UserList, error) {
-	log := log.FromContext(ctx)
-
+// GetActiveUser returns a user that match the subject and is active.
+func (r *RBAC) GetActiveUser(ctx context.Context, subject string) (*unikornv1.User, error) {
 	result := &unikornv1.UserList{}
 
 	if err := r.client.List(ctx, result, &client.ListOptions{}); err != nil {
 		return nil, err
 	}
 
-	result.Items = slices.DeleteFunc(result.Items, func(user unikornv1.User) bool {
-		return user.Spec.Subject != subject || user.Spec.State != unikornv1.UserStateActive
+	index := slices.IndexFunc(result.Items, func(user unikornv1.User) bool {
+		return user.Spec.Subject == subject
 	})
 
-	// While we have a list of all user references update their activity status.
-	for i := range result.Items {
-		user := &result.Items[i]
-
-		// Implement rate limiting to prevent pummelling the API/etcd into
-		// grinding to a halt!  Most observers will only be interested in
-		// whether users are using the system in the order of days/weeks/months.
-		if user.Spec.LastActive != nil {
-			if time.Since(user.Spec.LastActive.Time) < time.Hour {
-				continue
-			}
-		}
-
-		user.Spec.LastActive = &metav1.Time{
-			Time: time.Now(),
-		}
-
-		if err := r.client.Update(ctx, user); err != nil {
-			log.Info("failed to update user activity", "userID", user.Name)
-		}
+	if index < 0 {
+		return nil, fmt.Errorf("%w: user does not exist", ErrResourceReference)
 	}
 
-	return result, nil
+	user := &result.Items[index]
+
+	if user.Spec.State != unikornv1.UserStateActive {
+		return nil, fmt.Errorf("%w: user is not active", ErrResourceReference)
+	}
+
+	return user, nil
+}
+
+// GetActiveOrganizationUser gets an organization user that references the actual user.
+func (r *RBAC) GetActiveOrganizationUser(ctx context.Context, organizationID string, user *unikornv1.User) (*unikornv1.OrganizationUser, error) {
+	selector := labels.SelectorFromSet(map[string]string{
+		constants.OrganizationLabel: organizationID,
+		constants.UserLabel:         user.Name,
+	})
+
+	result := &unikornv1.OrganizationUserList{}
+
+	if err := r.client.List(ctx, result, &client.ListOptions{LabelSelector: selector}); err != nil {
+		return nil, err
+	}
+
+	if len(result.Items) != 1 {
+		return nil, fmt.Errorf("%w: user does not exist in organization or exists multiple times", ErrResourceReference)
+	}
+
+	organizationUser := &result.Items[0]
+
+	if organizationUser.Spec.State != unikornv1.UserStateActive {
+		return nil, fmt.Errorf("%w: user is not active", ErrResourceReference)
+	}
+
+	return organizationUser, nil
 }
 
 // GetServiceAccount looks up a service account.
@@ -200,12 +209,11 @@ func (r *RBAC) getProjects(ctx context.Context, organizationID string) (*unikorn
 
 // UserExists tells us whether the user is active in any organization.
 func (r *RBAC) UserExists(ctx context.Context, subject string) (bool, error) {
-	users, err := r.GetActiveUsers(ctx, subject)
-	if err != nil {
+	if _, err := r.GetActiveUser(ctx, subject); err != nil {
 		return false, err
 	}
 
-	return len(users.Items) > 0, nil
+	return true, nil
 }
 
 func convertOperation(in unikornv1.Operation) openapi.AclOperation {
@@ -390,35 +398,35 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 		}
 
 	default:
-		// A subject may be part of any organization's group.
-		users, err := r.GetActiveUsers(ctx, info.Userinfo.Sub)
+		// A subject may be part of any organization's group, so look for that user
+		// and a record that indicates they are part of an organization.
+		user, err := r.GetActiveUser(ctx, info.Userinfo.Sub)
 		if err != nil {
 			return nil, err
 		}
 
-		for i := range users.Items {
-			user := &users.Items[i]
-
+		switch {
+		case slices.Contains(r.options.PlatformAdministratorSubjects, user.Spec.Subject):
 			// Handle platform adinistrator accounts.
 			// These purposefully cannot be granted via the API and must be
 			// conferred by the operations team.
-			if slices.Contains(r.options.PlatformAdministratorSubjects, user.Spec.Subject) {
-				if role, ok := roles[r.options.PlatformAdministratorRoleID]; ok {
-					addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
-				}
+			if role, ok := roles[r.options.PlatformAdministratorRoleID]; ok {
+				addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
 			}
-
-			subjectOrganizationID, ok := user.Labels[constants.OrganizationLabel]
-			if !ok {
-				return nil, fmt.Errorf("%w: organization missing from user %s", ErrResourceReference, user.Name)
-			}
-
-			groups, err := r.getGroups(ctx, user.Namespace, groupUserFilter(user.Name))
+		case organizationID != "":
+			// Otherwise if the organization ID is set, then the user must be a
+			// member of that organization.
+			organizationUser, err := r.GetActiveOrganizationUser(ctx, organizationID, user)
 			if err != nil {
 				return nil, err
 			}
 
-			if err := r.accumulatePermissions(groups, roles, projects, organizationID, subjectOrganizationID, &globalACL, &organizationACL, &projectACLs); err != nil {
+			groups, err := r.getGroups(ctx, organizationUser.Namespace, groupUserFilter(organizationUser.Name))
+			if err != nil {
+				return nil, err
+			}
+
+			if err := r.accumulatePermissions(groups, roles, projects, organizationID, organizationID, &globalACL, &organizationACL, &projectACLs); err != nil {
 				return nil, err
 			}
 		}

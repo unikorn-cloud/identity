@@ -36,7 +36,11 @@ func (*Provider) Config(ctx context.Context, parameters *types.ConfigParameters)
 	// Handle non-stardard issuers.
 	ctx = gooidc.InsecureIssuerURLContext(ctx, "https://login.microsoftonline.com/{tenantid}/v2.0")
 
-	_, config, err := oidc.Config(ctx, parameters, nil)
+	// Enables refresh tokens.
+	// See https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow.
+	scopes := []string{"offline_access"}
+
+	_, config, err := oidc.Config(ctx, parameters, scopes)
 
 	return config, err
 }
