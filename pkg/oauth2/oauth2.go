@@ -784,8 +784,6 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		AccessTokenExpiry:         tokens.Expiry,
 	}
 
-	fmt.Println(oauth2Code)
-
 	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
 	if err != nil {
 		authorizationError(w, r, state.ClientRedirectURI, ErrorServerError, "failed to encode authorization code: "+err.Error())

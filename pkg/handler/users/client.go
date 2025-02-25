@@ -55,6 +55,8 @@ import (
 
 var (
 	ErrConfiguration = goerrors.New("configuration error")
+
+	ErrReference = goerrors.New("resource reference error")
 )
 
 type Options struct {
@@ -566,8 +568,7 @@ func (c *Client) getGlobalUser(ctx context.Context, subject string) (*unikornv1.
 	})
 
 	if index < 0 {
-		//nolint:nilnil
-		return nil, nil
+		return nil, ErrReference
 	}
 
 	return &users.Items[index], nil
@@ -579,6 +580,10 @@ func (c *Client) getOrCreateGlobalUser(ctx context.Context, request *openapi.Use
 	user, err := c.getGlobalUser(ctx, request.Spec.Subject)
 	if err == nil {
 		return user, nil
+	}
+
+	if !goerrors.Is(err, ErrReference) {
+		return nil, errors.OAuth2ServerError("failed to create global user").WithError(err)
 	}
 
 	resource, err := c.generateGlobalUser(ctx, request)
@@ -638,6 +643,10 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 	resource, err := generateOrganizationUser(ctx, organization, user.Name)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := c.client.Create(ctx, resource); err != nil {
+		return nil, errors.OAuth2ServerError("failed to create organization user").WithError(err)
 	}
 
 	groups, err := c.listGroups(ctx, organization)
