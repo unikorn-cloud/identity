@@ -204,7 +204,7 @@ func (c *Client) generateGlobalUser(ctx context.Context, in *openapi.UserWrite) 
 	return out, nil
 }
 
-func generateOrganizationUser(ctx context.Context, organization *organizations.Meta, userID string) (*unikornv1.OrganizationUser, error) {
+func generateOrganizationUser(ctx context.Context, organization *organizations.Meta, in *openapi.UserWrite, userID string) (*unikornv1.OrganizationUser, error) {
 	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
@@ -217,7 +217,7 @@ func generateOrganizationUser(ctx context.Context, organization *organizations.M
 	out := &unikornv1.OrganizationUser{
 		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).WithLabel(constants.UserLabel, userID).Get(),
 		Spec: unikornv1.OrganizationUserSpec{
-			State: unikornv1.UserStateActive,
+			State: generateUserState(in.Spec.State),
 		},
 	}
 
@@ -640,7 +640,7 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, err
 	}
 
-	resource, err := generateOrganizationUser(ctx, organization, user.Name)
+	resource, err := generateOrganizationUser(ctx, organization, request, user.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -706,7 +706,7 @@ func (c *Client) Update(ctx context.Context, organizationID, userID string, requ
 		return nil, err
 	}
 
-	required, err := generateOrganizationUser(ctx, organization, current.Labels[constants.UserLabel])
+	required, err := generateOrganizationUser(ctx, organization, request, current.Labels[constants.UserLabel])
 	if err != nil {
 		return nil, err
 	}
