@@ -207,15 +207,6 @@ func (r *RBAC) getProjects(ctx context.Context, organizationID string) (*unikorn
 	return result, nil
 }
 
-// UserExists tells us whether the user is active in any organization.
-func (r *RBAC) UserExists(ctx context.Context, subject string) (bool, error) {
-	if _, err := r.GetActiveUser(ctx, subject); err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
-
 func convertOperation(in unikornv1.Operation) openapi.AclOperation {
 	switch in {
 	case unikornv1.Create:

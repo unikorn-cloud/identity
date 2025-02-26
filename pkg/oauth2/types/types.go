@@ -17,6 +17,8 @@ limitations under the License.
 package types
 
 import (
+	"net/url"
+
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 )
 
@@ -42,6 +44,8 @@ type AuthorizationParamters struct {
 	// Email address of the user, used to inject the login_hint.
 	// OIDC only.
 	Email string
+	// Query is the client query.
+	Query url.Values
 }
 
 // CodeExchangeParameters are common parameters when performing the oauth2

@@ -84,6 +84,14 @@ func Authorization(config *oauth2.Config, parameters *types.AuthorizationParamte
 		requestParameters = append(requestParameters, oauth2.SetAuthURLParam("login_hint", parameters.Email))
 	}
 
+	if parameters.Query.Has("prompt") {
+		requestParameters = append(requestParameters, oauth2.SetAuthURLParam("prompt", parameters.Query.Get("prompt")))
+	}
+
+	if parameters.Query.Has("max_age") {
+		requestParameters = append(requestParameters, oauth2.SetAuthURLParam("max_age", parameters.Query.Get("max_age")))
+	}
+
 	return common.Authorization(config, parameters, requestParameters), nil
 }
 
