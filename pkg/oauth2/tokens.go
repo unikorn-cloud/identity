@@ -413,8 +413,7 @@ func (a *Authenticator) verifyCustomClaims(ctx context.Context, info *VerifyInfo
 }
 
 func (a *Authenticator) verifyUserSession(ctx context.Context, info *VerifyInfo, claims *AccessTokenClaims) error {
-	if claims.Custom.Type != AccessTokenTypeFederated {
-		fmt.Println("not federeated")
+	if claims.Custom == nil || claims.Custom.Type != AccessTokenTypeFederated {
 		return nil
 	}
 
