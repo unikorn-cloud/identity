@@ -148,6 +148,7 @@ const (
 	ErrorServerError             Error = "server_error"
 	ErrorLoginRequired           Error = "login_required"
 	ErrorRequestNotSupported     Error = "request_not_supported"
+	ErrorInteractionRequired     Error = "interaction_required"
 )
 
 // State records state across the call to the authorization server.
@@ -389,6 +390,9 @@ func authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, qu
 	var description string
 
 	switch {
+	case query.Get("prompt") == "none":
+		kind = ErrorInteractionRequired
+		description = "prompt=none is not supported"
 	case query.Has("request"):
 		kind = ErrorRequestNotSupported
 		description = "request object by value not supported"

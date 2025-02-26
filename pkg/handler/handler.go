@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
@@ -178,6 +179,31 @@ func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
+	if header := r.Header.Get("Authorization"); header != "" {
+		parts := strings.Split(header, " ")
+
+		if len(parts) != 2 {
+			errors.HandleError(w, r, errors.OAuth2InvalidRequest("authorization header malformed"))
+			return
+		}
+
+		if !strings.EqualFold(parts[0], "bearer") {
+			errors.HandleError(w, r, errors.OAuth2InvalidRequest("authorization scheme not allowed"))
+			return
+		}
+
+		userinfo, _, err := h.oauth2.GetUserinfo(r.Context(), r, parts[1])
+		if err != nil {
+			errors.HandleError(w, r, errors.OAuth2AccessDenied("access token is invalid").WithError(err))
+			return
+		}
+
+		h.setUncacheable(w)
+		util.WriteJSONResponse(w, r, http.StatusOK, userinfo)
+
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		errors.HandleError(w, r, errors.OAuth2InvalidRequest("unable to parse form data").WithError(err))
 		return
