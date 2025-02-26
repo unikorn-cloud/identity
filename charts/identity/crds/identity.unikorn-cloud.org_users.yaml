@@ -50,11 +50,6 @@ spec:
             type: object
           spec:
             properties:
-              lastActive:
-                description: LastActive is updated when the user last requested an
-                  access token.
-                format: date-time
-                type: string
               sessions:
                 description: Sessions record active user sessions.
                 items:
