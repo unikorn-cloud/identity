@@ -390,9 +390,6 @@ func authorizationValidateRedirecting(w http.ResponseWriter, r *http.Request, qu
 	var description string
 
 	switch {
-	case query.Get("prompt") == "none":
-		kind = ErrorInteractionRequired
-		description = "prompt=none is not supported"
 	case query.Has("request"):
 		kind = ErrorRequestNotSupported
 		description = "request object by value not supported"
@@ -450,16 +447,7 @@ func (a *Authenticator) getUser(ctx context.Context, id string) (*unikornv1.User
 
 //nolint:cyclop
 func (a *Authenticator) authorizationSilent(w http.ResponseWriter, r *http.Request, query url.Values, client *unikornv1.OAuth2Client) bool {
-	if !query.Has("max_age") {
-		return false
-	}
-
-	maxAge, err := strconv.Atoi(query.Get("max_age"))
-	if err != nil {
-		return false
-	}
-
-	if maxAge == 0 {
+	if !query.Has("max_age") && query.Get("prompt") != "none" {
 		return false
 	}
 
@@ -497,12 +485,23 @@ func (a *Authenticator) authorizationSilent(w http.ResponseWriter, r *http.Reque
 		return false
 	}
 
-	if session.LastAuthentication == nil {
-		return false
-	}
+	if query.Has("max_age") {
+		maxAge, err := strconv.Atoi(query.Get("max_age"))
+		if err != nil {
+			return false
+		}
 
-	if session.LastAuthentication.Add(time.Duration(maxAge) * time.Second).Before(time.Now()) {
-		return false
+		if maxAge == 0 {
+			return false
+		}
+
+		if session.LastAuthentication == nil {
+			return false
+		}
+
+		if session.LastAuthentication.Add(time.Duration(maxAge) * time.Second).Before(time.Now()) {
+			return false
+		}
 	}
 
 	// Skip the nonsense!
@@ -567,6 +566,11 @@ func (a *Authenticator) Authorization(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if a.authorizationSilent(w, r, query, client) {
+		return
+	}
+
+	if query.Get("prompt") == "none" {
+		authorizationError(w, r, client.Spec.RedirectURI, ErrorInteractionRequired, "login required but no prompt requested")
 		return
 	}
 
@@ -823,11 +827,15 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 
 	oauth2Code := &Code{
 		ID:             uuid.New().String(),
-		UserID:         user.Name,
 		ClientQuery:    state.ClientQuery,
 		OAuth2Provider: state.OAuth2Provider,
 		Interactive:    true,
 		IDToken:        idToken,
+	}
+
+	// TODO: this is an artefact of AuthenticateUnknownUsers, delete me!
+	if user != nil {
+		oauth2Code.UserID = user.Name
 	}
 
 	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
