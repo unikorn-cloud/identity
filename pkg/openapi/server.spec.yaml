@@ -1174,8 +1174,6 @@ components:
     userinfoRequestOptions:
       description: A userinfo POST request.
       type: object
-      required:
-      - access_token
       properties:
         access_token:
           description: The oauth2 access token.
@@ -1936,7 +1934,6 @@ components:
             scope: openid
     userinfoRequest:
       description: OIDC userinfo.
-      required: true
       content:
         application/x-www-form-urlencoded:
           schema:

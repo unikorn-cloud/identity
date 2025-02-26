@@ -743,7 +743,7 @@ type Userinfo struct {
 // UserinfoRequestOptions A userinfo POST request.
 type UserinfoRequestOptions struct {
 	// AccessToken The oauth2 access token.
-	AccessToken string `json:"access_token"`
+	AccessToken *string `json:"access_token,omitempty"`
 }
 
 // Users A list of users.
