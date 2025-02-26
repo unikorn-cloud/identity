@@ -48,6 +48,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -247,8 +248,25 @@ func convert(in *unikornv1.OrganizationUser, user *unikornv1.User, groups *uniko
 		},
 	}
 
-	if user.Spec.LastActive != nil {
-		out.Status.LastActive = &user.Spec.LastActive.Time
+	var lastActive *metav1.Time
+
+	for _, session := range user.Spec.Sessions {
+		if session.LastAuthentication == nil {
+			continue
+		}
+
+		if lastActive == nil {
+			lastActive = session.LastAuthentication
+			continue
+		}
+
+		if session.LastAuthentication.Time.After(lastActive.Time) {
+			lastActive = session.LastAuthentication
+		}
+	}
+
+	if lastActive != nil {
+		out.Status.LastActive = &lastActive.Time
 	}
 
 	for _, group := range groups.Items {

@@ -289,8 +289,6 @@ type UserSpec struct {
 	Subject string `json:"subject"`
 	// State controls what the user is allowed to do.
 	State UserState `json:"state"`
-	// LastActive is updated when the user last requested an access token.
-	LastActive *metav1.Time `json:"lastActive,omitempty"`
 	// Signup is set when the user is being verified.
 	Signup *UserSignup `json:"signup,omitempty"`
 	// Sessions record active user sessions.

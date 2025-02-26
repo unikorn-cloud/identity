@@ -1587,10 +1587,6 @@ func (in *UserSpec) DeepCopyInto(out *UserSpec) {
 		*out = make(unikornv1alpha1.TagList, len(*in))
 		copy(*out, *in)
 	}
-	if in.LastActive != nil {
-		in, out := &in.LastActive, &out.LastActive
-		*out = (*in).DeepCopy()
-	}
 	if in.Signup != nil {
 		in, out := &in.Signup, &out.Signup
 		*out = new(UserSignup)
