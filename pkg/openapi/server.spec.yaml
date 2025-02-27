@@ -979,10 +979,14 @@ components:
       - scopes_supported
       - claims_supported
       - response_types_supported
+      - response_modes_supported
       - token_endpoint_auth_methods_supported
       - grant_types_supported
       - id_token_signing_alg_values_supported
       - code_challenge_methods_supported
+      - claims_parameter_supported
+      - request_parameter_supported
+      - request_uri_parameter_supported
       properties:
         issuer:
           description: The OpenID Issuer (iss field).
@@ -1018,6 +1022,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/responseType'
+        response_modes_supported:
+          description: A list of supported response modes.
+          type: array
+          items:
+            $ref: '#/components/schemas/responseMode'
         token_endpoint_auth_methods_supported:
           description: A list of supported authentication methods for the token endpoint.
           type: array
@@ -1038,6 +1047,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/codeChallengeMethod'
+        claims_parameter_supported:
+          description: Whether claims can be requested indvidually.
+          type: boolean
+        request_parameter_supported:
+          description: Whether requests can be passed as a JWT object.
+          type: boolean
+        request_uri_parameter_supported:
+          description: Whether requests can be passed via a URI.
+          type: boolean
     scope:
       description: Supported scopes.
       type: string
@@ -1073,6 +1091,12 @@ components:
       - token id_token
       - code token id_token
       - none
+    responseMode:
+      description: Supported response modes.
+      type: string
+      enum:
+      - query
+      - fragment
     authMethod:
       description: Supported authentication methods.
       type: string
