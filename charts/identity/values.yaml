@@ -83,7 +83,8 @@ issuer:
 # and service accounts.
 platformAdministrators:
   # Protected role as defined below to grant.
-  role: platform-administrator
+  roles:
+  - platform-administrator
 
   # Subjects the role applies to, must be the canonical name from the IdP
   # and not an alias.

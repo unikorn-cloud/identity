@@ -25,7 +25,11 @@ spec:
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
-        - --platform-administrator-role-id={{ include "resource.id" .Values.platformAdministrators.role }}
+        {{- $adminRoles := list }}
+        {{- range $index, $name := .Values.platformAdministrators.roles }}
+          {{- $adminRoles = append $adminRoles (include "resource.id" $name) }}
+        {{- end }}
+        - --platform-administrator-role-ids={{ join "," $adminRoles }}
         - --platform-administrator-subjects={{ join "," .Values.platformAdministrators.subjects }}
         {{- $systemAccounts := list }}
         {{- range $k, $v := .Values.systemAccounts }}

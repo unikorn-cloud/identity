@@ -40,13 +40,13 @@ var (
 )
 
 type Options struct {
-	PlatformAdministratorRoleID   string
+	PlatformAdministratorRoleIDs  []string
 	PlatformAdministratorSubjects []string
 	SystemAccountRoleIDs          map[string]string
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
-	f.StringVar(&o.PlatformAdministratorRoleID, "platform-administrator-role-id", "", "Platform administrator role ID.")
+	f.StringSliceVar(&o.PlatformAdministratorRoleIDs, "platform-administrator-role-ids", nil, "Platform administrator role ID.")
 	f.StringSliceVar(&o.PlatformAdministratorSubjects, "platform-administrator-subjects", nil, "Platform administrators.")
 	f.StringToStringVar(&o.SystemAccountRoleIDs, "system-account-roles-ids", nil, "System accounts map the X.509 Common Name to a role ID.")
 }
@@ -401,8 +401,10 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 			// Handle platform adinistrator accounts.
 			// These purposefully cannot be granted via the API and must be
 			// conferred by the operations team.
-			if role, ok := roles[r.options.PlatformAdministratorRoleID]; ok {
-				addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
+			for _, id := range r.options.PlatformAdministratorRoleIDs {
+				if role, ok := roles[id]; ok {
+					addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
+				}
 			}
 		case organizationID != "":
 			// Otherwise if the organization ID is set, then the user must be a
