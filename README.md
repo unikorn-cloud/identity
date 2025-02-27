@@ -327,6 +327,18 @@ That certificate will need to be signed by the trusted client CA (typically sign
 The X.509 Common Name (CN) encoded in the certificate is the key to this mapping e.g. `unikorn-kubernetes`.
 The value references a role name that is either installed by default, or created specifically for your service.
 
+#### 3rd Party User RBAC
+
+If you are defining your own resources then they will need roles to allow end users access to the those APIs.
+
+The recommended way to do this is:
+
+* Create any end-user roles in your 3rd party Helm deployment and ensure they are created in the same namespace as the Identity service.
+  * These will automatically be picked up and exposed for consumption in organization groups.
+* Create any platform-admin roles in your 3rd party Helm deployment as above...
+  * Ensure the role is marked as protected to prevent it being exposed via the API, otherwise you may inadvertently end up allowing users to see into other organizations.
+  * These can be granted to platform administrators via the `platformAdministrators.roles` list in the Identity Helm chart.
+
 ## What Next?
 
 As you've noted, objects are named based on UUIDs, therefore administration is somewhat counter intuitive, but it does allow names to be mutable.
