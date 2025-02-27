@@ -15,7 +15,8 @@ Conceptually, the identity service is quite simple, but does feature some enterp
 ### Organizations
 
 The top level resource type is an organization.
-Organizations are indexed via name, the name must be unique across the system, and is limited by normal Kubernetes resource name semantics (i.e. a DNS label).
+Organizations are named and limited by normal Kubernetes resource name semantics (i.e. a DNS label).
+Like all resources they may have a description attached to provide verbose identification.
 
 Organizations MAY define a domain e.g. `acme.com`.
 This allows users to login via email address where one of the generic IdP backends does not suffice, or the user isn't aware of who is providing identity services.
@@ -24,15 +25,13 @@ This allows the use of a custom IdP that is not Google Identity (Google Workspac
 
 ### oauth2 Providers
 
-The identity service provides some generic providers, Google, and Microsoft, which covers the vast majority of many organizations.
+The identity service provides some generic providers which covers the vast majority of many organizations.
 
 You can _bring your own_ by providing:
 
 * And OIDC compliant issuer endpoint
 * A client ID
 * A client secret
-
-Providers may have a supported driver build into the identity service that allows groups to be read from the identity provider for use in group mapping.
 
 By default Unikorn Identity supports:
 
@@ -42,34 +41,40 @@ By default Unikorn Identity supports:
 
 ### Users
 
-Users are records that record a user in the system.
-Rather than allow ephemeral users directly from federated identity provider, these records allow more flexibility in user handling.
-For example, they can record a user's status, where by they can be disabled (without disassociating any group memberships, but they aren't allowed access to the organization), or in a pending state (to allow email verification).
+Users are a "global" resource that forms a unique record for a specific individual.
+The intention going forward is to allow aggregation of different identifiers (e.g. email addresses) that map to a single place for identity and preference information to be stored.
+
+The user record forms the core of security on the platform.
+An end user cannot login without a corresponding user record.
+
+The user record also contains OIDC session data.
+When a user logs in, the authenticator creates or updates a session record for the user per-OIDC client.
+This facilitates token validation and revocation, and single use of refresh tokens.
+
+Users can exist in multiple states: `active`, `suspended` meaning they cannot login, or `pending` to indicate the system is awaiting email verification.
 
 Further reading:
 
 * [Email Notifications and User Verification](#email-notifications-and-user-verification)
 
-### Groups
+### Organization Users
 
-Every organization SHOULD have some groups, as it's useless without them.
-Groups define a set of users that belong to them, and a set of roles associated with that group.
+Organization users are simply organization scoped user records that reference a global user.
+This allows users to be members of multiple organizations.
 
-Users are simply added to a list within the group, the user name MUST be the user's canonical name (as returned by the _id\_token_ after authentication), and not an alias.
-Supporting aliases would require intrusive API requests against identity providers to list them.
+Like users, these can exist in `active` or `suspended` states allowing an organization administrator to remove access to that organization only.
 
-There are no constraints on which users can belong to any group, thus enabling - for example - an external contractor to be added, or a user to be a member of multiple organizations.
-
-Any user is not part of an organization will be denied entry to the system (Dy default), and require either adding to an organization via a back-channel (e.g. customer onboarding), or adding by an organization admin.
+Like users a login attempt without any corresponding organization user will be denied.
+The exception to this rule is a platform administrator.
 
 ### Roles
 
-Every group MUST have at least one role.
+Roles grant fine grain permissions to users that permit individual operations (create, read, update, delete) to individual API endpoints.
 
 We define a number of default roles, but the system is flexible enough to have any arbitrary roles.
 
-The `admin` role allows broad access across the organization, it can edit organizations, create roles and associate users with them, and create projects and associate groups with them.
-Admin users can generally see all resources within the organization defined for other services, and manage them.
+The `administrator` role allows broad access across an organization, it can edit then organizations, create groups and associate users and roles with them, create projects and associate groups with them.
+Administrator users can generally see all resources within the organization defined for other services, and manage them.
 
 The `user` role cannot modify anything defined by the identity service, it's only allowed to discover organizations and projects its a member of.
 Users SHOULD have additional permissions defined for external services, e.g. provisioning and management of compute infrastructure.
@@ -80,11 +85,15 @@ The `reader` is similar to the `user` but allows read only access, typically use
 > If you do define external 3rd party roles, you will be responsible for removing any references to them from groups on deletion.
 > Failure to do so will result in dangling references, an inconsistency and an error condition.
 
+### Groups
+
+Every organization SHOULD have some groups, as it's useless without them.
+Groups define a set of organization users that belong to them, and a set of roles associated with that group.
+
 ### Projects
 
 Projects provide workspaces for use by external services.
-Projects are visible to all `admin` users.
-Other users are included in a project by associating it with a group, therefore each project SHOULD have at least one group associated with it.
+Users are included in a project by associating it with a group, therefore each project SHOULD have at least one group associated with it.
 
 Like most other components, flexibility is built in by design, so a project can be shared with multiple groups.
 
@@ -92,7 +101,8 @@ Like most other components, flexibility is built in by design, so a project can 
 
 ### OIDC Clients
 
-Any compliant OIDC client library should be able to interact with the identity service.
+Any compliant OIDC client library should be able to interact with the identity service, and passes the OpenID Connect Basic Conformance Suite.
+
 It features service discovery for simple configuration, and the login hint extension for seamless token refresh.
 
 To enable a client, you will need to create a `oauth2client` resource in the identity service namespace, featuring the client ID (must be unique, typically you can use `uuidgen` for this), and an OIDC callback URI.
@@ -101,13 +111,15 @@ Optionally you can override the branding with a custom login and error URL callb
 These are available on the `OAuth2Client` data type.
 See the reference implementation [login](https://github.com/unikorn-cloud/ui/tree/main/src/routes/login) and [error](https://github.com/unikorn-cloud/ui/tree/main/src/routes/error) pages for the interface.
 
+Once created, the `oauth2client` controller will generate a client secret in the resource status that can be shared with the relaying party.
+
 ### Authentication
 
 Authentication is handled in a few different ways:
 
 * OIDC authorization code flow (for typical users via a browser).
 * Service accounts (that issue long lived access tokens).
-* System accounts secured by X.509 (used by Unikorn services to talk to one another).
+* System accounts secured by X.509 (used by Unikorn services to talk to one another, and potentially financial grade users).
 
 Service endpoints that users directly interact with will use token introspection against he Identity service to authenticate a user, then retrieve and ACL to authorize the request.
 
@@ -140,16 +152,18 @@ These will return all clusters if you have global or organization scoped cluster
 By itself, the identity service doesn't offer much functionality beyond simple OIDC authentication flows.
 Other services are responsible for provisioning and managing actual resources.
 
-Because this is a multi-tenant system, we need a top level organization to be unique, this is achieved by having these all provisioned in the identity service's namespace.
-We do anticipate most users to expect they can provision any cluster name they wish, so these must be provisioned in an organization specific namespace.
-Likewise, multiple projects within the same organization may want resources that are named the same in different projects, for example to facilitate different environments, so these need a project specific namespace too.
+Because of historical reasons, organizations and projects create namespaces.
+This allowed projects and resources within them to accept any name the end user wished to use.
+Now we use random UUIDs to name resources and allow the actual human readable names to be mutable via a label.
 
 ![Resource](./docs/images/namespaces.png)
+
+There is still some utility to having the namespaces in place as we can use it as a selector when listing resources.
 
 The identity service manages all this for you automatically.
 Unique namespace names are automatically generated by the platform, and organization and project resources record this in their status for easy navigation.
 
-Other services, e.g. the core Kubernetes service can then consume the project namespace by having their custom resources residing in there, separating them from other projects and other organizations.
+Other services, e.g. the Kubernetes service can then consume the project namespace by having their custom resources residing in there, separating them from other projects and other organizations.
 
 ## Installation
 
@@ -295,14 +309,6 @@ In order to actually login, you will need a user account creating:
 
 If your user's email address can be authenticated by any of the supported OIDC integrations, that's all you need to do, otherwise read on...
 
-#### Creating an Organization and OIDC Integration
-
-> [!NOTE]
-> This needs writing and tooling provided.
-> If you are brave you can:
-> * Create an `organization` with domain scoping.
-> * Create an `oauth2provider` in that organization that provides authentication for that domain.
-
 ### 3rd Party Service Integration
 
 When using an integration such as the [Unikorn Kubernetes Service](https://github.com/unikorn-cloud/kubernetes) you will need to configure system account to RBAC mappings.
@@ -316,7 +322,7 @@ systemAccounts:
   unikorn-compute: infra-manager-service
 ```
 
-In very simple terms, when you create a 3rd party service, that will need to generate an X.509 certifictae in order to authenticate with the tokens endpoint and issue an access token to talk to other Uniorn service APIs.
+In very simple terms, when you create a 3rd party service, that will need to generate an X.509 certificate in order to authenticate with the tokens endpoint and issue an access token to talk to other Unikorn service APIs.
 That certificate will need to be signed by the trusted client CA (typically signed by the `unikorn-client-issuer` managed by cert-manager).
 The X.509 Common Name (CN) encoded in the certificate is the key to this mapping e.g. `unikorn-kubernetes`.
 The value references a role name that is either installed by default, or created specifically for your service.
