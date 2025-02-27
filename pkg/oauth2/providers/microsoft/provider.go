@@ -38,9 +38,9 @@ func (*Provider) Config(ctx context.Context, parameters *types.ConfigParameters)
 
 	// Enables refresh tokens.
 	// See https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow.
-	scopes := []string{"offline_access"}
+	// scopes := []string{"offline_access"}
 
-	_, config, err := oidc.Config(ctx, parameters, scopes)
+	_, config, err := oidc.Config(ctx, parameters, nil)
 
 	return config, err
 }

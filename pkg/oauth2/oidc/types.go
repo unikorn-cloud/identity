@@ -32,6 +32,12 @@ type Default struct {
 	ATHash string `json:"at_hash,omitempty"`
 	// AuthTime is when the token was issued if max_age was requested.
 	AuthTime *int64 `json:"auth_time,omitempty"`
+	// AuthenticationContextClass represents the level of trust in this user.
+	// A value of "0" means it doesn't  even meet ISO29115 level 1, so you have
+	// zero trust in this user.
+	AuthenticationContextClass string `json:"acr,omitempty"`
+	// AuthorizedParty is the authorized party aka the client ID.
+	AuthorizedParty string `json:"azp,omitempty"`
 }
 
 // Profile are claims that may be returned by requesting the

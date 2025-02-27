@@ -76,6 +76,12 @@ const (
 	Organization ProviderScope = "organization"
 )
 
+// Defines values for ResponseMode.
+const (
+	Fragment ResponseMode = "fragment"
+	Query    ResponseMode = "query"
+)
+
 // Defines values for ResponseType.
 const (
 	ResponseTypeCode             ResponseType = "code"
@@ -336,6 +342,9 @@ type OpenidConfiguration struct {
 	// AuthorizationEndpoint The oauth2 endpoint that initiates authentication.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
+	// ClaimsParameterSupported Whether claims can be requested indvidually.
+	ClaimsParameterSupported bool `json:"claims_parameter_supported"`
+
 	// ClaimsSupported A list of supported claims
 	ClaimsSupported []Claim `json:"claims_supported"`
 
@@ -353,6 +362,15 @@ type OpenidConfiguration struct {
 
 	// JwksUri The oauth2 endpoint that exposes public signing keys for token validation.
 	JwksUri string `json:"jwks_uri"`
+
+	// RequestParameterSupported Whether requests can be passed as a JWT object.
+	RequestParameterSupported bool `json:"request_parameter_supported"`
+
+	// RequestUriParameterSupported Whether requests can be passed via a URI.
+	RequestUriParameterSupported bool `json:"request_uri_parameter_supported"`
+
+	// ResponseModesSupported A list of supported response modes.
+	ResponseModesSupported []ResponseMode `json:"response_modes_supported"`
 
 	// ResponseTypesSupported A list of supported response types that can be requested for the authorization endpoint.
 	ResponseTypesSupported []ResponseType `json:"response_types_supported"`
@@ -528,6 +546,9 @@ type ResourceAllocation struct {
 
 // ResourceAllocationList A list of quotas.
 type ResourceAllocationList = []ResourceAllocation
+
+// ResponseMode Supported response modes.
+type ResponseMode string
 
 // ResponseType Supported response types.
 type ResponseType string

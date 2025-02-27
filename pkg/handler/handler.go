@@ -120,6 +120,10 @@ func (h *Handler) GetWellKnownOpenidConfiguration(w http.ResponseWriter, r *http
 		},
 		ResponseTypesSupported: []openapi.ResponseType{
 			openapi.ResponseTypeCode,
+			openapi.ResponseTypeIdToken,
+		},
+		ResponseModesSupported: []openapi.ResponseMode{
+			openapi.Query,
 		},
 		TokenEndpointAuthMethodsSupported: []openapi.AuthMethod{
 			openapi.ClientSecretBasic,
