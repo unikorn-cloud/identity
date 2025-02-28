@@ -22,4 +22,7 @@ spec:
   {{- if $spec.errorURI }}
   errorUri: {{ $spec.errorURI }}
   {{- end }}
+  {{- if $spec.onboardingURI }}
+  onboardingUri: {{ $spec.onboardingURI }}
+  {{- end }}
 {{- end }}

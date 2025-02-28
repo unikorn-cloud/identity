@@ -333,6 +333,11 @@ func (in *OAuth2ClientSpec) DeepCopyInto(out *OAuth2ClientSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.OnboardingURI != nil {
+		in, out := &in.OnboardingURI, &out.OnboardingURI
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

@@ -21,7 +21,6 @@ spec:
         {{- include "unikorn.core.flags" . | nindent 8 }}
         {{- include "unikorn.cors.flags" . | nindent 8 }}
         {{- include "unikorn.otlp.flags" . | nindent 8 }}
-        {{- include "unikorn.onboarding.flags" . | nindent 8 }}
         - --host=https://{{ include "unikorn.identity.host" . }}
         - --jose-tls-secret=unikorn-identity-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
@@ -53,6 +52,14 @@ spec:
           {{- end }}
           {{- if $smtp.credentialsSecret }}
         - --smtp-credentials-secret={{ $smtp.credentialsSecret }}
+          {{- end }}
+        {{- end }}
+        {{- with $onboarding := .Values.onboarding }}
+          {{- if $onboarding.enabled }}
+        - --account-creation-enabled
+          {{- end }}
+          {{- with $webhook := $onboarding.webhook }}
+        - --account-creation-webhook-uri=[{ $webhook.uri }}
           {{- end }}
         {{- end }}
         ports:

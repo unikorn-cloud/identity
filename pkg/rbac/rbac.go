@@ -67,8 +67,7 @@ func New(client client.Client, namespace string, options *Options) *RBAC {
 	}
 }
 
-// GetActiveUser returns a user that match the subject and is active.
-func (r *RBAC) GetActiveUser(ctx context.Context, subject string) (*unikornv1.User, error) {
+func (r *RBAC) GetUser(ctx context.Context, subject string) (*unikornv1.User, error) {
 	result := &unikornv1.UserList{}
 
 	if err := r.client.List(ctx, result, &client.ListOptions{}); err != nil {
@@ -83,7 +82,15 @@ func (r *RBAC) GetActiveUser(ctx context.Context, subject string) (*unikornv1.Us
 		return nil, fmt.Errorf("%w: user does not exist", ErrResourceReference)
 	}
 
-	user := &result.Items[index]
+	return &result.Items[index], nil
+}
+
+// GetActiveUser returns a user that match the subject and is active.
+func (r *RBAC) GetActiveUser(ctx context.Context, subject string) (*unikornv1.User, error) {
+	user, err := r.GetUser(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
 
 	if user.Spec.State != unikornv1.UserStateActive {
 		return nil, fmt.Errorf("%w: user is not active", ErrResourceReference)
@@ -440,4 +447,27 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 	}
 
 	return acl, nil
+}
+
+func (r *RBAC) NewSuperContext(ctx context.Context) (context.Context, error) {
+	roles, err := r.getRoles(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var globalACL openapi.AclEndpoints
+
+	for _, id := range r.options.PlatformAdministratorRoleIDs {
+		if role, ok := roles[id]; ok {
+			addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
+		}
+	}
+
+	acl := &openapi.Acl{}
+
+	if len(globalACL) != 0 {
+		acl.Global = &globalACL
+	}
+
+	return NewContext(ctx, acl), nil
 }

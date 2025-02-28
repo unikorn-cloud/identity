@@ -38,8 +38,12 @@ identity:
   host: identity.acme.org
 
 onboarding:
-  # Allow new users to authenticate without being part of an organization
-  authenticateUnknownUsers: false
+  # Allows anonymous signups.  Be damn sure if you do this you are in control
+  # of quotas to prevent misuse!
+  enabled: false
+  # Webhook to invoke when a signup occurs.
+  # webhook:
+  #   uri: https://onboard.namespace/some/path
 
 # Issuer related configuration.
 issuer:
@@ -62,6 +66,8 @@ issuer:
 #     errorURI: http://app.acme.org/error
 #     # An optional, trusted, home screen.
 #     homeURI: http://app.acme.org
+#     # An optional user onboarding dialog.
+#     onboardingURI: http://app.acme.org/onboard
 
 # A static list of registered oauth2 providers.
 # providers:
