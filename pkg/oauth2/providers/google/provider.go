@@ -41,12 +41,11 @@ func (*Provider) AuthorizationURL(config *oauth2.Config, parameters *types.Autho
 	// This grants us access to a refresh token.
 	// See: https://developers.google.com/identity/openid-connect/openid-connect#access-type-param
 	// And: https://stackoverflow.com/questions/10827920/not-receiving-google-oauth-refresh-token
-	requestParameters := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("prompt", "consent"),
-		oauth2.SetAuthURLParam("access_type", "offline"),
-	}
-
-	return oidc.Authorization(config, parameters, requestParameters)
+	// requestParameters := []oauth2.AuthCodeOption{
+	//	oauth2.SetAuthURLParam("prompt", "consent"),
+	//	oauth2.SetAuthURLParam("access_type", "offline"),
+	// }
+	return oidc.Authorization(config, parameters, nil)
 }
 
 func (*Provider) CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error) {
