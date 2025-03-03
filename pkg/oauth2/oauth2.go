@@ -1105,6 +1105,7 @@ func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
 	// are well within rights!
 	info := &authorization.Info{
 		Userinfo: &openapi.Userinfo{
+			Sub:   state.IDToken.Email.Email,
 			Email: &state.IDToken.Email.Email,
 		},
 	}
