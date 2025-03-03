@@ -194,7 +194,7 @@ func (c *Client) generateGlobalUser(ctx context.Context, in *openapi.UserWrite) 
 		ObjectMeta: conversion.NewObjectMetadata(metadata, c.namespace, info.Userinfo.Sub).Get(),
 		Spec: unikornv1.UserSpec{
 			Subject: in.Spec.Subject,
-			State:   generateUserState(in.Spec.State),
+			State:   unikornv1.UserStateActive,
 		},
 	}
 

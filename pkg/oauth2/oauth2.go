@@ -18,11 +18,13 @@ limitations under the License.
 package oauth2
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"net/http"
@@ -36,10 +38,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
 
+	"github.com/unikorn-cloud/core/pkg/constants"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/util/retry"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/handler/groups"
+	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
+	"github.com/unikorn-cloud/identity/pkg/handler/users"
 	"github.com/unikorn-cloud/identity/pkg/html"
 	"github.com/unikorn-cloud/identity/pkg/jose"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/providers"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
@@ -88,8 +97,15 @@ type Options struct {
 	// CodeCacheSize is used to set the number of authorization code in flight.
 	CodeCacheSize int
 
-	// Bool to indicate whether sign up is allowed.
-	AuthenticateUnknownUsers bool
+	// AccountCreationEnabled is used to permit new account creation.
+	AccountCreationEnabled bool
+
+	// AccountCreationDefaultRoles is used to provide default roles for a new user.
+	AccountCreationDefaultRoles []string
+
+	// AccountCreationWebhookURI is used to notify an external service of an organization/user
+	// creation event.
+	AccountCreationWebhookURI string
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
@@ -99,7 +115,9 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.TokenLeewayDuration, "token-leeway", time.Minute, "How long to remove from the provider token expiry to account for network and processing latency.")
 	f.IntVar(&o.TokenCacheSize, "token-cache-size", 8192, "How many token cache entries to allow.")
 	f.IntVar(&o.CodeCacheSize, "code-cache-size", 8192, "How many code cache entries to allow.")
-	f.BoolVar(&o.AuthenticateUnknownUsers, "authenticate-unknown-users", false, "Authenticate unknown users, allow new user organizations to be created.")
+	f.BoolVar(&o.AccountCreationEnabled, "account-creation-enabled", false, "Whether to allow accounts to be created.")
+	f.StringSliceVar(&o.AccountCreationDefaultRoles, "account-creation-default-roles", []string{"administrator"}, "Default role names to grant a account creators user.")
+	f.StringVar(&o.AccountCreationWebhookURI, "account-creation-webhook-uri", "", "URI to post user signup data.")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -140,15 +158,17 @@ func New(options *Options, namespace string, client client.Client, issuer *jose.
 type Error string
 
 const (
-	ErrorInvalidRequest          Error = "invalid_request"
-	ErrorUnauthorizedClient      Error = "unauthorized_client"
-	ErrorAccessDenied            Error = "access_denied"
-	ErrorUnsupportedResponseType Error = "unsupported_response_type"
-	ErrorInvalidScope            Error = "invalid_scope"
-	ErrorServerError             Error = "server_error"
-	ErrorLoginRequired           Error = "login_required"
-	ErrorRequestNotSupported     Error = "request_not_supported"
-	ErrorInteractionRequired     Error = "interaction_required"
+	ErrorInvalidRequest           Error = "invalid_request"
+	ErrorUnauthorizedClient       Error = "unauthorized_client"
+	ErrorAccessDenied             Error = "access_denied"
+	ErrorUnsupportedResponseType  Error = "unsupported_response_type"
+	ErrorInvalidScope             Error = "invalid_scope"
+	ErrorServerError              Error = "server_error"
+	ErrorLoginRequired            Error = "login_required"
+	ErrorRequestNotSupported      Error = "request_not_supported"
+	ErrorRequestURINotSupported   Error = "request_uri_not_supported"
+	ErrorInteractionRequired      Error = "interaction_required"
+	ErrorRegistrationNotSupported Error = "registration_not_supported"
 )
 
 // State records state across the call to the authorization server.
@@ -164,6 +184,17 @@ type State struct {
 	OAuth2Provider string `json:"oap"`
 	// ClientQuery stores the full client query string.
 	ClientQuery string `json:"cq"`
+}
+
+// OnboardingState propagates information across an onboarding dialog.
+type OnboardingState struct {
+	// OAuth2Provider is the name of the provider configuration in
+	// use, this will reference the issuer and allow discovery.
+	OAuth2Provider string `json:"oap"`
+	// ClientQuery stores the full client query string.
+	ClientQuery string `json:"cq"`
+	// IDToken is the full set of claims returned by the provider.
+	IDToken *oidc.IDToken `json:"idt"`
 }
 
 // Code is an authorization code to return to the client that can be
@@ -424,6 +455,16 @@ var (
 func authorizationValidateRedirecting(redirector *redirector, query url.Values) bool {
 	if query.Has("request") {
 		redirector.raise(ErrorRequestNotSupported, "request object by value not supported")
+		return false
+	}
+
+	if query.Has("request_uri") {
+		redirector.raise(ErrorRequestURINotSupported, "request object by URI not supported")
+		return false
+	}
+
+	if query.Has("registration") {
+		redirector.raise(ErrorRegistrationNotSupported, "registration not supported")
 		return false
 	}
 
@@ -809,7 +850,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 // refresh token.  Remember, as far as the client is concerned we're still doing
 // the code grant, so return errors in the redirect query.
 //
-//nolint:cyclop
+//nolint:cyclop,nestif
 func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
@@ -867,19 +908,71 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	q := url.Values{}
+	// Now we have done code exchange, we have access to the id_token and that
+	// allows us to see if the user actually exists.  If it doesn't then we
+	// either deny entry or let them signup.
+	user, err := a.rbac.GetUser(r.Context(), idToken.Email.Email)
+	if err != nil {
+		if !goerrors.Is(err, rbac.ErrResourceReference) {
+			redirector.raise(ErrorServerError, "user lookup failure")
+		}
 
-	if clientQuery.Has("state") {
-		q.Set("state", clientQuery.Get("state"))
-	}
+		if !a.options.AccountCreationEnabled {
+			redirector.raise(ErrorServerError, "user signup is not permitted")
+			return
+		}
 
-	user, err := a.rbac.GetActiveUser(r.Context(), idToken.Email.Email)
-	if err != nil && !a.options.AuthenticateUnknownUsers {
-		redirector.raise(ErrorAccessDenied, "user does not exist or is inactive")
+		client, err := a.lookupClient(r.Context(), clientQuery.Get("client_id"))
+		if err != nil {
+			redirector.raise(ErrorServerError, "client_id lookup failed")
+			return
+		}
+
+		if client.Spec.OnboardingURI == nil {
+			redirector.raise(ErrorServerError, "onboarding API not implemented")
+			return
+		}
+
+		onboardingState := &OnboardingState{
+			OAuth2Provider: state.OAuth2Provider,
+			ClientQuery:    state.ClientQuery,
+			IDToken:        idToken,
+		}
+
+		state, err := a.issuer.EncodeJWEToken(r.Context(), onboardingState, jose.TokenTypeOnboardState)
+		if err != nil {
+			redirector.raise(ErrorServerError, "failed to encode onboarding state: "+err.Error())
+			return
+		}
+
+		q := url.Values{}
+		q.Set("state", state)
+		q.Set("callback", "https://"+r.Host+"/oauth2/v2/onboard")
+		q.Set("email", idToken.Email.Email)
+
+		if idToken.Profile.Name != "" {
+			q.Set("username", idToken.Profile.Name)
+		}
+
+		if idToken.Profile.GivenName != "" {
+			q.Set("forename", idToken.Profile.GivenName)
+		}
+
+		if idToken.Profile.FamilyName != "" {
+			q.Set("surname", idToken.Profile.FamilyName)
+		}
+
+		http.Redirect(w, r, *client.Spec.OnboardingURI+"?"+q.Encode(), http.StatusFound)
+
 		return
 	}
 
-	oauth2Code := &Code{
+	if user.Spec.State != unikornv1.UserStateActive {
+		redirector.raise(ErrorServerError, "user is not active")
+		return
+	}
+
+	code := &Code{
 		ID:             uuid.New().String(),
 		UserID:         user.Name,
 		ClientQuery:    state.ClientQuery,
@@ -888,15 +981,25 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		IDToken:        idToken,
 	}
 
-	code, err := a.issuer.EncodeJWEToken(r.Context(), oauth2Code, jose.TokenTypeAuthorizationCode)
+	a.authorizationCodeRedirect(w, r, redirector, clientQuery, code)
+}
+
+// authorizationCodeRedirect packages up an authorization code and redirects to the client.
+func (a *Authenticator) authorizationCodeRedirect(w http.ResponseWriter, r *http.Request, redirector *redirector, clientQuery url.Values, code *Code) {
+	codeCipher, err := a.issuer.EncodeJWEToken(r.Context(), code, jose.TokenTypeAuthorizationCode)
 	if err != nil {
 		redirector.raise(ErrorServerError, "failed to encode authorization code: "+err.Error())
 		return
 	}
 
-	q.Set("code", code)
+	q := url.Values{}
+	q.Set("code", codeCipher)
 
-	a.codeCache.Add(code, nil, time.Minute)
+	if clientQuery.Has("state") {
+		q.Set("state", clientQuery.Get("state"))
+	}
+
+	a.codeCache.Add(codeCipher, nil, time.Minute)
 
 	// OIDC support silent re-authentication, the expectation is that the user will
 	// be able to reauthenticate for a period without a login prompt, up to the max_age
@@ -908,13 +1011,263 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		Domain:   r.Host,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
+		Value:    codeCipher,
 	}
-
-	cookie.Value = code
 
 	w.Header().Add("Set-Cookie", cookie.String())
 
 	redirector.redirect(q)
+}
+
+//nolint:tagliatelle
+type OnboardWebhookData struct {
+	Email    string `json:"email"`
+	Username string `json:"username"`
+	Forename string `json:"forename,omitempty"`
+	Surname  string `json:"surname,omitempty"`
+	// TODO: we can't get at this via the API...
+	// UserID string `json:"userID"`
+	OrganizationID     string `json:"organizationID"`
+	OrganizationUserID string `json:"organizationUserID"`
+}
+
+// Onboard creates a user's initial account and organization under guidance
+// from the client.
+//
+//nolint:cyclop
+func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	if !a.options.AccountCreationEnabled {
+		htmlError(w, r, http.StatusBadRequest, "attempt to use disabled endpoint")
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		htmlError(w, r, http.StatusBadRequest, "form parse failure")
+		return
+	}
+
+	requiredFields := []string{
+		"state",
+		"organization_name",
+		"group_name",
+	}
+
+	for _, req := range requiredFields {
+		if !r.Form.Has(req) {
+			htmlError(w, r, http.StatusBadRequest, req+" field missing")
+			return
+		}
+	}
+
+	state := &OnboardingState{}
+
+	if err := a.issuer.DecodeJWEToken(ctx, r.Form.Get("state"), state, jose.TokenTypeOnboardState); err != nil {
+		htmlError(w, r, http.StatusBadRequest, "oidc state failed to decode")
+		return
+	}
+
+	clientQuery, err := url.ParseQuery(state.ClientQuery)
+	if err != nil {
+		htmlError(w, r, http.StatusBadRequest, "client query failed to decode")
+	}
+
+	redirector := newRedirector(w, r, clientQuery.Get("redirect_uri"), clientQuery.Get("state"))
+
+	// List all global roles available and filter based on whether they are usable
+	// and part of the requested set.
+	roles := &unikornv1.RoleList{}
+
+	if err := a.client.List(ctx, roles, &client.ListOptions{Namespace: a.namespace}); err != nil {
+		redirector.raise(ErrorServerError, "failed to list roles")
+		return
+	}
+
+	requestedRoles := a.options.AccountCreationDefaultRoles
+
+	if r.Form.Has("roles") {
+		requestedRoles = strings.Split(r.Form.Get("roles"), " ")
+	}
+
+	roles.Items = slices.DeleteFunc(roles.Items, func(role unikornv1.Role) bool {
+		return role.Spec.Protected || !slices.Contains(requestedRoles, role.Labels[constants.NameLabel])
+	})
+
+	roleIDs := make([]string, len(roles.Items))
+
+	for i := range roles.Items {
+		roleIDs[i] = roles.Items[i].Name
+	}
+
+	// Setup the context for auditing and RBAC.
+	// NOTE: we could bypass the handler functions to avoid RBAC entirely, we
+	// are well within rights!
+	info := &authorization.Info{
+		Userinfo: &openapi.Userinfo{
+			Email: &state.IDToken.Email.Email,
+		},
+	}
+
+	ctx = authorization.NewContext(ctx, info)
+
+	ctx, err = a.rbac.NewSuperContext(ctx)
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to create ACL")
+		return
+	}
+
+	// Create the requested organization, waiting for the controller to build it.
+	organizationRequest := &openapi.OrganizationWrite{
+		Metadata: coreapi.ResourceWriteMetadata{
+			Name: r.Form.Get("organization_name"),
+		},
+		Spec: openapi.OrganizationSpec{
+			OrganizationType: openapi.Adhoc,
+		},
+	}
+
+	if r.Form.Has("organization_description") {
+		organizationRequest.Metadata.Description = ptr.To(r.Form.Get("organization_description"))
+	}
+
+	organization, err := organizations.New(a.client, a.namespace).Create(ctx, organizationRequest)
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to create organization")
+		return
+	}
+
+	organizationReady := func() error {
+		meta, err := organizations.New(a.client, a.namespace).GetMetadata(ctx, organization.Metadata.Id)
+		if err != nil {
+			return err
+		}
+
+		if meta.Namespace == "" {
+			return fmt.Errorf("%w: organization not provisioned", ErrReference)
+		}
+
+		return nil
+	}
+
+	if err := retry.Forever().DoWithContext(ctx, organizationReady); err != nil {
+		redirector.raise(ErrorServerError, "failed to provision organization in time")
+		return
+	}
+
+	// Create the group in the organization containing the requested roles.
+	groupRequest := &openapi.GroupWrite{
+		Metadata: coreapi.ResourceWriteMetadata{
+			Name: r.Form.Get("group_name"),
+		},
+		Spec: openapi.GroupSpec{
+			RoleIDs: roleIDs,
+		},
+	}
+
+	if r.Form.Has("group_description") {
+		groupRequest.Metadata.Description = ptr.To(r.Form.Get("group_description"))
+	}
+
+	group, err := groups.New(a.client, a.namespace).Create(ctx, organization.Metadata.Id, groupRequest)
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to create group")
+		return
+	}
+
+	// Finally create the user.
+	userRequest := &openapi.UserWrite{
+		Spec: openapi.UserSpec{
+			Subject: state.IDToken.Email.Email,
+			State:   openapi.Pending,
+			GroupIDs: openapi.GroupIDs{
+				group.Metadata.Id,
+			},
+		},
+	}
+
+	user, err := users.New(r.Host, a.client, a.namespace, a.issuer, &users.Options{}).Create(ctx, organization.Metadata.Id, userRequest)
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to create user")
+		return
+	}
+
+	if !a.notifyAccountCreation(ctx, redirector, state.IDToken, organization, user) {
+		return
+	}
+
+	// Finally when the optional webhook is
+	userRequest.Spec.State = openapi.Active
+
+	if _, err := users.New(r.Host, a.client, a.namespace, a.issuer, &users.Options{}).Update(ctx, organization.Metadata.Id, user.Metadata.Id, userRequest); err != nil {
+		redirector.raise(ErrorServerError, "failed to create user")
+		return
+	}
+
+	shadowUser, err := a.rbac.GetUser(r.Context(), state.IDToken.Email.Email)
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to read shadow user")
+		return
+	}
+
+	code := &Code{
+		ID:             uuid.New().String(),
+		UserID:         shadowUser.Name,
+		ClientQuery:    state.ClientQuery,
+		OAuth2Provider: state.OAuth2Provider,
+		Interactive:    true,
+		IDToken:        state.IDToken,
+	}
+
+	a.authorizationCodeRedirect(w, r, redirector, clientQuery, code)
+}
+
+// notifyAccountCreation does any external service notification of account creation
+// e.g. for billing perhaps.  Returns false if something failed.
+func (a *Authenticator) notifyAccountCreation(ctx context.Context, redirector *redirector, idToken *oidc.IDToken, organization *openapi.OrganizationRead, user *openapi.UserRead) bool {
+	if a.options.AccountCreationWebhookURI == "" {
+		return true
+	}
+
+	webhookData := &OnboardWebhookData{
+		Email:              idToken.Email.Email,
+		Username:           idToken.Profile.Name,
+		Forename:           idToken.Profile.GivenName,
+		Surname:            idToken.Profile.FamilyName,
+		OrganizationID:     organization.Metadata.Id,
+		OrganizationUserID: user.Metadata.Id,
+	}
+
+	webhookBody, err := json.Marshal(webhookData)
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to marshal webhook data")
+		return false
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, a.options.AccountCreationWebhookURI, bytes.NewBuffer(webhookBody))
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to create webhook request")
+		return false
+	}
+
+	request.Header.Set("Contenttype", "application/json")
+
+	hc := &http.Client{}
+
+	response, err := hc.Do(request)
+	if err != nil {
+		redirector.raise(ErrorServerError, "failed to do webhook request")
+		return false
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		redirector.raise(ErrorServerError, "webhook response returned unexpected status code")
+		return false
+	}
+
+	return true
 }
 
 // tokenValidate does any request validation when issuing a token.
