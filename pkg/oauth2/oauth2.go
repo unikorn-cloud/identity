@@ -1553,13 +1553,14 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
 		// TODO: we should probably use the user ID here.
-		Subject:  code.IDToken.Email.Email,
-		ClientID: clientID,
-		Federated: &Federated{
+		Subject: code.IDToken.Email.Email,
+		Type:    TokenTypeFederated,
+		Federated: &FederatedClaims{
+			ClientID: clientID,
 			UserID:   code.UserID,
 			Provider: code.OAuth2Provider,
+			Scope:    NewScope(clientQuery.Get("scope")),
 		},
-		Scope:               NewScope(clientQuery.Get("scope")),
 		AuthorizationCodeID: &code.ID,
 		Interactive:         code.Interactive,
 	}
@@ -1597,11 +1598,11 @@ func (a *Authenticator) validateClientSecretRefresh(r *http.Request, claims *Ref
 		clientSecret = r.Form.Get("client_secret")
 	}
 
-	if claims.Custom.ClientID != clientID {
+	if claims.Federated.ClientID != clientID {
 		return errors.OAuth2InvalidGrant("client_id mismatch")
 	}
 
-	client, err := a.lookupClient(r.Context(), claims.Custom.ClientID)
+	client, err := a.lookupClient(r.Context(), claims.Federated.ClientID)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup client").WithError(err)
 	}
@@ -1630,7 +1631,7 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 	}
 
 	lookupSession := func(session unikornv1.UserSession) bool {
-		return session.ClientID == claims.Custom.ClientID
+		return session.ClientID == claims.Federated.ClientID
 	}
 
 	index := slices.IndexFunc(user.Spec.Sessions, lookupSession)
@@ -1671,14 +1672,11 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 	}
 
 	info := &IssueInfo{
-		Issuer:   "https://" + r.Host,
-		Audience: r.Host,
-		Subject:  claims.Claims.Subject,
-		ClientID: claims.Custom.ClientID,
-		Federated: &Federated{
-			UserID:   claims.Custom.UserID,
-			Provider: claims.Custom.Provider,
-		},
+		Issuer:    "https://" + r.Host,
+		Audience:  r.Host,
+		Subject:   claims.Claims.Subject,
+		Type:      TokenTypeFederated,
+		Federated: claims.Federated,
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -1712,10 +1710,13 @@ func (a *Authenticator) TokenClientCredentials(w http.ResponseWriter, r *http.Re
 	thumbprint := util.GetClientCertiifcateThumbprint(certificate)
 
 	info := &IssueInfo{
-		Issuer:         "https://" + r.Host,
-		Audience:       r.Host,
-		Subject:        certificate.Subject.CommonName,
-		X509Thumbprint: thumbprint,
+		Issuer:   "https://" + r.Host,
+		Audience: r.Host,
+		Subject:  certificate.Subject.CommonName,
+		Type:     TokenTypeService,
+		Service: &ServiceClaims{
+			X509Thumbprint: thumbprint,
+		},
 	}
 
 	tokens, err := a.Issue(r.Context(), info)
@@ -1755,7 +1756,7 @@ func (a *Authenticator) Token(w http.ResponseWriter, r *http.Request) (*openapi.
 }
 
 // GetUserinfo does access token introspection.
-func (a *Authenticator) GetUserinfo(ctx context.Context, r *http.Request, token string) (*openapi.Userinfo, *AccessTokenClaims, error) {
+func (a *Authenticator) GetUserinfo(ctx context.Context, r *http.Request, token string) (*openapi.Userinfo, *Claims, error) {
 	verifyInfo := &VerifyInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
@@ -1772,14 +1773,12 @@ func (a *Authenticator) GetUserinfo(ctx context.Context, r *http.Request, token 
 		Sub: claims.Subject,
 	}
 
-	if claims.Custom != nil && slices.Contains(claims.Custom.Scope, "email") {
-		userinfo.Email = ptr.To(claims.Subject)
-		userinfo.EmailVerified = ptr.To(true)
+	if claims.Type == TokenTypeFederated {
+		if slices.Contains(claims.Federated.Scope, "email") {
+			userinfo.Email = ptr.To(claims.Subject)
+			userinfo.EmailVerified = ptr.To(true)
+		}
 	}
-
-	// Need to expand the user information...
-	// if slices.Contains(claims.Custom.Scope, "profile") {
-	// }
 
 	return userinfo, claims, nil
 }

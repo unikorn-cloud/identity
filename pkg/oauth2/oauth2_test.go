@@ -102,7 +102,8 @@ func TestTokens(t *testing.T) {
 		Issuer:   "https://foo.com",
 		Audience: "foo.com",
 		Subject:  "barry@foo.com",
-		Federated: &oauth2.Federated{
+		Type:     oauth2.TokenTypeFederated,
+		Federated: &oauth2.FederatedClaims{
 			UserID: "fake",
 		},
 	}
