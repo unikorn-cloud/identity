@@ -97,6 +97,10 @@ type Options struct {
 	// CodeCacheSize is used to set the number of authorization code in flight.
 	CodeCacheSize int
 
+	// AccountCreationCacheSize is used to set the number of account creation tokens
+	// in flight.
+	AccountCreationCacheSize int
+
 	// AccountCreationEnabled is used to permit new account creation.
 	AccountCreationEnabled bool
 
@@ -119,6 +123,7 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.TokenLeewayDuration, "token-leeway", time.Minute, "How long to remove from the provider token expiry to account for network and processing latency.")
 	f.IntVar(&o.TokenCacheSize, "token-cache-size", 8192, "How many token cache entries to allow.")
 	f.IntVar(&o.CodeCacheSize, "code-cache-size", 8192, "How many code cache entries to allow.")
+	f.IntVar(&o.AccountCreationCacheSize, "account-creation-cache-size", 8192, "How many account creation cache entries to allow.")
 	f.BoolVar(&o.AccountCreationEnabled, "account-creation-enabled", false, "Whether to allow accounts to be created.")
 	f.StringSliceVar(&o.AccountCreationDefaultRoles, "account-creation-default-roles", []string{"administrator"}, "Default role names to grant a account creators user.")
 	f.StringVar(&o.AccountCreationWebhookURI, "account-creation-webhook-uri", "", "URI to post user signup data.")
@@ -144,19 +149,24 @@ type Authenticator struct {
 
 	// codeCache is used to protect against authorization code reuse.
 	codeCache *cache.LRUExpireCache
+
+	// accountCreationCache is used to ensure an account creation token
+	// can only be used once.
+	accountCreationCache *cache.LRUExpireCache
 }
 
 // New returns a new authenticator with required fields populated.
 // You must call AddFlags after this.
 func New(options *Options, namespace string, client client.Client, issuer *jose.JWTIssuer, rbac *rbac.RBAC) *Authenticator {
 	return &Authenticator{
-		options:    options,
-		namespace:  namespace,
-		client:     client,
-		issuer:     issuer,
-		rbac:       rbac,
-		tokenCache: cache.NewLRUExpireCache(options.TokenCacheSize),
-		codeCache:  cache.NewLRUExpireCache(options.CodeCacheSize),
+		options:              options,
+		namespace:            namespace,
+		client:               client,
+		issuer:               issuer,
+		rbac:                 rbac,
+		tokenCache:           cache.NewLRUExpireCache(options.TokenCacheSize),
+		codeCache:            cache.NewLRUExpireCache(options.CodeCacheSize),
+		accountCreationCache: cache.NewLRUExpireCache(options.AccountCreationCacheSize),
 	}
 }
 
@@ -950,6 +960,8 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		a.accountCreationCache.Add(state, nil, 10*time.Minute)
+
 		q := url.Values{}
 		q.Set("state", state)
 		q.Set("callback", "https://"+r.Host+"/oauth2/v2/onboard")
@@ -1024,34 +1036,41 @@ func (a *Authenticator) authorizationCodeRedirect(w http.ResponseWriter, r *http
 	redirector.redirect(q)
 }
 
+// OnboardWebhookData defines the webhook interface on accoutn creation.
+// NOTE: this is governed by a specification and is an external contract, do not
+// make any unreviewed backwards incompatible changes.
+//
 //nolint:tagliatelle
 type OnboardWebhookData struct {
-	Email    string `json:"email"`
+	// Email address of the user.
+	Email string `json:"email"`
+	// Username of the user.
 	Username string `json:"username"`
+	// Forname, if available, of the user.
 	Forename string `json:"forename,omitempty"`
-	Surname  string `json:"surname,omitempty"`
+	// Surname, if available, of the user.
+	Surname string `json:"surname,omitempty"`
+	// UserID of the new user.
 	// TODO: we can't get at this via the API...
 	// UserID string `json:"userID"`
-	OrganizationID     string `json:"organizationID"`
-	OrganizationName   string `json:"organizationName"`
+	// OrganizationID of the new user.
+	OrganizationID string `json:"organizationID"`
+	// OrganizationName of the new user.
+	// NOTE: names are immutable, so really don't rely on this for anything.
+	OrganizationName string `json:"organizationName"`
+	// OrganizationUserID of the new user.
 	OrganizationUserID string `json:"organizationUserID"`
 }
 
-// Onboard creates a user's initial account and organization under guidance
-// from the client.
-//
-//nolint:cyclop,gocognit,maintidx
-func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
+func (a *Authenticator) validateOnboardState(ctx context.Context, w http.ResponseWriter, r *http.Request) (*OnboardingState, url.Values, bool) {
 	if !a.options.AccountCreationEnabled {
 		htmlError(w, r, http.StatusBadRequest, "attempt to use disabled endpoint")
-		return
+		return nil, nil, false
 	}
 
 	if err := r.ParseForm(); err != nil {
 		htmlError(w, r, http.StatusBadRequest, "form parse failure")
-		return
+		return nil, nil, false
 	}
 
 	requiredFields := []string{
@@ -1063,20 +1082,45 @@ func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
 	for _, req := range requiredFields {
 		if !r.Form.Has(req) {
 			htmlError(w, r, http.StatusBadRequest, req+" field missing")
-			return
+			return nil, nil, false
 		}
 	}
 
-	state := &OnboardingState{}
+	stateRaw := r.Form.Get("state")
 
-	if err := a.issuer.DecodeJWEToken(ctx, r.Form.Get("state"), state, jose.TokenTypeOnboardState); err != nil {
-		htmlError(w, r, http.StatusBadRequest, "oidc state failed to decode")
-		return
+	if _, ok := a.accountCreationCache.Get(stateRaw); !ok {
+		htmlError(w, r, http.StatusBadRequest, "stale account creation state")
+		return nil, nil, false
 	}
 
-	clientQuery, err := url.ParseQuery(state.ClientQuery)
+	a.accountCreationCache.Remove(stateRaw)
+
+	state := &OnboardingState{}
+
+	if err := a.issuer.DecodeJWEToken(ctx, stateRaw, state, jose.TokenTypeOnboardState); err != nil {
+		htmlError(w, r, http.StatusBadRequest, "account creation state failed to decode")
+		return nil, nil, false
+	}
+
+	query, err := url.ParseQuery(state.ClientQuery)
 	if err != nil {
 		htmlError(w, r, http.StatusBadRequest, "client query failed to decode")
+		return nil, nil, false
+	}
+
+	return state, query, true
+}
+
+// Onboard creates a user's initial account and organization under guidance
+// from the client.
+//
+//nolint:cyclop
+func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	state, clientQuery, ok := a.validateOnboardState(ctx, w, r)
+	if !ok {
+		return
 	}
 
 	redirector := newRedirector(w, r, clientQuery.Get("redirect_uri"), clientQuery.Get("state"))
@@ -1117,6 +1161,8 @@ func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx = authorization.NewContext(ctx, info)
+
+	var err error
 
 	ctx, err = a.rbac.NewSuperContext(ctx)
 	if err != nil {
