@@ -177,19 +177,22 @@ func (c *Client) organizationIDs(ctx context.Context, rbacClient *rbac.RBAC, ema
 		return []string{account.Labels[constants.OrganizationLabel]}, nil
 	}
 
-	subject := info.Userinfo.Email
+	var user *unikornv1.User
 
 	if email != nil {
 		if err := rbac.AllowGlobalScope(ctx, "identity:users", openapi.Read); err != nil {
 			return nil, errors.HTTPForbidden("user not permitted to read users globally").WithError(err)
 		}
 
-		subject = email
-	}
-
-	user, err := rbacClient.GetActiveUser(ctx, *subject)
-	if err != nil {
-		return nil, errors.HTTPNotFound().WithError(err)
+		user, err = rbacClient.GetActiveUserByEmail(ctx, *email)
+		if err != nil {
+			return nil, errors.HTTPNotFound().WithError(err)
+		}
+	} else {
+		user, err = rbacClient.GetActiveUserByID(ctx, info.Userinfo.Sub)
+		if err != nil {
+			return nil, errors.HTTPNotFound().WithError(err)
+		}
 	}
 
 	selector := labels.SelectorFromSet(map[string]string{
