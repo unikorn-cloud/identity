@@ -106,6 +106,10 @@ type Options struct {
 	// AccountCreationWebhookURI is used to notify an external service of an organization/user
 	// creation event.
 	AccountCreationWebhookURI string
+
+	// AccountCreationWebhookToken is used in conjunction with the URI for authentication.
+	// Must be used over TLS or it's useless.
+	AccountCreationWebhookToken string
 }
 
 func (o *Options) AddFlags(f *pflag.FlagSet) {
@@ -118,6 +122,7 @@ func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.BoolVar(&o.AccountCreationEnabled, "account-creation-enabled", false, "Whether to allow accounts to be created.")
 	f.StringSliceVar(&o.AccountCreationDefaultRoles, "account-creation-default-roles", []string{"administrator"}, "Default role names to grant a account creators user.")
 	f.StringVar(&o.AccountCreationWebhookURI, "account-creation-webhook-uri", "", "URI to post user signup data.")
+	f.StringVar(&o.AccountCreationWebhookToken, "account-creation-webhook-token", "", "Bearer token for authenticating singup data.")
 }
 
 // Authenticator provides Keystone authentication functionality.
@@ -1028,13 +1033,14 @@ type OnboardWebhookData struct {
 	// TODO: we can't get at this via the API...
 	// UserID string `json:"userID"`
 	OrganizationID     string `json:"organizationID"`
+	OrganizationName   string `json:"organizationName"`
 	OrganizationUserID string `json:"organizationUserID"`
 }
 
 // Onboard creates a user's initial account and organization under guidance
 // from the client.
 //
-//nolint:cyclop
+//nolint:cyclop,gocognit,maintidx
 func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -1130,6 +1136,24 @@ func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
 
 	if r.Form.Has("organization_description") {
 		organizationRequest.Metadata.Description = ptr.To(r.Form.Get("organization_description"))
+	}
+
+	if r.Form.Has("organization_tags") {
+		fields := strings.Split(r.Form.Get("organization_tags"), " ")
+
+		tags := make(coreapi.TagList, len(fields))
+
+		for i := range fields {
+			kv := strings.Split(fields[i], ":")
+			if len(kv) != 2 {
+				continue
+			}
+
+			tags[i].Name = kv[0]
+			tags[i].Value = kv[1]
+		}
+
+		organizationRequest.Metadata.Tags = &tags
 	}
 
 	organization, err := organizations.New(a.client, a.namespace).Create(ctx, organizationRequest)
@@ -1236,6 +1260,7 @@ func (a *Authenticator) notifyAccountCreation(ctx context.Context, redirector *r
 		Forename:           idToken.Profile.GivenName,
 		Surname:            idToken.Profile.FamilyName,
 		OrganizationID:     organization.Metadata.Id,
+		OrganizationName:   organization.Metadata.Name,
 		OrganizationUserID: user.Metadata.Id,
 	}
 
@@ -1251,7 +1276,11 @@ func (a *Authenticator) notifyAccountCreation(ctx context.Context, redirector *r
 		return false
 	}
 
-	request.Header.Set("Contenttype", "application/json")
+	request.Header.Set("Content-Type", "application/json")
+
+	if a.options.AccountCreationWebhookToken != "" {
+		request.Header.Set("Authorization", "Bearer "+a.options.AccountCreationWebhookToken)
+	}
 
 	hc := &http.Client{}
 
