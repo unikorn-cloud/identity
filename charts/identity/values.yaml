@@ -43,7 +43,10 @@ onboarding:
   enabled: false
   # Webhook to invoke when a signup occurs.
   # webhook:
+  #   # URI to POST account creation data to.
   #   uri: https://onboard.namespace/some/path
+  #   # An optional bearer token for authentication.
+  #   token: f9b0c034-2316-4cda-918e-5d96dbaa8d82
 
 # Issuer related configuration.
 issuer:

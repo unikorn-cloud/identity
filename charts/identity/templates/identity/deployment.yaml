@@ -59,7 +59,10 @@ spec:
         - --account-creation-enabled
           {{- end }}
           {{- with $webhook := $onboarding.webhook }}
-        - --account-creation-webhook-uri=[{ $webhook.uri }}
+        - --account-creation-webhook-uri={{ $webhook.uri }}
+            {{- if $webhook.token }}
+        - --account-creation-webhook-token={{ $webhook.token }}
+            {{- end }}
           {{- end }}
         {{- end }}
         ports:
