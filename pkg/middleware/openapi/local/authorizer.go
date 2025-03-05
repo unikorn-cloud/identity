@@ -83,17 +83,17 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 		Userinfo: userinfo,
 	}
 
-	if claims.Custom != nil {
-		info.ClientID = claims.Custom.ClientID
-		info.ServiceAccount = claims.Custom.Type == oauth2.AccessTokenTypeServiceAccount
-	}
-
-	// All API requests will ultimately end up here as service call back
-	// into the identity service to validate the token presented to the API.
-	// If the token is bound to a certificate, we also expect the client
-	// certificate to be presented by the first client in the chain and
-	// propagated here.
-	if claims.Config != nil && claims.Config.X509Thumbprint != nil {
+	switch claims.Type {
+	case oauth2.TokenTypeFederated:
+		info.ClientID = claims.Federated.ClientID
+	case oauth2.TokenTypeServiceAccount:
+		info.ServiceAccount = true
+	case oauth2.TokenTypeService:
+		// All API requests will ultimately end up here as service call back
+		// into the identity service to validate the token presented to the API.
+		// If the token is bound to a certificate, we also expect the client
+		// certificate to be presented by the first client in the chain and
+		// propagated here.
 		certPEM, err := authorization.ClientCertFromContext(r.Context())
 		if err != nil {
 			return nil, errors.OAuth2AccessDenied("client certificate not present for bound token").WithError(err)
@@ -106,7 +106,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 
 		thumbprint := util.GetClientCertiifcateThumbprint(certificate)
 
-		if thumbprint != *claims.Config.X509Thumbprint {
+		if thumbprint != claims.Service.X509Thumbprint {
 			return nil, errors.OAuth2AccessDenied("client certificate mismatch for bound token")
 		}
 

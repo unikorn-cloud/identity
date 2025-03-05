@@ -132,12 +132,13 @@ func (c *Client) generateAccessToken(ctx context.Context, organization *organiza
 		Issuer:   "https://" + c.host,
 		Audience: c.host,
 		Subject:  serviceAccountID,
-		ServiceAccount: &oauth2.ServiceAccount{
+		Type:     oauth2.TokenTypeServiceAccount,
+		ServiceAccount: &oauth2.ServiceAccountClaims{
 			OrganizationID: organization.ID,
-			// TODO: allow the client to override this, but keep it capped to
-			// some server controlled value.
-			Duration: &c.options.defaultDuration,
 		},
+		// TODO: allow the client to override this, but keep it capped to
+		// some server controlled value.
+		Duration: &c.options.defaultDuration,
 	}
 
 	tokens, err := c.oauth2.Issue(ctx, issueInfo)
@@ -163,19 +164,7 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 		},
 	}
 
-	issueInfo := &oauth2.IssueInfo{
-		Issuer:   "https://" + c.host,
-		Audience: c.host,
-		Subject:  out.Name,
-		ServiceAccount: &oauth2.ServiceAccount{
-			OrganizationID: organization.ID,
-			// TODO: allow the client to override this, but keep it capped to
-			// some server controlled value.
-			Duration: &c.options.defaultDuration,
-		},
-	}
-
-	tokens, err := c.oauth2.Issue(ctx, issueInfo)
+	tokens, err := c.generateAccessToken(ctx, organization, out.Name)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to issue access token").WithError(err)
 	}
