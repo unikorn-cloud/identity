@@ -25,7 +25,7 @@ type ServerInterface interface {
 	GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Request)
 
 	// (GET /api/v1/organizations)
-	GetApiV1Organizations(w http.ResponseWriter, r *http.Request)
+	GetApiV1Organizations(w http.ResponseWriter, r *http.Request, params GetApiV1OrganizationsParams)
 
 	// (POST /api/v1/organizations)
 	PostApiV1Organizations(w http.ResponseWriter, r *http.Request)
@@ -183,7 +183,7 @@ func (_ Unimplemented) GetApiV1Oauth2providers(w http.ResponseWriter, r *http.Re
 }
 
 // (GET /api/v1/organizations)
-func (_ Unimplemented) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetApiV1Organizations(w http.ResponseWriter, r *http.Request, params GetApiV1OrganizationsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -478,14 +478,27 @@ func (siw *ServerInterfaceWrapper) GetApiV1Oauth2providers(w http.ResponseWriter
 // GetApiV1Organizations operation middleware
 func (siw *ServerInterfaceWrapper) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
 
 	r = r.WithContext(ctx)
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetApiV1OrganizationsParams
+
+	// ------------- Optional query parameter "email" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "email", r.URL.Query(), &params.Email)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "email", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV1Organizations(w, r)
+		siw.Handler.GetApiV1Organizations(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {

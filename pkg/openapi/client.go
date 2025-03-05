@@ -100,7 +100,7 @@ type ClientInterface interface {
 	GetApiV1Oauth2providers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1Organizations request
-	GetApiV1Organizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetApiV1Organizations(ctx context.Context, params *GetApiV1OrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostApiV1OrganizationsWithBody request with any body
 	PostApiV1OrganizationsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -314,8 +314,8 @@ func (c *Client) GetApiV1Oauth2providers(ctx context.Context, reqEditors ...Requ
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetApiV1Organizations(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApiV1OrganizationsRequest(c.Server)
+func (c *Client) GetApiV1Organizations(ctx context.Context, params *GetApiV1OrganizationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1188,7 +1188,7 @@ func NewGetApiV1Oauth2providersRequest(server string) (*http.Request, error) {
 }
 
 // NewGetApiV1OrganizationsRequest generates requests for GetApiV1Organizations
-func NewGetApiV1OrganizationsRequest(server string) (*http.Request, error) {
+func NewGetApiV1OrganizationsRequest(server string, params *GetApiV1OrganizationsParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1204,6 +1204,28 @@ func NewGetApiV1OrganizationsRequest(server string) (*http.Request, error) {
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Email != nil {
+
+			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "email", runtime.ParamLocationQuery, *params.Email); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -3120,7 +3142,7 @@ type ClientWithResponsesInterface interface {
 	GetApiV1Oauth2providersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1Oauth2providersResponse, error)
 
 	// GetApiV1OrganizationsWithResponse request
-	GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error)
+	GetApiV1OrganizationsWithResponse(ctx context.Context, params *GetApiV1OrganizationsParams, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error)
 
 	// PostApiV1OrganizationsWithBodyWithResponse request with any body
 	PostApiV1OrganizationsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsResponse, error)
@@ -3374,6 +3396,8 @@ type GetApiV1OrganizationsResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *OrganizationsResponse
 	JSON401      *externalRef0.UnauthorizedResponse
+	JSON403      *externalRef0.ForbiddenResponse
+	JSON404      *externalRef0.NotFoundResponse
 	JSON500      *externalRef0.InternalServerErrorResponse
 }
 
@@ -4533,8 +4557,8 @@ func (c *ClientWithResponses) GetApiV1Oauth2providersWithResponse(ctx context.Co
 }
 
 // GetApiV1OrganizationsWithResponse request returning *GetApiV1OrganizationsResponse
-func (c *ClientWithResponses) GetApiV1OrganizationsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error) {
-	rsp, err := c.GetApiV1Organizations(ctx, reqEditors...)
+func (c *ClientWithResponses) GetApiV1OrganizationsWithResponse(ctx context.Context, params *GetApiV1OrganizationsParams, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsResponse, error) {
+	rsp, err := c.GetApiV1Organizations(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -5246,6 +5270,20 @@ func ParseGetApiV1OrganizationsResponse(rsp *http.Response) (*GetApiV1Organizati
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.ForbiddenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.InternalServerErrorResponse

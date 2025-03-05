@@ -809,6 +809,9 @@ type ProjectIDParameter = string
 // ServiceAccountIDParameter defines model for serviceAccountIDParameter.
 type ServiceAccountIDParameter = string
 
+// UserEmailParameter defines model for userEmailParameter.
+type UserEmailParameter = string
+
 // UserIDParameter defines model for userIDParameter.
 type UserIDParameter = string
 
@@ -911,6 +914,12 @@ type UpdateProjectRequest = ProjectWrite
 
 // UserCreateRequest A user create/update object.
 type UserCreateRequest = UserWrite
+
+// GetApiV1OrganizationsParams defines parameters for GetApiV1Organizations.
+type GetApiV1OrganizationsParams struct {
+	// Email A user's email address.
+	Email *UserEmailParameter `form:"email,omitempty" json:"email,omitempty"`
+}
 
 // PostApiV1OrganizationsJSONRequestBody defines body for PostApiV1Organizations for application/json ContentType.
 type PostApiV1OrganizationsJSONRequestBody = OrganizationWrite
