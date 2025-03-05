@@ -162,12 +162,13 @@ func (c *Client) list(ctx context.Context) (map[string]*unikornv1.Organization, 
 	return out, nil
 }
 
-func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organizations, error) {
+//nolint:cyclop
+func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC, email *string) (openapi.Organizations, error) {
 	// This is the only special case in the system.  When requesting organizations we
 	// will have an unscoped ACL, so can check for global access to all organizations.
 	// If we don't have that then we need to use RBAC to get a list of organizations we are
 	// members of and return only them.
-	if err := rbac.AllowGlobalScope(ctx, "identity:organizations", openapi.Read); err == nil {
+	if err := rbac.AllowGlobalScope(ctx, "identity:organizations", openapi.Read); err == nil && email == nil {
 		var result unikornv1.OrganizationList
 
 		if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
@@ -187,9 +188,19 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC) (openapi.Organ
 		return nil, errors.OAuth2ServerError("failed to list organizations").WithError(err)
 	}
 
-	user, err := rbacClient.GetActiveUser(ctx, info.Userinfo.Sub)
+	subject := info.Userinfo.Email
+
+	if email != nil {
+		if err := rbac.AllowGlobalScope(ctx, "identity:users", openapi.Read); err != nil {
+			return nil, errors.HTTPForbidden("user not permitted to read users globally").WithError(err)
+		}
+
+		subject = email
+	}
+
+	user, err := rbacClient.GetActiveUser(ctx, *subject)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to list active subjects").WithError(err)
+		return nil, errors.HTTPNotFound().WithError(err)
 	}
 
 	selector := labels.SelectorFromSet(map[string]string{

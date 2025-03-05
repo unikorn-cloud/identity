@@ -362,8 +362,8 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDOauth2providersProviderI
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request) {
-	result, err := organizations.New(h.client, h.namespace).List(r.Context(), h.rbac)
+func (h *Handler) GetApiV1Organizations(w http.ResponseWriter, r *http.Request, params openapi.GetApiV1OrganizationsParams) {
+	result, err := organizations.New(h.client, h.namespace).List(r.Context(), h.rbac, params.Email)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
