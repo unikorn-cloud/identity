@@ -162,30 +162,19 @@ func (c *Client) list(ctx context.Context) (map[string]*unikornv1.Organization, 
 	return out, nil
 }
 
-//nolint:cyclop
-func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC, email *string) (openapi.Organizations, error) {
-	// This is the only special case in the system.  When requesting organizations we
-	// will have an unscoped ACL, so can check for global access to all organizations.
-	// If we don't have that then we need to use RBAC to get a list of organizations we are
-	// members of and return only them.
-	if err := rbac.AllowGlobalScope(ctx, "identity:organizations", openapi.Read); err == nil && email == nil {
-		var result unikornv1.OrganizationList
-
-		if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
-			return nil, err
-		}
-
-		return convertList(&result), nil
-	}
-
+func (c *Client) organizationIDs(ctx context.Context, rbacClient *rbac.RBAC, email *string) ([]string, error) {
 	info, err := authorization.FromContext(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
 	}
 
-	organizations, err := c.list(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to list organizations").WithError(err)
+	if info.ServiceAccount {
+		account, err := rbacClient.GetServiceAccount(ctx, info.Userinfo.Sub)
+		if err != nil {
+			return nil, errors.HTTPForbidden("service account not found").WithError(err)
+		}
+
+		return []string{account.Labels[constants.OrganizationLabel]}, nil
 	}
 
 	subject := info.Userinfo.Email
@@ -213,17 +202,46 @@ func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC, email *string)
 		return nil, err
 	}
 
-	result := unikornv1.OrganizationList{
-		Items: make([]unikornv1.Organization, len(organizationUsers.Items)),
-	}
+	result := make([]string, len(organizationUsers.Items))
 
 	for i := range organizationUsers.Items {
-		organizationID, ok := organizationUsers.Items[i].Labels[constants.OrganizationLabel]
-		if !ok {
-			return nil, errors.OAuth2ServerError("failed to get organization ID for user")
+		result[i] = organizationUsers.Items[i].Labels[constants.OrganizationLabel]
+	}
+
+	return result, nil
+}
+
+func (c *Client) List(ctx context.Context, rbacClient *rbac.RBAC, email *string) (openapi.Organizations, error) {
+	// This is the only special case in the system.  When requesting organizations we
+	// will have an unscoped ACL, so can check for global access to all organizations.
+	// If we don't have that then we need to use RBAC to get a list of organizations we are
+	// members of and return only them.
+	if err := rbac.AllowGlobalScope(ctx, "identity:organizations", openapi.Read); err == nil && email == nil {
+		var result unikornv1.OrganizationList
+
+		if err := c.client.List(ctx, &result, &client.ListOptions{Namespace: c.namespace}); err != nil {
+			return nil, err
 		}
 
-		organization, ok := organizations[organizationID]
+		return convertList(&result), nil
+	}
+
+	organizations, err := c.list(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to list organizations").WithError(err)
+	}
+
+	organizationIDs, err := c.organizationIDs(ctx, rbacClient, email)
+	if err != nil {
+		return nil, err
+	}
+
+	result := unikornv1.OrganizationList{
+		Items: make([]unikornv1.Organization, len(organizationIDs)),
+	}
+
+	for i := range organizationIDs {
+		organization, ok := organizations[organizationIDs[i]]
 		if !ok {
 			return nil, errors.OAuth2ServerError("failed to find organization for user")
 		}
