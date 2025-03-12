@@ -152,6 +152,7 @@ roles:
         identity:allocations: [create,read,update,delete]
         region:identities: [create,read,delete]
         region:regions: [read]
+        region:regions/admin: [read]
         region:flavors: [read]
         region:images: [read]
         region:externalnetworks: [read]
