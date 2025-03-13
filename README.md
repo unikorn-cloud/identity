@@ -302,9 +302,17 @@ This forms an implicit mapping from a user to a special role that grants access 
 In order to actually login, you will need a user account creating:
 
 ```yaml
-+kubectl unikorn create user \
+kubectl unikorn create user \
      --namespace unikorn-identity \
      --user wile.e.coyote@acme.com
+```
+
+And at least one organization:
+
+```yaml
+kubectl unikorn create organization \
+    --namespace unikorn-identity \
+    --name looney-tunes
 ```
 
 If your user's email address can be authenticated by any of the supported OIDC integrations, that's all you need to do, otherwise read on...

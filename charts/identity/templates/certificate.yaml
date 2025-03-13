@@ -1,0 +1,22 @@
+# This is a hack around nginx security defaults. The ingress-nginx controller will
+# give you a 403 if you attempt to source the client CA secret from another
+# namespace, as -- well -- you can then read any secret from the whole platform.
+# You can disable this behaviour, but it's better to be secure, so we create a
+# dummy client certificate here that we can extract the CA from.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: unikorn-identity-client
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+spec:
+  issuerRef:
+    group: cert-manager.io
+    kind: ClusterIssuer
+    name: unikorn-client-issuer
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS8
+    size: 4096
+  secretName: unikorn-identity-client-certificate
+  commonName: unikorn-identity
