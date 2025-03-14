@@ -20,6 +20,7 @@ import (
 	"context"
 	goerrors "errors"
 	"slices"
+	"strings"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
 	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
@@ -157,6 +158,10 @@ func (c *Client) convert(ctx context.Context, in *unikornv1.Quota, organizationI
 			Default:     int(meta.Spec.Default.Value()),
 		}
 	}
+
+	slices.SortStableFunc(out.Quotas, func(a, b openapi.QuotaRead) int {
+		return strings.Compare(a.Kind, b.Kind)
+	})
 
 	return out, nil
 }
