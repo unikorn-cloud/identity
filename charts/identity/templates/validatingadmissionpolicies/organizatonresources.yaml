@@ -1,0 +1,35 @@
+# These resources are scoped to an organizations, we need an organization
+# label to quickly allow us to look up other resources scoped to that
+# organization ID.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: organization-resources.identity.unikorn-cloud.org
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - identity.unikorn-cloud.org
+      apiVersions:
+      - '*'
+      resources:
+      - groups
+      - organizationusers
+      - projects
+      - serviceaccounts
+      operations:
+      - CREATE
+      - UPDATE
+  validations:
+  - expression: "object.metadata.?labels[?'unikorn-cloud.org/organization'].orValue('') != ''"
+    message: Resource must have a 'unikorn-cloud.org/organization' label
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: organization-resources.identity.unikorn-cloud.org
+spec:
+  policyName: organization-resources.identity.unikorn-cloud.org
+  validationActions:
+  - Deny

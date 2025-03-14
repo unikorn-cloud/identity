@@ -1,0 +1,29 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: user-resources.identity.unikorn-cloud.org
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - identity.unikorn-cloud.org
+      apiVersions:
+      - '*'
+      resources:
+      - organizationusers
+      operations:
+      - CREATE
+      - UPDATE
+  validations:
+  - expression: "object.metadata.?labels[?'unikorn-cloud.org/user'].orValue('') != ''"
+    message: Resource must contain a unikorn-cloud.org/user label
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: user-resources.identity.unikorn-cloud.org
+spec:
+  policyName: user-resources.identity.unikorn-cloud.org
+  validationActions:
+  - Deny

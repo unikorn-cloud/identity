@@ -1,0 +1,36 @@
+# These user-facing resources have mutable names and thus have to exist
+# as labels.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: named-resources.identity.unikorn-cloud.org
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - identity.unikorn-cloud.org
+      apiVersions:
+      - '*'
+      resources:
+      - groups
+      - oauth2providers
+      - organizations
+      - projects
+      - roles
+      - serviceaccounts
+      operations:
+      - CREATE
+      - UPDATE
+  validations:
+  - expression: "object.metadata.?labels[?'unikorn-cloud.org/name'].orValue('') != ''"
+    message: Resource must have a 'unikorn-cloud.org/name' label
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: named-resources.identity.unikorn-cloud.org
+spec:
+  policyName: named-resources.identity.unikorn-cloud.org
+  validationActions:
+  - Deny
