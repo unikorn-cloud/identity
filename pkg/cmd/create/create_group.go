@@ -252,7 +252,7 @@ func (o *createGroupOptions) execute(ctx context.Context, cli client.Client) err
 	return nil
 }
 
-func getCreateGroup(factory *factory.Factory) *cobra.Command {
+func createGroup(factory *factory.Factory) *cobra.Command {
 	o := createGroupOptions{
 		ConfigFlags: factory.ConfigFlags,
 	}
