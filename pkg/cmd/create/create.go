@@ -22,16 +22,16 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/cmd/factory"
 )
 
-func GetCommand(factory *factory.Factory) *cobra.Command {
+func Command(factory *factory.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a resource",
 	}
 
 	cmd.AddCommand(
-		getCreateOrganization(factory),
-		getCreateUser(factory),
-		getCreateGroup(factory),
+		createOrganization(factory),
+		createUser(factory),
+		createGroup(factory),
 	)
 
 	return cmd

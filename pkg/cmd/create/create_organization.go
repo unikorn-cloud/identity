@@ -135,7 +135,7 @@ func (o *createOrganizationOptions) execute(ctx context.Context, cli client.Clie
 	return nil
 }
 
-func getCreateOrganization(factory *factory.Factory) *cobra.Command {
+func createOrganization(factory *factory.Factory) *cobra.Command {
 	o := createOrganizationOptions{
 		ConfigFlags: factory.ConfigFlags,
 	}

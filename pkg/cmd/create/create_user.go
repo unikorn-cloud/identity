@@ -83,7 +83,7 @@ func (o *createUserOptions) execute(ctx context.Context, cli client.Client) erro
 	return nil
 }
 
-func getCreateUser(factory *factory.Factory) *cobra.Command {
+func createUser(factory *factory.Factory) *cobra.Command {
 	o := createUserOptions{
 		ConfigFlags: factory.ConfigFlags,
 	}

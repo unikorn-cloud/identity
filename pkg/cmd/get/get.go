@@ -14,48 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package get
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
-	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/identity/pkg/cmd/create"
 	"github.com/unikorn-cloud/identity/pkg/cmd/factory"
-	"github.com/unikorn-cloud/identity/pkg/cmd/get"
-
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
-func main() {
-	if err := unikornv1.AddToScheme(scheme.Scheme); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
+func Command(factory *factory.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "kubectl-unikorn",
-		Short: "Unikorn kubectl plugin",
-	}
-
-	factory := factory.NewFactory()
-	factory.AddFlags(cmd.PersistentFlags())
-
-	if err := factory.RegisterCompletionFunctions(cmd); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		Use:   "get",
+		Short: "Get resource information",
 	}
 
 	cmd.AddCommand(
-		create.Command(factory),
-		get.Command(factory),
+		getUser(factory),
 	)
 
-	if err := cmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	return cmd
 }
