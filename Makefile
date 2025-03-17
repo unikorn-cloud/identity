@@ -10,8 +10,7 @@ REVISION := $(shell git rev-parse HEAD)
 # Commands to build, the first lot are architecture agnostic and will be built
 # for your host's architecture.  The latter are going to run in Kubernetes, so
 # want to be amd64.
-COMMANDS = \
-  kubectl-unikorn
+COMMANDS =
 
 CONTROLLERS = \
   unikorn-identity \

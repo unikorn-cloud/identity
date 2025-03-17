@@ -279,7 +279,7 @@ signup:
 
 ### Installing the Management Plugin
 
-Download the following artefacts an install them in your path:
+Download the following [artefacts](https://github.com/unikorn-cloud/kubectl-unikorn/releases) and install them in your path:
 
 * `kubectl-unikorn`
 * `kubectl_complete-unikorn`
