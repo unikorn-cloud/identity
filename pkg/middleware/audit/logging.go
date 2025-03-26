@@ -136,13 +136,19 @@ func (l *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	subject := info.Userinfo.Sub
+
+	if info.Userinfo.Email != nil {
+		subject = *info.Userinfo.Email
+	}
+
 	logParams := []any{
 		"component", &Component{
 			Name:    l.application,
 			Version: l.version,
 		},
 		"actor", &Actor{
-			Subject: info.Userinfo.Sub,
+			Subject: subject,
 		},
 		"operation", &Operation{
 			Verb: r.Method,
