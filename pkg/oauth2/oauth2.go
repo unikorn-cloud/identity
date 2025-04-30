@@ -967,16 +967,16 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		q.Set("callback", "https://"+r.Host+"/oauth2/v2/onboard")
 		q.Set("email", idToken.Email.Email)
 
-		if idToken.Profile.Name != "" {
-			q.Set("username", idToken.Profile.Name)
+		if idToken.Name != "" {
+			q.Set("username", idToken.Name)
 		}
 
-		if idToken.Profile.GivenName != "" {
-			q.Set("forename", idToken.Profile.GivenName)
+		if idToken.GivenName != "" {
+			q.Set("forename", idToken.GivenName)
 		}
 
-		if idToken.Profile.FamilyName != "" {
-			q.Set("surname", idToken.Profile.FamilyName)
+		if idToken.FamilyName != "" {
+			q.Set("surname", idToken.FamilyName)
 		}
 
 		http.Redirect(w, r, *client.Spec.OnboardingURI+"?"+q.Encode(), http.StatusFound)
@@ -1302,9 +1302,9 @@ func (a *Authenticator) notifyAccountCreation(ctx context.Context, redirector *r
 
 	webhookData := &OnboardWebhookData{
 		Email:              idToken.Email.Email,
-		Username:           idToken.Profile.Name,
-		Forename:           idToken.Profile.GivenName,
-		Surname:            idToken.Profile.FamilyName,
+		Username:           idToken.Name,
+		Forename:           idToken.GivenName,
+		Surname:            idToken.FamilyName,
 		OrganizationID:     organization.Metadata.Id,
 		OrganizationName:   organization.Metadata.Name,
 		OrganizationUserID: user.Metadata.Id,
@@ -1426,7 +1426,7 @@ func (a *Authenticator) oidcIDToken(r *http.Request, idToken *oidc.IDToken, quer
 	}
 
 	if atHash != "" {
-		claims.Default.ATHash = atHash
+		claims.ATHash = atHash
 	}
 
 	// NOTE: the scope here is intended to defined what happens when you call the
@@ -1625,7 +1625,7 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 		return err
 	}
 
-	user, err := a.rbac.GetActiveUser(ctx, claims.Claims.Subject)
+	user, err := a.rbac.GetActiveUser(ctx, claims.Subject)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup user").WithError(err)
 	}
@@ -1674,7 +1674,7 @@ func (a *Authenticator) TokenRefreshToken(w http.ResponseWriter, r *http.Request
 	info := &IssueInfo{
 		Issuer:    "https://" + r.Host,
 		Audience:  r.Host,
-		Subject:   claims.Claims.Subject,
+		Subject:   claims.Subject,
 		Type:      TokenTypeFederated,
 		Federated: claims.Federated,
 	}

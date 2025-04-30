@@ -308,7 +308,7 @@ func (a *Authenticator) Verify(ctx context.Context, info *VerifyInfo) (*Claims, 
 		Time:   time.Now(),
 	}
 
-	if err := claims.Claims.ValidateWithLeeway(expected, a.options.TokenVerificationLeeway); err != nil {
+	if err := claims.ValidateWithLeeway(expected, a.options.TokenVerificationLeeway); err != nil {
 		return nil, fmt.Errorf("failed to validate claims: %w", err)
 	}
 

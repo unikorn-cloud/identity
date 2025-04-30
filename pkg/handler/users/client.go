@@ -260,7 +260,7 @@ func convert(in *unikornv1.OrganizationUser, user *unikornv1.User, groups *uniko
 			continue
 		}
 
-		if session.LastAuthentication.Time.After(lastActive.Time) {
+		if session.LastAuthentication.After(lastActive.Time) {
 			lastActive = session.LastAuthentication
 		}
 	}

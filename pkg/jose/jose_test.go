@@ -17,7 +17,6 @@ limitations under the License.
 package jose_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -63,8 +62,7 @@ func TestRotation(t *testing.T) {
 
 	issuer := jose.NewJWTIssuer(client, josetesting.Namespace, options)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	require.NoError(t, issuer.Run(ctx, &josetesting.FakeCoordinationClientGetter{}))
 
@@ -110,8 +108,7 @@ func TestJWTIssue(t *testing.T) {
 
 	issuer := jose.NewJWTIssuer(client, josetesting.Namespace, options)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	require.NoError(t, issuer.Run(ctx, &josetesting.FakeCoordinationClientGetter{}))
 
@@ -166,8 +163,7 @@ func TestJWEIssue(t *testing.T) {
 
 	issuer := jose.NewJWTIssuer(client, josetesting.Namespace, options)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	require.NoError(t, issuer.Run(ctx, &josetesting.FakeCoordinationClientGetter{}))
 

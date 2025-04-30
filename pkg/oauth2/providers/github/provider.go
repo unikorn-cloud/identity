@@ -59,7 +59,7 @@ func NewClient(token string) *Client {
 	}
 }
 
-func (p *Client) do(ctx context.Context, path string, data interface{}) error {
+func (p *Client) do(ctx context.Context, path string, data any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubAPIBase+path, nil)
 	if err != nil {
 		return err
