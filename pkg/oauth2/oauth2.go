@@ -191,7 +191,7 @@ const (
 type State struct {
 	// Nonce is the one time nonce used to create the token.
 	Nonce string `json:"n"`
-	// Code verfier is required to prove our identity when
+	// Code verifier is required to prove our identity when
 	// exchanging the code with the token endpoint.
 	CodeVerifier string `json:"cv"`
 	// OAuth2Provider is the name of the provider configuration in
@@ -1377,11 +1377,11 @@ func tokenValidateCode(r *http.Request, query url.Values) error {
 		switch getCodeChallengeMethod(query) {
 		case openapi.Plain:
 			if query.Get("code_challenge") != r.Form.Get("code_verifier") {
-				return errors.OAuth2InvalidClient("code_verfier invalid")
+				return errors.OAuth2InvalidClient("code_verifier invalid")
 			}
 		case openapi.S256:
 			if query.Get("code_challenge") != encodeCodeChallengeS256(r.Form.Get("code_verifier")) {
-				return errors.OAuth2InvalidClient("code_verfier invalid")
+				return errors.OAuth2InvalidClient("code_verifier invalid")
 			}
 		}
 	}
