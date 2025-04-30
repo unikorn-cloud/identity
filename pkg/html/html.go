@@ -44,7 +44,7 @@ func Error(errorString, message string) ([]byte, error) {
 		return nil, err
 	}
 
-	templateContext := map[string]interface{}{
+	templateContext := map[string]any{
 		"error":   errorString,
 		"message": message,
 	}
@@ -65,7 +65,7 @@ func Login(state string) ([]byte, error) {
 		return nil, err
 	}
 
-	templateContext := map[string]interface{}{
+	templateContext := map[string]any{
 		"state": state,
 	}
 
@@ -85,7 +85,7 @@ func WelcomeEmail(verifyLink string) ([]byte, error) {
 		return nil, err
 	}
 
-	templateContext := map[string]interface{}{
+	templateContext := map[string]any{
 		"verifyLink": verifyLink,
 	}
 

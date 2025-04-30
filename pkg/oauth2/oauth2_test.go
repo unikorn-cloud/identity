@@ -17,7 +17,6 @@ limitations under the License.
 package oauth2_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -78,8 +77,7 @@ func TestTokens(t *testing.T) {
 
 	issuer := jose.NewJWTIssuer(client, josetesting.Namespace, joseOptions)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	require.NoError(t, issuer.Run(ctx, &josetesting.FakeCoordinationClientGetter{}))
 

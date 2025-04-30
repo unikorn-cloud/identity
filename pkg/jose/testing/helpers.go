@@ -17,7 +17,6 @@ limitations under the License.
 package testing
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -121,7 +120,7 @@ func RotateCertificate(t *testing.T, client client.Client) []byte {
 		return nil
 	}
 
-	_, err = controllerutil.CreateOrUpdate(context.Background(), client, secret, mutate)
+	_, err = controllerutil.CreateOrUpdate(t.Context(), client, secret, mutate)
 	require.NoError(t, err)
 
 	return key
@@ -132,7 +131,7 @@ func CheckSigningKeys(t *testing.T, cli client.Client, keys ...[]byte) {
 
 	var signingKeys unikornv1.SigningKey
 
-	require.NoError(t, cli.Get(context.Background(), client.ObjectKey{Namespace: Namespace, Name: jose.SigningKeyName}, &signingKeys))
+	require.NoError(t, cli.Get(t.Context(), client.ObjectKey{Namespace: Namespace, Name: jose.SigningKeyName}, &signingKeys))
 	require.Len(t, signingKeys.Spec.PrivateKeys, len(keys))
 
 	for i, privateKey := range signingKeys.Spec.PrivateKeys {

@@ -427,7 +427,7 @@ func (i *JWTIssuer) GetKeyByID(ctx context.Context, keyID string) (*jose.JSONWeb
 	return &pubMatches[0], &privMatches[0], nil
 }
 
-func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims interface{}) (string, error) {
+func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims any) (string, error) {
 	_, priv, err := i.GetPrimaryKey(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to get key pair: %w", err)
@@ -446,7 +446,7 @@ func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims interface{}) (string, 
 	return jwt.Signed(signer).Claims(claims).CompactSerialize()
 }
 
-func (i *JWTIssuer) DecodeJWT(ctx context.Context, tokenString string, claims interface{}) error {
+func (i *JWTIssuer) DecodeJWT(ctx context.Context, tokenString string, claims any) error {
 	token, err := jwt.ParseSigned(tokenString)
 	if err != nil {
 		return err
@@ -514,7 +514,7 @@ const (
 
 // EncodeJWEToken encodes, signs and encrypts as set of claims.
 // For access tokens this implemenrs https://datatracker.ietf.org/doc/html/rfc9068
-func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims interface{}, tokenType TokenType) (string, error) {
+func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims any, tokenType TokenType) (string, error) {
 	// TODO: according to the spec we MUST support RS256, but we do both
 	// issue and verification, so not strictly necessary.
 	pub, priv, err := i.GetPrimaryKey(ctx)
@@ -554,7 +554,7 @@ func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims interface{}, toke
 	return token, nil
 }
 
-func (i *JWTIssuer) DecodeJWEToken(ctx context.Context, tokenString string, claims interface{}, tokenType TokenType) error {
+func (i *JWTIssuer) DecodeJWEToken(ctx context.Context, tokenString string, claims any, tokenType TokenType) error {
 	nestedToken, err := jwt.ParseSignedAndEncrypted(tokenString)
 	if err != nil {
 		return fmt.Errorf("failed to parse encrypted token: %w", err)
