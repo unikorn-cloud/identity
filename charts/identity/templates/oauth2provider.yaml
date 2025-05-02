@@ -12,5 +12,5 @@ metadata:
     unikorn-cloud.org/description: {{ $spec.description }}
   {{- end }}
 spec:
-  {{- toYaml $spec | nindent 2 }}
+  {{- toYaml (unset $spec "description") | nindent 2 }}
 {{- end }}
