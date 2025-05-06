@@ -1639,15 +1639,15 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 		return errors.OAuth2InvalidGrant("no active session for user found")
 	}
 
-	if user.Spec.Sessions[index].RefreshToken != refreshToken {
-		return errors.OAuth2InvalidGrant("refresh token reuse")
+	if err := user.Spec.Sessions[index].RefreshToken.Validate(refreshToken); err != nil {
+		return errors.OAuth2InvalidGrant("refresh token invalid or possible reuse").WithError(err)
 	}
 
 	// Things can still go wrong between here and issuing the new token, so invalidate
 	// the session now rather than relying on the reissue doing it for us.
 	a.InvalidateToken(ctx, user.Spec.Sessions[index].AccessToken)
 
-	user.Spec.Sessions[index].RefreshToken = ""
+	user.Spec.Sessions[index].RefreshToken.Clear()
 
 	if err := a.client.Update(ctx, user); err != nil {
 		return errors.OAuth2ServerError("failed to revoke user session").WithError(err)
