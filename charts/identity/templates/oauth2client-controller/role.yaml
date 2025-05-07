@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: unikorn-oauth2client-controller
+  name: {{ .Release.Name }}-oauth2client-controller
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 rules:

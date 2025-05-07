@@ -1,14 +1,14 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: unikorn-oauth2client-controller
+  name: {{ .Release.Name }}-oauth2client-controller
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 subjects:
 - kind: ServiceAccount
   namespace: {{ .Release.Namespace }}
-  name: unikorn-oauth2client-controller
+  name: {{ .Release.Name }}-oauth2client-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: unikorn-oauth2client-controller
+  name: {{ .Release.Name }}-oauth2client-controller
