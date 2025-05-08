@@ -926,7 +926,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 	// Now we have done code exchange, we have access to the id_token and that
 	// allows us to see if the user actually exists.  If it doesn't then we
 	// either deny entry or let them signup.
-	user, err := a.rbac.GetUser(r.Context(), idToken.Email.Email)
+	user, err := a.rbac.GetUserByEmail(r.Context(), idToken.Email.Email)
 	if err != nil {
 		if !goerrors.Is(err, rbac.ErrResourceReference) {
 			redirector.raise(ErrorServerError, "user lookup failure")
@@ -1275,7 +1275,7 @@ func (a *Authenticator) Onboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shadowUser, err := a.rbac.GetUser(r.Context(), state.IDToken.Email.Email)
+	shadowUser, err := a.rbac.GetUserByEmail(r.Context(), state.IDToken.Email.Email)
 	if err != nil {
 		redirector.raise(ErrorServerError, "failed to read shadow user")
 		return
@@ -1399,7 +1399,7 @@ func oidcHash(value string) string {
 }
 
 // oidcIDToken builds an OIDC ID token.
-func (a *Authenticator) oidcIDToken(r *http.Request, idToken *oidc.IDToken, query url.Values, expiry time.Duration, atHash string, lastAuthenticationTime time.Time) (*string, error) {
+func (a *Authenticator) oidcIDToken(r *http.Request, userID string, idToken *oidc.IDToken, query url.Values, expiry time.Duration, atHash string, lastAuthenticationTime time.Time) (*string, error) {
 	scope := strings.Split(query.Get("scope"), " ")
 
 	//nolint:nilnil
@@ -1409,9 +1409,8 @@ func (a *Authenticator) oidcIDToken(r *http.Request, idToken *oidc.IDToken, quer
 
 	claims := &oidc.IDToken{
 		Claims: jwt.Claims{
-			Issuer: "https://" + r.Host,
-			// TODO: we should use the user ID.
-			Subject: idToken.Email.Email,
+			Issuer:  "https://" + r.Host,
+			Subject: userID,
 			Audience: []string{
 				query.Get("client_id"),
 			},
@@ -1480,8 +1479,8 @@ func (a *Authenticator) validateClientSecret(r *http.Request, query url.Values) 
 }
 
 // revokeSession revokes all tokens for a clientID.
-func (a *Authenticator) revokeSession(ctx context.Context, clientID, codeID, subject string) error {
-	user, err := a.rbac.GetActiveUser(ctx, subject)
+func (a *Authenticator) revokeSession(ctx context.Context, clientID, codeID, userID string) error {
+	user, err := a.rbac.GetActiveUserByID(ctx, userID)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup user").WithError(err)
 	}
@@ -1542,7 +1541,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	// authentication code, we just clear out anything associated with the client
 	// session.
 	if _, ok := a.codeCache.Get(codeRaw); !ok {
-		_ = a.revokeSession(r.Context(), clientID, code.ID, code.IDToken.Email.Email)
+		_ = a.revokeSession(r.Context(), clientID, code.ID, code.UserID)
 
 		return nil, errors.OAuth2InvalidGrant("code is not present in cache")
 	}
@@ -1552,12 +1551,10 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	info := &IssueInfo{
 		Issuer:   "https://" + r.Host,
 		Audience: r.Host,
-		// TODO: we should probably use the user ID here.
-		Subject: code.IDToken.Email.Email,
-		Type:    TokenTypeFederated,
+		Subject:  code.UserID,
+		Type:     TokenTypeFederated,
 		Federated: &FederatedClaims{
 			ClientID: clientID,
-			UserID:   code.UserID,
 			Provider: code.OAuth2Provider,
 			Scope:    NewScope(clientQuery.Get("scope")),
 		},
@@ -1571,7 +1568,7 @@ func (a *Authenticator) TokenAuthorizationCode(w http.ResponseWriter, r *http.Re
 	}
 
 	// Handle OIDC.
-	idToken, err := a.oidcIDToken(r, code.IDToken, clientQuery, a.options.AccessTokenDuration, oidcHash(tokens.AccessToken), tokens.LastAuthenticationTime)
+	idToken, err := a.oidcIDToken(r, code.UserID, code.IDToken, clientQuery, a.options.AccessTokenDuration, oidcHash(tokens.AccessToken), tokens.LastAuthenticationTime)
 	if err != nil {
 		return nil, err
 	}
@@ -1625,7 +1622,7 @@ func (a *Authenticator) validateRefreshToken(ctx context.Context, r *http.Reques
 		return err
 	}
 
-	user, err := a.rbac.GetActiveUser(ctx, claims.Subject)
+	user, err := a.rbac.GetActiveUserByID(ctx, claims.Subject)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to lookup user").WithError(err)
 	}
