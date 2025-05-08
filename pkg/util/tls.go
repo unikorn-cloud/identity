@@ -77,9 +77,9 @@ func GetClientCertificate(in string) (*x509.Certificate, error) {
 	return certificate, nil
 }
 
-// GetClientCertiifcateThumbprint returns the client certificate thumbprint as defined
+// GetClientCertifcateThumbprint returns the client certificate thumbprint as defined
 // by RFC8705.
-func GetClientCertiifcateThumbprint(certificate *x509.Certificate) string {
+func GetClientCertifcateThumbprint(certificate *x509.Certificate) string {
 	sum := sha256.Sum256(certificate.Raw)
 
 	return base64.URLEncoding.EncodeToString(sum[:])

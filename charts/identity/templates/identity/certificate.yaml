@@ -1,20 +1,20 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: unikorn-identity-jose-tls
+  name: {{ .Release.Name }}-jose-tls
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 spec:
   issuerRef:
     kind: Issuer
-    name: unikorn-identity-jose
+    name: {{ .Release.Name }}-jose
   privateKey:
     algorithm: ECDSA
     encoding: PKCS8
     size: 521
     rotationPolicy: Always
   commonName : Unikorn Server JOSE Key
-  secretName: unikorn-identity-jose-tls
+  secretName: {{ .Release.Name }}-jose-tls
   # Twice the duration to caterfor overlap, then convert to hours (2 * 24).
   duration: {{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 48) }}
   renewBefore: {{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}

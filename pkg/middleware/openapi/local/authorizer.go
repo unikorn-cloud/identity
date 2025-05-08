@@ -104,7 +104,7 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 			return nil, errors.OAuth2AccessDenied("client certificate parse error").WithError(err)
 		}
 
-		thumbprint := util.GetClientCertiifcateThumbprint(certificate)
+		thumbprint := util.GetClientCertifcateThumbprint(certificate)
 
 		if thumbprint != claims.Service.X509Thumbprint {
 			return nil, errors.OAuth2AccessDenied("client certificate mismatch for bound token")

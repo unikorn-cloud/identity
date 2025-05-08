@@ -6,7 +6,7 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: unikorn-identity-client
+  name: {{ .Release.Name }}-client
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 spec:
@@ -18,5 +18,5 @@ spec:
     algorithm: RSA
     encoding: PKCS8
     size: 4096
-  secretName: {{ .Release.Namespace }}-client-certificate
+  secretName: {{ include "unikorn.mtls.certificate-name" . }}
   commonName: unikorn-identity

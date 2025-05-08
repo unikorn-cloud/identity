@@ -1707,7 +1707,7 @@ func (a *Authenticator) TokenClientCredentials(w http.ResponseWriter, r *http.Re
 		return nil, errors.OAuth2InvalidRequest("mTLS certificate validation failed").WithError(err)
 	}
 
-	thumbprint := util.GetClientCertiifcateThumbprint(certificate)
+	thumbprint := util.GetClientCertifcateThumbprint(certificate)
 
 	info := &IssueInfo{
 		Issuer:   "https://" + r.Host,

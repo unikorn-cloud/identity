@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: unikorn-organization-controller
+  name: {{ .Release.Name }}-organization-controller
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: unikorn-organization-controller
+      app: {{ .Release.Name }}-organization-controller
   template:
     metadata:
       labels:
-        app: unikorn-organization-controller
+        app: {{ .Release.Name }}-organization-controller
     spec:
       containers:
-      - name: unikorn-organization-controller
+      - name: {{ .Release.Name }}-organization-controller
         image: {{ include "unikorn.organizationControllerImage" . }}
         args:
         {{- include "unikorn.core.flags" . | nindent 8 }}
@@ -29,6 +29,6 @@ spec:
             memory: 100Mi
         securityContext:
           readOnlyRootFilesystem: true
-      serviceAccountName: unikorn-organization-controller
+      serviceAccountName: {{ .Release.Name }}-organization-controller
       securityContext:
         runAsNonRoot: true

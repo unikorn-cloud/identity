@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: unikorn-identity
+  name: {{ .Release.Name }}-server
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: unikorn-identity
+      app: {{ .Release.Name }}-server
   template:
     metadata:
       labels:
-        app: unikorn-identity
+        app: {{ .Release.Name }}-server
     spec:
       containers:
-      - name: unikorn-identity
+      - name: {{ .Release.Name }}-server
         image: {{ include "unikorn.image" . }}
         args:
         {{- include "unikorn.core.flags" . | nindent 8 }}
         {{- include "unikorn.cors.flags" . | nindent 8 }}
         {{- include "unikorn.otlp.flags" . | nindent 8 }}
         - --host=https://{{ include "unikorn.identity.host" . }}
-        - --jose-tls-secret=unikorn-identity-jose-tls
+        - --jose-tls-secret={{ .Release.Name }}-jose-tls
         - --refresh-token-duration={{ printf "%dh" (mul .Values.issuer.maxTokenDurationDays 24) }}
         {{- $adminRoles := list }}
         {{- range $index, $name := .Values.platformAdministrators.roles }}
@@ -77,6 +77,6 @@ spec:
             memory: 100Mi
         securityContext:
           readOnlyRootFilesystem: true
-      serviceAccountName: unikorn-identity
+      serviceAccountName: {{ .Release.Name }}-server
       securityContext:
         runAsNonRoot: true

@@ -4,7 +4,7 @@
 apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
-  name: unikorn-identity-jose
+  name: {{ .Release.Name }}-jose
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 spec:
