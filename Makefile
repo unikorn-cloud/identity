@@ -99,7 +99,7 @@ GENARGS = --go-header-file hack/boilerplate.go.txt
 GENCLIENTNAME = unikorn
 
 # This defines how docker containers are tagged.
-DOCKER_ORG = ghcr.io/unikorn-cloud
+DOCKER_ORG = ghcr.io/nscaledev
 
 # Main target, builds all binaries.
 .PHONY: all
