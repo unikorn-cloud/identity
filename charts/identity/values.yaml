@@ -2,7 +2,7 @@
 repository: ghcr.io
 
 # Set the global container repo organization.
-organization: unikorn-cloud
+organization: nscaledev
 
 # Set the global container tag.
 # Defaults to the chart revision, which should be in lock-step with the
@@ -84,7 +84,7 @@ issuer:
 #     # The client ID assigned by the identity provider.
 #     clientID: foo.apps.googleusercontent.com
 #     # The client secret assigned by the identity provider.
-#     clientSecret:  GOCSPX-akjfdns3238r328r9832rewjbds
+#     clientSecret: something_from_google
 
 # platformAdministratorRole is a role that can be implicitly added to users
 # and service accounts.
