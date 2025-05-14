@@ -96,4 +96,4 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/unikorn-cloud/core => github.com/nscaledev/uni-core v1.0.0-rc2
+replace github.com/unikorn-cloud/core => github.com/nscaledev/uni-core v1.0.0
