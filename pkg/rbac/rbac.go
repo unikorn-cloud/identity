@@ -321,6 +321,35 @@ func (r *RBAC) accumulatePermissions(groups map[string]*unikornv1.Group, roles m
 	return nil
 }
 
+// getSystemAccountRole looks for a system account and dereferences that to
+// get the role defined for it.
+func (r *RBAC) getSystemAccountRole(ctx context.Context, subject string) (*unikornv1.Role, error) {
+	systemAccounts := &unikornv1.SystemAccountList{}
+
+	if err := r.client.List(ctx, systemAccounts, &client.ListOptions{}); err != nil {
+		return nil, err
+	}
+
+	matchesSubject := func(s unikornv1.SystemAccount) bool {
+		return s.Name == subject
+	}
+
+	index := slices.IndexFunc(systemAccounts.Items, matchesSubject)
+	if index < 0 {
+		return nil, fmt.Errorf("%w: system account %s not found", ErrResourceReference, subject)
+	}
+
+	systemAccount := &systemAccounts.Items[index]
+
+	role := &unikornv1.Role{}
+
+	if err := r.client.Get(ctx, client.ObjectKey{Namespace: systemAccount.Namespace, Name: systemAccount.Spec.Role.Name}, role); err != nil {
+		return nil, fmt.Errorf("%w: role referenced by system account %s not found", ErrResourceReference, subject)
+	}
+
+	return role, nil
+}
+
 // GetACL returns a granular set of permissions for a user based on their scope.
 // This is used for API level access control and UX.
 //
@@ -358,17 +387,11 @@ func (r *RBAC) GetACL(ctx context.Context, organizationID string) (*openapi.Acl,
 
 	switch {
 	case info.SystemAccount:
-		// System accounts act on behalf of users, so by definition need globally
-		// scoped roles.  As such they are explcitly mapped by the operations team
-		// when deploying.
-		roleID, ok := r.options.SystemAccountRoleIDs[info.Userinfo.Sub]
-		if !ok {
-			return nil, fmt.Errorf("%w: system account '%s' not registered", ErrResourceReference, info.Userinfo.Sub)
-		}
-
-		role, ok := roles[roleID]
-		if !ok {
-			return nil, fmt.Errorf("%w: system account '%s' references undefined role ID", ErrResourceReference, info.Userinfo.Sub)
+		// System accounts act on behalf of users, and are defined by the service
+		// that requires them.
+		role, err := r.getSystemAccountRole(ctx, info.Userinfo.Sub)
+		if err != nil {
+			return nil, err
 		}
 
 		addScopesToEndpointList(&globalACL, role.Spec.Scopes.Global)
