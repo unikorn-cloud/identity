@@ -240,7 +240,7 @@ func convertUserState(in unikornv1.UserState) openapi.UserState {
 
 func convert(in *unikornv1.OrganizationUser, user *unikornv1.User, groups *unikornv1.GroupList) *openapi.UserRead {
 	out := &openapi.UserRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.UserSpec{
 			Subject:  user.Spec.Subject,
 			State:    convertUserState(in.Spec.State),

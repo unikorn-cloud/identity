@@ -24,7 +24,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -77,7 +76,7 @@ func New(client client.Client, namespace, host string, oauth2 *oauth2.Authentica
 // convert converts from Kubernetes into OpenAPI for normal read requests.
 func convert(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi.ServiceAccountRead {
 	out := &openapi.ServiceAccountRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.ServiceAccountSpec{
 			GroupIDs: make(openapi.GroupIDs, 0, len(groups.Items)),
 		},

@@ -22,7 +22,6 @@ import (
 	"slices"
 	"strings"
 
-	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -51,7 +50,7 @@ func New(client client.Client, namespace string) *Client {
 
 func convert(in *unikornv1.Group) *openapi.GroupRead {
 	out := &openapi.GroupRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.GroupSpec{
 			RoleIDs:           openapi.StringList{},
 			UserIDs:           openapi.StringList{},
