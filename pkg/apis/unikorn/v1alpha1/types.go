@@ -20,6 +20,7 @@ package v1alpha1
 import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -515,4 +516,37 @@ type ResourceAllocation struct {
 }
 
 type AllocationStatus struct {
+}
+
+// SystemAccountList is a list of system accounts.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+type SystemAccountList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SystemAccount `json:"items"`
+}
+
+// SystemAccount is a namespaced resource that defines a system account name
+// (provided by clients as an X.509 client certificate CN) and a role associated
+// with that client.  This aims to decouple services, and role definitions,
+// from the identity service itself.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:printcolumn:name="role",type="string",JSONPath=".spec.role.name"
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+type SystemAccount struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              SystemAccountSpec   `json:"spec"`
+	Status            SystemAccountStatus `json:"status,omitempty"`
+}
+
+type SystemAccountSpec struct {
+	// Role is a reference to the role name defined in the local namespace.
+	Role corev1.LocalObjectReference `json:"role"`
+}
+
+type SystemAccountStatus struct {
 }
