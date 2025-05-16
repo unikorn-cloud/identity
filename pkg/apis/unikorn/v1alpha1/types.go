@@ -310,18 +310,22 @@ type UserSignup struct {
 	ClientID string `json:"clientID"`
 }
 
+// Token abstracts token storage in a CRD, with possible obfuscation.
+type Token string
+
 type UserSession struct {
 	// ClientID is the client the session is bound to.
 	ClientID string `json:"clientID"`
 	// AuthorizationCodeID is the authorization code ID used to generate
 	// the tokens.
 	AuthorizationCodeID string `json:"authorizationCodeID"`
-	// AccessToken s the access token currently issued for the
-	// session.
-	AccessToken string `json:"accessToken"`
+	// AccessToken is the access token currently issued for the
+	// session.  This field is opaque, and may be hashed for security.
+	AccessToken Token `json:"accessToken"`
 	// RefreshToken is the single-use refresh token currently
-	// issued for the session.
-	RefreshToken string `json:"refreshToken"`
+	// issued for the session. This field is opaque, and may be hashed
+	// for security.
+	RefreshToken Token `json:"refreshToken"`
 	// LastAuthentication records when the user last authenticated.
 	LastAuthentication *metav1.Time `json:"lastAuthentication,omitempty"`
 }
@@ -382,7 +386,7 @@ type ServiceAccountSpec struct {
 	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// AccessToken is the encrypted access token that is valid for this
 	// service acocunt.
-	AccessToken string `json:"accessToken"`
+	AccessToken Token `json:"accessToken"`
 	// Expiry is a hint as to when the issued token will exipre.
 	// The access token itself is the source of truth, provided the private key is
 	// still around, so this is a fallback, as well as a cache to improve API read
