@@ -21,9 +21,7 @@ import (
 	"slices"
 	"strings"
 
-	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/core/pkg/constants"
-	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -87,14 +85,8 @@ func convertOrganizationType(in *unikornv1.Organization) openapi.OrganizationTyp
 }
 
 func convert(in *unikornv1.Organization) *openapi.OrganizationRead {
-	provisioningStatus := coreopenapi.ResourceProvisioningStatusUnknown
-
-	if condition, err := in.StatusConditionRead(unikornv1core.ConditionAvailable); err == nil {
-		provisioningStatus = conversion.ConvertStatusCondition(condition)
-	}
-
 	out := &openapi.OrganizationRead{
-		Metadata: conversion.ResourceReadMetadata(in, in.Spec.Tags, provisioningStatus),
+		Metadata: conversion.ResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.OrganizationSpec{
 			OrganizationType: convertOrganizationType(in),
 		},

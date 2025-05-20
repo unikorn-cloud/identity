@@ -23,8 +23,6 @@ import (
 	"slices"
 	"strings"
 
-	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -54,14 +52,8 @@ func New(client client.Client, namespace string) *Client {
 }
 
 func convert(in *unikornv1.Project) *openapi.ProjectRead {
-	provisioningStatus := coreopenapi.ResourceProvisioningStatusUnknown
-
-	if condition, err := in.StatusConditionRead(unikornv1core.ConditionAvailable); err == nil {
-		provisioningStatus = conversion.ConvertStatusCondition(condition)
-	}
-
 	out := &openapi.ProjectRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, provisioningStatus),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.ProjectSpec{
 			GroupIDs: openapi.GroupIDs{},
 		},

@@ -21,7 +21,6 @@ import (
 	"context"
 	"slices"
 
-	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
@@ -44,7 +43,7 @@ func New(client client.Client, namespace string) *Client {
 
 func convert(in unikornv1.Role) openapi.RoleRead {
 	out := openapi.RoleRead{
-		Metadata: conversion.ResourceReadMetadata(&in, in.Spec.Tags, coreapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.ResourceReadMetadata(&in, in.Spec.Tags),
 	}
 
 	return out

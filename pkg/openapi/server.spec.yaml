@@ -2257,6 +2257,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               issuer: https://accounts.google.com
               clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
@@ -2274,6 +2275,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               issuer: https://accounts.google.com
               clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
@@ -2291,6 +2293,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               issuer: https://accounts.google.com
               clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
@@ -2307,6 +2310,7 @@ components:
               name: acme-corp
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               organizationType: domain
               domain: acme.corp
@@ -2325,6 +2329,7 @@ components:
               name: acme-corp
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               organizationType: domain
               domain: acme.corp
@@ -2366,6 +2371,7 @@ components:
               description: Platform administrators.
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
     groupResponse:
       description: |-
         A group in the organization.
@@ -2380,6 +2386,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               userIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
@@ -2401,6 +2408,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               userIDs:
               - d4600d6e-e965-4b44-a808-84fb2fa36702
@@ -2421,6 +2429,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               groupIDs:
               - ef509cd1-c7e6-42f8-aae7-a01164dc60dc
@@ -2437,6 +2446,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               groupIDs:
               - ef509cd1-c7e6-42f8-aae7-a01164dc60dc
@@ -2453,6 +2463,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               groupIDs:
               - f2000047-19f8-426e-93b9-9f0a5bfa0edd
@@ -2471,6 +2482,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               groupIDs:
               - f2000047-19f8-426e-93b9-9f0a5bfa0edd
@@ -2489,6 +2501,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               groupIDs:
               - f2000047-19f8-426e-93b9-9f0a5bfa0edd
@@ -2508,6 +2521,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               subject: john.doe@acme.com
               state: active
@@ -2528,6 +2542,7 @@ components:
               organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               subject: john.doe@acme.com
               state: active
@@ -2566,6 +2581,7 @@ components:
               projectId: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               kind: kubernetescluster
               id: e0b6a5d2-ef9b-4f61-8d84-033b81ad3f73
@@ -2590,6 +2606,7 @@ components:
               projectId: a4e7fddc-4812-4bfa-94b4-2b1174ac7e0e
               creationTime: 2024-05-31T14:11:00Z
               provisioningStatus: provisioned
+              healthStatus: healthy
             spec:
               kind: kubernetescluster
               id: e0b6a5d2-ef9b-4f61-8d84-033b81ad3f73

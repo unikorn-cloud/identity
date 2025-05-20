@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
-	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -81,7 +80,7 @@ func convertAllocationList(in []unikornv1.ResourceAllocation) openapi.ResourceAl
 
 func convert(in *unikornv1.Allocation) *openapi.AllocationRead {
 	out := &openapi.AllocationRead{
-		Metadata: conversion.ProjectScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.ProjectScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.AllocationSpec{
 			Kind:        in.Labels[constants.ReferencedResourceKindLabel],
 			Id:          in.Labels[constants.ReferencedResourceIDLabel],

@@ -21,7 +21,6 @@ import (
 	"slices"
 	"strings"
 
-	coreopenapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -63,7 +62,7 @@ func (c *Client) get(ctx context.Context, organization *organizations.Meta, prov
 
 func convert(in *unikornv1.OAuth2Provider) *openapi.Oauth2ProviderRead {
 	out := &openapi.Oauth2ProviderRead{
-		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags, coreopenapi.ResourceProvisioningStatusProvisioned),
+		Metadata: conversion.OrganizationScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.Oauth2ProviderSpec{
 			ClientID: in.Spec.ClientID,
 		},
