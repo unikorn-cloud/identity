@@ -2,6 +2,21 @@ apiVersion: v1
 entries:
   unikorn-identity:
   - apiVersion: v2
+    appVersion: v1.1.0-rc2
+    created: "2025-05-20T13:37:43.649585537Z"
+    dependencies:
+    - name: unikorn-common
+      repository: https://nscaledev.github.io/uni-helm-common
+      version: v0.1.15
+    description: A Helm chart for deploying Unikorn's IdP
+    digest: aa61d82e47aa9d9b53af67f44c1bd8697fe9225dd767315afa43ad2b347d6c2e
+    icon: https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/icon.png
+    name: unikorn-identity
+    type: application
+    urls:
+    - https://github.com/nscaledev/uni-identity/releases/download/v1.1.0-rc2/unikorn-identity-v1.1.0-rc2.tgz
+    version: v1.1.0-rc2
+  - apiVersion: v2
     appVersion: v1.1.0-rc1
     created: "2025-05-16T09:28:54.577283653Z"
     dependencies:
@@ -2133,4 +2148,4 @@ entries:
     urls:
     - https://github.com/unikorn-cloud/identity/releases/download/v0.1.0/unikorn-identity-v0.1.0.tgz
     version: v0.1.0
-generated: "2025-05-16T09:28:54.577781605Z"
+generated: "2025-05-20T13:37:43.650149347Z"
