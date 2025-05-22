@@ -3420,7 +3420,7 @@ func (r GetApiV1OrganizationsResponse) StatusCode() int {
 type PostApiV1OrganizationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON202      *OrganizationRead
+	JSON202      *OrganizationResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -5312,7 +5312,7 @@ func ParsePostApiV1OrganizationsResponse(rsp *http.Response) (*PostApiV1Organiza
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 202:
-		var dest OrganizationRead
+		var dest OrganizationResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -157,6 +157,7 @@ type AclScopedEndpointsList = []AclScopedEndpoints
 
 // AllocationRead An allocation of resources.
 type AllocationRead struct {
+	// Metadata Metadata required by project scoped resource reads.
 	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A set of resource allocations.
@@ -177,7 +178,7 @@ type AllocationSpec struct {
 
 // AllocationWrite An allocation of resources.
 type AllocationWrite struct {
-	// Metadata Resource metadata valid for all API resource reads and writes.
+	// Metadata Metadata required for all API resource reads and writes.
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A set of resource allocations.
@@ -190,7 +191,7 @@ type Allocations = []AllocationRead
 // AuthMethod Supported authentication methods.
 type AuthMethod string
 
-// AuthorizationRequestOptions aith2/OIDC authorization endpoint request.
+// AuthorizationRequestOptions OAuth 2.0/OIDC authorization endpoint request.
 type AuthorizationRequestOptions struct {
 	// AcrValues Requested content class reference values.
 	AcrValues *string `json:"acr_values"`
@@ -246,6 +247,7 @@ type GroupIDs = []string
 
 // GroupRead A group when read.
 type GroupRead struct {
+	// Metadata Metadata required by organization scoped resource reads.
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A group.
@@ -266,7 +268,7 @@ type GroupSpec struct {
 
 // GroupWrite A group when created or updated.
 type GroupWrite struct {
-	// Metadata Resource metadata valid for all API resource reads and writes.
+	// Metadata Metadata required for all API resource reads and writes.
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A group.
@@ -290,29 +292,28 @@ type LoginRequestOptions struct {
 	// Email The user's email address.
 	Email *string `json:"email"`
 
-	// Provider The explcit provider type.
+	// Provider The explicit provider type.
 	Provider *string `json:"provider"`
 
 	// State The state string supplied by the authorization endpoint.
 	State string `json:"state"`
 }
 
-// Oauth2ProviderRead An OAuth2 provider when read.
+// Oauth2ProviderRead An OAuth 2.0 provider when read.
 type Oauth2ProviderRead struct {
+	// Metadata Metadata required by organization scoped resource reads.
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
-	// Spec An oauth2 provider.
+	// Spec An OAuth 2.0 provider.
 	Spec Oauth2ProviderSpec `json:"spec"`
 }
 
-// Oauth2ProviderSpec An oauth2 provider.
+// Oauth2ProviderSpec An OAuth 2.0 provider.
 type Oauth2ProviderSpec struct {
-	// ClientID The client identification, only shown for super admin or organization owned providers
-	// that you are an admin for.
+	// ClientID The client identification.
 	ClientID string `json:"clientID"`
 
-	// ClientSecret The client secret, only shown for super admin or organization owned providers
-	// that you are an admin for.
+	// ClientSecret The client secret.
 	ClientSecret *string `json:"clientSecret,omitempty"`
 
 	// Issuer The OIDC issuer, typically where to perform auto discovery relative to.
@@ -325,16 +326,16 @@ type Oauth2ProviderSpec struct {
 // Oauth2ProviderType The type of identity provider.
 type Oauth2ProviderType string
 
-// Oauth2ProviderWrite An OAuth2 provider when created or updated.
+// Oauth2ProviderWrite An OAuth 2.0 provider when created or updated.
 type Oauth2ProviderWrite struct {
-	// Metadata Resource metadata valid for all API resource reads and writes.
+	// Metadata Metadata required for all API resource reads and writes.
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
-	// Spec An oauth2 provider.
+	// Spec An OAuth 2.0 provider.
 	Spec Oauth2ProviderSpec `json:"spec"`
 }
 
-// Oauth2Providers A list of oauth2 providers.
+// Oauth2Providers A list of OAuth 2.0 providers.
 type Oauth2Providers = []Oauth2ProviderRead
 
 // OnboardRequestOptions Onboard request options.
@@ -360,10 +361,10 @@ type OnboardRequestOptions struct {
 
 // OpenidConfiguration OpenID configuration.
 type OpenidConfiguration struct {
-	// AuthorizationEndpoint The oauth2 endpoint that initiates authentication.
+	// AuthorizationEndpoint The OAuth 2.0 endpoint that initiates authentication.
 	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
-	// ClaimsParameterSupported Whether claims can be requested indvidually.
+	// ClaimsParameterSupported Whether claims can be requested individually.
 	ClaimsParameterSupported bool `json:"claims_parameter_supported"`
 
 	// ClaimsSupported A list of supported claims
@@ -381,7 +382,7 @@ type OpenidConfiguration struct {
 	// Issuer The OpenID Issuer (iss field).
 	Issuer string `json:"issuer"`
 
-	// JwksUri The oauth2 endpoint that exposes public signing keys for token validation.
+	// JwksUri The endpoint that exposes public signing keys for token validation.
 	JwksUri string `json:"jwks_uri"`
 
 	// RequestParameterSupported Whether requests can be passed as a JWT object.
@@ -396,22 +397,22 @@ type OpenidConfiguration struct {
 	// ResponseTypesSupported A list of supported response types that can be requested for the authorization endpoint.
 	ResponseTypesSupported []ResponseType `json:"response_types_supported"`
 
-	// ScopesSupported A list of supported oauth2 scopes.
+	// ScopesSupported A list of supported OAuth 2.0 scopes.
 	ScopesSupported []Scope `json:"scopes_supported"`
 
-	// TokenEndpoint The oauth2 endpoint that is used to exchange an authentication code for tokens.
+	// TokenEndpoint The OAuth 2.0 endpoint that is used to exchange an authentication code for tokens.
 	TokenEndpoint string `json:"token_endpoint"`
 
 	// TokenEndpointAuthMethodsSupported A list of supported authentication methods for the token endpoint.
 	TokenEndpointAuthMethodsSupported []AuthMethod `json:"token_endpoint_auth_methods_supported"`
 
-	// UserinfoEndpoint The oidc endpoint used to get information about an access token's user.
+	// UserinfoEndpoint The OIDC endpoint used to get information about an access token's user.
 	UserinfoEndpoint string `json:"userinfo_endpoint"`
 }
 
 // OrganizationRead An organization when read.
 type OrganizationRead struct {
-	// Metadata Resource metadata valid for all reads.
+	// Metadata Metadata required by all resource reads.
 	Metadata externalRef0.ResourceReadMetadata `json:"metadata"`
 
 	// Spec An organization.
@@ -424,16 +425,14 @@ type OrganizationSpec struct {
 	Domain *string `json:"domain,omitempty"`
 
 	// GoogleCustomerID When set this identifies the customer ID for the google managed organization.
-	// This enables the access to, and use of, Google groups as a source of truth
-	// for RBAC.
+	// This field is currently unused.
 	GoogleCustomerID *string `json:"googleCustomerID,omitempty"`
 
-	// OrganizationType Describes the authntication menthod of the organization.  Adhoc authentication
+	// OrganizationType Describes the authentication method of the organization.  Ad hoc authentication
 	// means that users are exclusively added via explicit group membership  And must
 	// use a 'sign-in via' option.  Domain authentication means that users may login
 	// via their email address, must in the case of custom identity providers, that
-	// maps from domain to an identity provider.  This enables authentication options
-	// such as implicit group mappings for RBAC.
+	// maps from domain to an identity provider.
 	OrganizationType OrganizationType `json:"organizationType"`
 
 	// ProviderID The ID of the provider to use, the scope is determined by useCustomProvider.
@@ -441,22 +440,21 @@ type OrganizationSpec struct {
 	// specific one.
 	ProviderID *string `json:"providerID,omitempty"`
 
-	// ProviderScope Describes how to lookup the provider, when global, use a built in generic provider
-	// e.g. Google/Microsoft, when organization, us an organization scoped provider.
+	// ProviderScope Describes how to lookup the provider, when "global", use a built in generic provider
+	// e.g. Google/Microsoft, when "organization", use an organization scoped provider.
 	ProviderScope *ProviderScope `json:"providerScope,omitempty"`
 }
 
-// OrganizationType Describes the authntication menthod of the organization.  Adhoc authentication
+// OrganizationType Describes the authentication method of the organization.  Ad hoc authentication
 // means that users are exclusively added via explicit group membership  And must
 // use a 'sign-in via' option.  Domain authentication means that users may login
 // via their email address, must in the case of custom identity providers, that
-// maps from domain to an identity provider.  This enables authentication options
-// such as implicit group mappings for RBAC.
+// maps from domain to an identity provider.
 type OrganizationType string
 
 // OrganizationWrite An organization when created or updated.
 type OrganizationWrite struct {
-	// Metadata Resource metadata valid for all API resource reads and writes.
+	// Metadata Metadata required for all API resource reads and writes.
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec An organization.
@@ -468,6 +466,7 @@ type Organizations = []OrganizationRead
 
 // ProjectRead A project when read.
 type ProjectRead struct {
+	// Metadata Metadata required by organization scoped resource reads.
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A project.
@@ -482,7 +481,7 @@ type ProjectSpec struct {
 
 // ProjectWrite A project when created or updated.
 type ProjectWrite struct {
-	// Metadata Resource metadata valid for all API resource reads and writes.
+	// Metadata Metadata required for all API resource reads and writes.
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A project.
@@ -492,13 +491,13 @@ type ProjectWrite struct {
 // Projects A list of projects.
 type Projects = []ProjectRead
 
-// ProviderScope Describes how to lookup the provider, when global, use a built in generic provider
-// e.g. Google/Microsoft, when organization, us an organization scoped provider.
+// ProviderScope Describes how to lookup the provider, when "global", use a built in generic provider
+// e.g. Google/Microsoft, when "organization", use an organization scoped provider.
 type ProviderScope string
 
 // QuotaRead A single quota.
 type QuotaRead struct {
-	// Committed Tha amount of that resource always in use.
+	// Committed The amount of that resource always in use.
 	Committed int `json:"committed"`
 
 	// Default The default value of the quota.
@@ -516,7 +515,7 @@ type QuotaRead struct {
 	// Kind The kind of resource.
 	Kind string `json:"kind"`
 
-	// Quantity Tha maximum amount of that resource.
+	// Quantity The maximum amount of that resource.
 	Quantity int `json:"quantity"`
 
 	// Reserved The amount of that resource that may be used e.g. autoscaled.
@@ -534,7 +533,7 @@ type QuotaWrite struct {
 	// Kind The kind of resource.
 	Kind string `json:"kind"`
 
-	// Quantity Tha maximum amount of that resource.
+	// Quantity The maximum amount of that resource.
 	Quantity int `json:"quantity"`
 }
 
@@ -555,7 +554,7 @@ type QuotasWrite struct {
 
 // ResourceAllocation A single quota but taking into account dynamic allocation.
 type ResourceAllocation struct {
-	// Committed Tha amount of that resource always in use.
+	// Committed The amount of that resource always in use.
 	Committed int `json:"committed"`
 
 	// Kind The kind of resource.
@@ -576,7 +575,7 @@ type ResponseType string
 
 // RoleRead A role.
 type RoleRead struct {
-	// Metadata Resource metadata valid for all reads.
+	// Metadata Metadata required by all resource reads.
 	Metadata externalRef0.ResourceReadMetadata `json:"metadata"`
 }
 
@@ -588,6 +587,7 @@ type Scope string
 
 // ServiceAccountCreate A new service account.
 type ServiceAccountCreate struct {
+	// Metadata Metadata required by organization scoped resource reads.
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A service account specification.
@@ -599,6 +599,7 @@ type ServiceAccountCreate struct {
 
 // ServiceAccountRead A service account.
 type ServiceAccountRead struct {
+	// Metadata Metadata required by organization scoped resource reads.
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A service account specification.
@@ -616,7 +617,7 @@ type ServiceAccountSpec struct {
 
 // ServiceAccountStatus A service account status.
 type ServiceAccountStatus struct {
-	// AccessToken A long lived acccess token that can be exchanged for an API access token.
+	// AccessToken A long lived access token that can be exchanged for an API access token.
 	AccessToken *string `json:"accessToken,omitempty"`
 
 	// Expiry When the service token is due to expire.
@@ -625,7 +626,7 @@ type ServiceAccountStatus struct {
 
 // ServiceAccountWrite A service account creation request.
 type ServiceAccountWrite struct {
-	// Metadata Resource metadata valid for all API resource reads and writes.
+	// Metadata Metadata required for all API resource reads and writes.
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A service account specification.
@@ -641,7 +642,7 @@ type SigningAlgorithm string
 // StringList A list of strings.
 type StringList = []string
 
-// Token Oauth2 token result.
+// Token OAuth 2.0 token result.
 type Token struct {
 	// AccessToken The opaque access token.
 	AccessToken string `json:"access_token"`
@@ -659,35 +660,33 @@ type Token struct {
 	TokenType string `json:"token_type"`
 }
 
-// TokenRequestOptions oauth2 token endpoint.
+// TokenRequestOptions OAuth 2.0 token request.
 type TokenRequestOptions struct {
-	// ClientId Client ID. Required with the "code" grant type.
+	// ClientId Client ID. Required with the "code" and "refresh_token" grant types.
 	ClientId *string `json:"client_id"`
+
+	// ClientSecret Client secret. Required with the "code" and "refresh_token" grant types.
+	ClientSecret *string `json:"client_secret"`
 
 	// Code Authorization code. Required with the "code" grant type.
 	Code *string `json:"code"`
 
-	// CodeVerifier Client code verifier. Required with the "code" grant type.
+	// CodeVerifier Client code verifier.
 	CodeVerifier *string `json:"code_verifier"`
 
-	// GrantType Supported grant type.  Must be either "code" or "password".
+	// GrantType Supported grant type.  Must be either "code", "refresh_token" or "client_credentials".
 	GrantType string `json:"grant_type"`
-
-	// Password Resource owner password. Required with the "password" grant type.
-	Password *string `json:"password"`
 
 	// RedirectUri Client redirect URI. Required with the "code" grant type.
 	RedirectUri *string `json:"redirect_uri"`
 
-	// RefreshToken A refresh token for the refresh_token grant type.
+	// RefreshToken A refresh token for the "refresh_token" grant type.
 	RefreshToken *string `json:"refresh_token"`
-
-	// Username Resource owner username. Required with the "password" grant type.
-	Username *string `json:"username"`
 }
 
 // UserRead A user read object.
 type UserRead struct {
+	// Metadata Metadata required by organization scoped resource reads.
 	Metadata externalRef0.OrganizationScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A user specification.
@@ -705,7 +704,7 @@ type UserSpec struct {
 	// State The state a user is in.
 	State UserState `json:"state"`
 
-	// Subject The uers's canonical name, usually an email address.
+	// Subject The user's canonical name, usually an email address.
 	Subject string `json:"subject"`
 }
 
@@ -721,7 +720,7 @@ type UserStatus struct {
 
 // UserWrite A user create/update object.
 type UserWrite struct {
-	// Metadata Resource metadata valid for all API resource reads and writes.
+	// Metadata Metadata required for all API resource reads and writes.
 	Metadata *externalRef0.ResourceWriteMetadata `json:"metadata,omitempty"`
 
 	// Spec A user specification.
@@ -834,10 +833,10 @@ type GroupsResponse = Groups
 // committee. Consult the relevant documentation for further details.
 type JwksResponse = JsonWebKeySet
 
-// Oauth2ProviderResponse An OAuth2 provider when read.
+// Oauth2ProviderResponse An OAuth 2.0 provider when read.
 type Oauth2ProviderResponse = Oauth2ProviderRead
 
-// Oauth2ProvidersResponse A list of oauth2 providers.
+// Oauth2ProvidersResponse A list of OAuth 2.0 providers.
 type Oauth2ProvidersResponse = Oauth2Providers
 
 // OpenidConfigurationResponse OpenID configuration.
@@ -870,10 +869,10 @@ type ServiceAccountResponse = ServiceAccountRead
 // ServiceAccountsResponse A list of service accounts.
 type ServiceAccountsResponse = ServiceAccounts
 
-// SystemOauth2ProvidersResponse A list of oauth2 providers.
+// SystemOauth2ProvidersResponse A list of OAuth 2.0 providers.
 type SystemOauth2ProvidersResponse = Oauth2Providers
 
-// TokenResponse Oauth2 token result.
+// TokenResponse OAuth 2.0 token result.
 type TokenResponse = Token
 
 // UserResponse A user read object.
@@ -891,10 +890,13 @@ type AllocationRequest = AllocationWrite
 // CreateGroupRequest A group when created or updated.
 type CreateGroupRequest = GroupWrite
 
+// CreateOrganizationRequest An organization when created or updated.
+type CreateOrganizationRequest = OrganizationWrite
+
 // CreateProjectRequest A project when created or updated.
 type CreateProjectRequest = ProjectWrite
 
-// Oauth2ProviderRequest An OAuth2 provider when created or updated.
+// Oauth2ProviderRequest An OAuth 2.0 provider when created or updated.
 type Oauth2ProviderRequest = Oauth2ProviderWrite
 
 // QuotasRequest A list of quotas.

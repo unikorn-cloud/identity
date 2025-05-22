@@ -1,16 +1,21 @@
 openapi: 3.0.3
 info:
-  title: Unikorn Identity API
+  title: Identity API
   description: |-
-    The Unikorn Identity API provides an OIDC compliant interface for use with all
-    Unikorn services and proxies.  As it's intended use is for multi-tenant cloud
-    deployments it acts as an aggregation layer for other 3rd party OIDC services,
-    dispatching login requests to the required OIDC backend.
-  version: 0.1.0
+    The Identity API provides an OIDC compliant interface for use with all official
+    and 3rd party services and proxies.  As its intended use is for multi-tenant cloud
+    deployments, it acts as an aggregation layer for other 3rd party OIDC services,
+    dispatching login requests to the required OIDC backend.  Token introspection forms
+    the basis of role based access control across all APIs.  For security purposes,
+    access tokens and refresh tokens are limited to a single session per client, thus
+    if they are being consumed by a horizontally scalable platform care must be taken
+    to ensure token rotation is handled atomically by a single process, and the tokens
+    are distributed to each service instance synchronously.
+  version: 1.1.0
 paths:
   /.well-known/openid-configuration:
     description: |-
-      Implements OIDC discovery.
+      Implements OIDC service discovery.
     get:
       description: |-
         Reads the OIDC discovery page identifying all the required endpoints, and
@@ -20,13 +25,12 @@ paths:
           $ref: '#/components/responses/openidConfigurationResponse'
   /oauth2/v2/authorization:
     description: |-
-      Implements OAuth2 authorisation grants.
+      Implements OAuth 2.0 authorization grants.
     get:
       description: |-
-        Provides authentication and authorisation as per the OAuth2 specification.
-        This particular implementation requires a "code" type response, and PKCE.
-        You may specify the "openid" scope in order to have an OpenID Connect
-        identity token returned during code exchange.
+        Provides authentication and authorization as per the OAuth 2.0 specification.
+        You may specify the "openid" scope in order to have an OpenID Connect identity
+        token returned during code exchange.
       responses:
         '200':
           $ref: '#/components/responses/authorizationResponse'
@@ -38,10 +42,9 @@ paths:
           $ref: '#/components/responses/htmlErrorResponse'
     post:
       description: |-
-        Provides authentication and authorisation as per the OAuth2 specification.
-        This particular implementation requires a "code" type response, and PKCE.
-        You may specify the "openid" scope in order to have an OpenID Connect
-        identity token returned during code exchange.
+        Provides authentication and authorization as per the OAuth 2.0 specification.
+        You may specify the "openid" scope in order to have an OpenID Connect identity
+        token returned during code exchange.
       requestBody:
         $ref: '#/components/requestBodies/authorizationRequest'
       responses:
@@ -55,17 +58,16 @@ paths:
           $ref: '#/components/responses/htmlErrorResponse'
   /oauth2/v2/token:
     description: |-
-      Implements OAuth2 code exchange.
+      Implements OAuth 2.0 code exchange.
     post:
       description: |-
-        Provides authorisation code to access token exchange as per the OAuth2
+        Provides authorization code to access token exchange as per the OAuth 2.0
         specification with the "authorization_code" grant. If requested during
-        authentication, and OpenID Connect identity token will also be returned.  
-        The "password" grant type is also supported for applications where using
-        a web browser in the authentication flow would be impractical, for example
-        with automated command line client based tooling, however this is not
-        recommended as it exposes credentials to the API, and not only with a trusted
-        3rd party identity provider.
+        authentication, an OpenID Connect identity token will also be returned.  
+        This endpoint also supports the "refresh_token" grant for transparent
+        re-authentication, and the "client_credentials" grant which is used by
+        other services, in conjunction with X.509 client certificates, to authenticate
+        and authorize their API access requirements.
       requestBody:
         $ref: '#/components/requestBodies/tokenRequest'
       responses:
@@ -79,13 +81,14 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /oauth2/v2/login:
     description: |-
-      After the user hits the authorisation endpoint, a dialog is presented to
-      get the user's email address, control is returned back to the identity
+      After the user initiates the authorization code flow, a dialog is presented to
+      negotiate the OIDC backend to use. Control is returned back to the identity
       service via this address in order to perform email domain matching and
-      delegate autorization to the correct identity provider.
+      delegate authorization to the correct identity provider.
     post:
       description: |-
-        Sends the users's provided email address to the identity service.
+        Returns the user's email address, or chosen OAuth 2.0 provider back to the
+        identity service to initiate the backend authentication and token exchange.
       requestBody:
         $ref: '#/components/requestBodies/loginRequest'
       responses:
@@ -93,11 +96,13 @@ paths:
           description: A redirect to the specified identity provider URI.
   /oauth2/v2/onboard:
     description: |-
-      If a user doesn't exist, we will offer them the option of creating a
+      If a user doesn't exist, we can offer them the option of creating a
       new organization, this facilitates that flow.
     post:
       description: |-
-        Sends the users's provided email address to the identity service.
+        Returns the user's chosen organization name back to the identity service
+        for creation of that organization, default user groups, and addition of
+        that user to a group to allow login.
       requestBody:
         $ref: '#/components/requestBodies/onboardRequest'
       responses:
@@ -126,24 +131,24 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
   /oidc/callback:
     description: |-
-      Implements the OIDC response code callback.
+      Implements the OAuth 2.0 response code callback.
     get:
       description: |-
-        The Kubernetes Service OAuth2 implementation does not provide any direct
-        authentication or authorisation.  It instead delegates to a 3rd party
-        identity provider.  This endpoint allows a 3rd party authorisation code
-        to be returned to the Kubernetes Service and exchanged for an identity token.
+        The Identity Service OAuth 2.0 implementation does not provide any direct
+        authentication.  It instead delegates to a 3rd party identity provider.
+        This endpoint allows a 3rd party authorization code to be returned to the
+        Identity Service and exchanged for an identity token.
       responses:
         '302':
-          description: A redirect back to the browser with an authorisation code.
+          description: A redirect back to the browser with an authorization code.
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /oauth2/v2/jwks:
     description: JSON web key set endpoint.
     get:
       description: |-
-        Returns an array of public keys used to verify JWT tokens issued by
-        this server, for example identity or authorisation tokens.
+        Returns an array of public keys used to verify JWT ID tokens issued by
+        this server.
       responses:
         '200':
           $ref: '#/components/responses/jwksResponse'
@@ -164,9 +169,9 @@ paths:
           $ref: '#/components/responses/signupErrorResponse'
   /api/v1/oauth2providers:
     description: |-
-      Allows management of system scoped oauth2 providers.  The identity service
+      Allows management of system scoped OAuth 2.0 providers.  The identity service
       is typically registered with an identity provider who provides us a client
-      identitifier and possibly a secret that we need to authenticate the user.
+      identifier and a secret that we need to perform authentication with the provider.
     get:
       description: |-
         Lists system identity providers.
@@ -200,16 +205,17 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations:
     description: |-
-      Allows management of organizations.  Organizations are identified by an
-      email domain.  The email domain is used to route login requests to a
-      back-end provider e.g. Google or Microsoft.  The provider may allow
-      configuration that in turn allows configuration of fine-grained access
-      control based on group information from the identiy provider.  At present
-      a user can be the owner of one organization, and must be a member of
-      that domain.
+      Allows management of organizations.  An organization may use ad hoc
+      authentication, where users select their identity provider manually,
+      or domain based authentication where, provided with an email address,
+      the domain is matched against the organization and the identity provider
+      implicitly selected.  Domain based authentication allows integration with
+      user provided OIDC compliant identity services.
     get:
       description: |-
-        Returns a list of organizations that are owned/managed by the user.
+        Returns a list of organizations that the user is a member of.  If an
+        email address is provided in the query this allows a user with sufficient
+        privilege to check if a given user is a member of any organizations.
       security:
       - oauth2Authentication: []
       parameters:
@@ -227,22 +233,14 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
       description: |-
-        Allows creation of a new organization. This is only available when authenticateUnknownUsers is true.
+        Allows creation of a new organization.
       security:
       - oauth2Authentication: []
       requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/organizationWrite'
+        $ref: '#/components/requestBodies/createOrganizationRequest'
       responses:
         '202':
-          description: Organization created successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/organizationRead'
+          $ref: '#/components/responses/organizationResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -253,11 +251,12 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}:
     description: |-
-      Allows management of organizations.  Organizations are identified by an
-      email domain.  The email domain is used to route login requests to a
-      back-end provider e.g. Google or Microsoft.  The provider may allow
-      configuration that in turn allows configuration of fine-grained access
-      control based on group information from the identiy provider.
+      Allows management of organizations.  An organization may use ad hoc
+      authentication, where users select their identity provider manually,
+      or domain based authentication where, provided with an email address,
+      the domain is matched against the organization and the identity provider
+      implicitly selected.  Domain based authentication allows integration with
+      user provided OIDC compliant identity services.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -276,7 +275,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
       description: |-
-        Allows an organization to be updated.
+        Update an organization.
       security:
       - oauth2Authentication: []
       requestBody:
@@ -311,7 +310,10 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/serviceaccounts:
     description: |-
-      Allows creation and management of service accounts.
+      Allows management of service accounts.
+      Service accounts provide long-lived access tokens for use with CLI and CI/CD
+      tooling.  At present a service account token defaults to a 90 day lifetime.
+      Service tokens can be refreshed with an API call.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -330,7 +332,8 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
       description: |-
-        Creates a new service account and returns an access token,
+        Creates a new service account and returns an access token,  The returned access
+        token can only be read once.
       security:
       - oauth2Authentication: []
       requestBody:
@@ -346,7 +349,10 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/serviceaccounts/{serviceAccountID}:
     description: |-
-      Allows creation and management of service accounts.
+      Allows management of service accounts.
+      Service accounts provide long-lived access tokens for use with CLI and CI/CD
+      tooling.  At present a service account token defaults to a 90 day lifetime.
+      Service tokens can be refreshed with an API call.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/serviceAccountIDParameter'
@@ -384,14 +390,18 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/serviceaccounts/{serviceAccountID}/rotate:
     description: |-
-      Allows creation and management of service accounts.
+      Allows management of service accounts.
+      Service accounts provide long-lived access tokens for use with CLI and CI/CD
+      tooling.  At present a service account token defaults to a 90 day lifetime.
+      Service tokens can be refreshed with an API call.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/serviceAccountIDParameter'
     post:
       x-no-body: true
       description: |-
-        Rotates a service account's access token.
+        Rotates a service account's access token. The returned access
+        token can only be read once.
       security:
       - oauth2Authentication: []
       responses:
@@ -405,7 +415,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/users:
     description: |-
-      Allows management of federated users.
+      Allows management of users.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -442,7 +452,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/users/{userID}:
     description: |-
-      Allows management of federated users.
+      Allows management of users.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/userIDParameter'
@@ -469,7 +479,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          description: User removed and all groups disssociated with the user.
+          description: User removed and all groups disassociated with the user.
         '401':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
@@ -500,12 +510,11 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/oauth2providers:
     description: |-
-      Allows management of organization scoped oauth2 provider.  The identity service
-      is typically registered with an identity provider who provides us a client
-      identitifier and possibly a secret that we need to authenticate the user.
+      Allows management of organization scoped OAuth 2.0 providers.  The identity service
+      is typically registered with an identity provider that provides a client
+      identifier and secret that we need to authenticate the user.
       Organizational identity providers allow you to bring your own OIDC service e.g.
-      Okta. The V1 API only supports a single provider that will handle the entire
-      domain registered at the organization scope.
+      Okta.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -544,12 +553,11 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/oauth2providers/{providerID}:
     description: |-
-      Allows management of organization scoped oauth2 provider.  The identity service
-      is typically registered with an identity provider who provides us a client
-      identitifier and possibly a secret that we need to authenticate the user.
+      Allows management of organization scoped OAuth 2.0 providers.  The identity service
+      is typically registered with an identity provider that provides a client
+      identifier and secret that we need to authenticate the user.
       Organizational identity providers allow you to bring your own OIDC service e.g.
-      Okta. The V1 API only supports a single provider that will handle the entire
-      domain registered at the organization scope.
+      Okta.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/oauth2ProvderIDParameter'
@@ -589,10 +597,10 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/groups:
     description: |-
-      Allows management of organization groups. Groups provide an identity
-      mapping from a group defined by the identity provider to ones that will
-      be added to authorization tokens issued by this service.  A resource
-      server may use group information to implment scoping of resources.
+      Allows management of organization groups.  Groups bind users and service accounts
+      to roles and allow those users to perform API requests as defined by those roles.
+      Groups are then typically linked to projects that grant the users the ability to
+      perform project scoped operations, such as provisioning infrastructure.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -629,10 +637,10 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/groups/{groupid}:
     description: |-
-      Allows management of organization groups. Groups provide an identity
-      mapping from a group defined by the identity provider to ones that will
-      be added to authorization tokens issued by this service.  A resource
-      server may use group information to implment scoping of resources.
+      Allows management of organization groups.  Groups bind users and service accounts
+      to roles and allow those users to perform API requests as defined by those roles.
+      Groups are then typically linked to projects that grant the users the ability to
+      perform project scoped operations, such as provisioning infrastructure.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/groupidParameter'
@@ -686,9 +694,10 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/projects:
     description: |-
-      Implements project management services. Projects, as currently defined
-      by the Kubernetes service, are implicitly scoped to the access token's
-      organization.
+      Implements project management services.  Projects are associated with
+      user groups, and provide project-scoped role-based access control.
+      Infrastructure provisioning, for example the Compute and Kubernetes services,
+      occurs within a project.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -726,6 +735,11 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/projects/{projectID}:
+    description: |-
+      Implements project management services.  Projects are associated with
+      user groups, and provide project-scoped role-based access control.
+      Infrastructure provisioning, for example the Compute and Kubernetes services,
+      occurs within a project.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/projectIDParameter'
@@ -770,7 +784,7 @@ paths:
     delete:
       description: |-
         Deletes the project associated with the authenticated user's scoped
-        authorisation token. This is a cascading operation and will delete all
+        authorization token. This is a cascading operation and will delete all
         contained cluster managers and clusters.
       security:
       - oauth2Authentication: []
@@ -789,7 +803,11 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/quotas:
     description: |-
-      Provides management of resource limits.
+      Provides management of resource limits.  These are typically managed by the
+      platform provider and limit the amount of resources an organization can
+      consume.  Quotas provide fair usage on multi-tenant platforms, and can be
+      used to limit operational expenditure.  Quotas currently apply to the
+      organization as a whole, and cannot be subdivided among projects.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -827,7 +845,10 @@ paths:
   /api/v1/organizations/{organizationID}/allocations:
     description: |-
       Management of allocations.  Allocations form slices of quotas and in total never
-      exceed the quotas in the scope the quota is defined for.
+      exceed the quotas in the scope the quota is defined for.  Individual services will
+      create allocations when a request for infrastructure is received to check that
+      request can be fulfilled, then release those resources when the infrastructure is
+      deleted.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     get:
@@ -849,7 +870,10 @@ paths:
   /api/v1/organizations/{organizationID}/projects/{projectID}/allocations:
     description: |-
       Management of allocations.  Allocations form slices of quotas and in total never
-      exceed the quotas in the scope the quota is defined for.
+      exceed the quotas in the scope the quota is defined for.  Individual services will
+      create allocations when a request for infrastructure is received to check that
+      request can be fulfilled, then release those resources when the infrastructure is
+      deleted.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/projectIDParameter'
@@ -876,7 +900,10 @@ paths:
   /api/v1/organizations/{organizationID}/projects/{projectID}/allocations/{allocationID}:
     description: |-
       Management of allocations.  Allocations form slices of quotas and in total never
-      exceed the quotas in the scope the quota is defined for.
+      exceed the quotas in the scope the quota is defined for.  Individual services will
+      create allocations when a request for infrastructure is received to check that
+      request can be fulfilled, then release those resources when the infrastructure is
+      deleted.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/projectIDParameter'
@@ -1016,23 +1043,23 @@ components:
           description: The OpenID Issuer (iss field).
           type: string
         authorization_endpoint:
-          description: The oauth2 endpoint that initiates authentication.
+          description: The OAuth 2.0 endpoint that initiates authentication.
           type: string
           format: uri
         token_endpoint:
-          description: The oauth2 endpoint that is used to exchange an authentication code for tokens.
+          description: The OAuth 2.0 endpoint that is used to exchange an authentication code for tokens.
           type: string
           format: uri
         userinfo_endpoint:
-          description: The oidc endpoint used to get information about an access token's user.
+          description: The OIDC endpoint used to get information about an access token's user.
           type: string
           format: uri
         jwks_uri:
-          description: The oauth2 endpoint that exposes public signing keys for token validation.
+          description: The endpoint that exposes public signing keys for token validation.
           type: string
           format: uri
         scopes_supported:
-          description: A list of supported oauth2 scopes.
+          description: A list of supported OAuth 2.0 scopes.
           type: array
           items:
             $ref: '#/components/schemas/scope'
@@ -1072,7 +1099,7 @@ components:
           items:
             $ref: '#/components/schemas/codeChallengeMethod'
         claims_parameter_supported:
-          description: Whether claims can be requested indvidually.
+          description: Whether claims can be requested individually.
           type: boolean
         request_parameter_supported:
           description: Whether requests can be passed as a JWT object.
@@ -1157,7 +1184,7 @@ components:
           type: string
           nullable: true
         provider:
-          description: The explcit provider type.
+          description: The explicit provider type.
           type: string
           nullable: true
         state:
@@ -1196,7 +1223,7 @@ components:
             description: A role name.
             type: string
     authorizationRequestOptions:
-      description: aith2/OIDC authorization endpoint request.
+      description: OAuth 2.0/OIDC authorization endpoint request.
       type: object
       required:
       - response_type
@@ -1259,20 +1286,24 @@ components:
           description: The oauth2 access token.
           type: string
     tokenRequestOptions:
-      description: oauth2 token endpoint.
+      description: OAuth 2.0 token request.
       type: object
       required:
       - grant_type
       properties:
         grant_type:
-          description: Supported grant type.  Must be either "code" or "password".
+          description: Supported grant type.  Must be either "code", "refresh_token" or "client_credentials".
           type: string
         code:
           description: Authorization code. Required with the "code" grant type.
           type: string
           nullable: true
         client_id:
-          description: Client ID. Required with the "code" grant type.
+          description: Client ID. Required with the "code" and "refresh_token" grant types.
+          type: string
+          nullable: true
+        client_secret:
+          description: Client secret. Required with the "code" and "refresh_token" grant types.
           type: string
           nullable: true
         redirect_uri:
@@ -1280,19 +1311,11 @@ components:
           type: string
           nullable: true
         code_verifier:
-          description: Client code verifier. Required with the "code" grant type.
-          type: string
-          nullable: true
-        username:
-          description: Resource owner username. Required with the "password" grant type.
-          type: string
-          nullable: true
-        password:
-          description: Resource owner password. Required with the "password" grant type.
+          description: Client code verifier.
           type: string
           nullable: true
         refresh_token:
-          description: A refresh token for the refresh_token grant type.
+          description: A refresh token for the "refresh_token" grant type.
           type: string
           nullable: true
 # This broke with an update to kin-openapi. The correct fix for that was to
@@ -1318,7 +1341,7 @@ components:
 #            enum:
 #            - refresh_token
     token:
-      description: Oauth2 token result.
+      description: OAuth 2.0 token result.
       type: object
       required:
       - token_type
@@ -1422,7 +1445,7 @@ components:
       - microsoft
       - github
     oauth2ProviderSpec:
-      description: An oauth2 provider.
+      description: An OAuth 2.0 provider.
       type: object
       required:
       - issuer
@@ -1435,16 +1458,14 @@ components:
           type: string
         clientID:
           description: |
-            The client identification, only shown for super admin or organization owned providers
-            that you are an admin for.
+            The client identification.
           type: string
         clientSecret:
           description: |
-            The client secret, only shown for super admin or organization owned providers
-            that you are an admin for.
+            The client secret.
           type: string
     systemOauth2ProviderRead:
-      description: An OAuth2 provider when read.
+      description: An OAuth 2.0 provider when read.
       type: object
       required:
       - metadata
@@ -1455,7 +1476,7 @@ components:
         spec:
           $ref: '#/components/schemas/oauth2ProviderSpec'
     oauth2ProviderRead:
-      description: An OAuth2 provider when read.
+      description: An OAuth 2.0 provider when read.
       type: object
       required:
       - metadata
@@ -1466,7 +1487,7 @@ components:
         spec:
           $ref: '#/components/schemas/oauth2ProviderSpec'
     oauth2ProviderWrite:
-      description: An OAuth2 provider when created or updated.
+      description: An OAuth 2.0 provider when created or updated.
       type: object
       required:
       - metadata
@@ -1477,31 +1498,30 @@ components:
         spec:
           $ref: '#/components/schemas/oauth2ProviderSpec'
     systemOauth2Providers:
-      description: A list of system provided oauth2 providers.
+      description: A list of system provided OAuth 2.0 providers.
       type: array
       items:
         $ref: '#/components/schemas/systemOauth2ProviderRead'
     oauth2Providers:
-      description: A list of oauth2 providers.
+      description: A list of OAuth 2.0 providers.
       type: array
       items:
         $ref: '#/components/schemas/oauth2ProviderRead'
     organizationType:
       description: |-
-        Describes the authntication menthod of the organization.  Adhoc authentication
+        Describes the authentication method of the organization.  Ad hoc authentication
         means that users are exclusively added via explicit group membership  And must
         use a 'sign-in via' option.  Domain authentication means that users may login
         via their email address, must in the case of custom identity providers, that
-        maps from domain to an identity provider.  This enables authentication options
-        such as implicit group mappings for RBAC.
+        maps from domain to an identity provider.
       type: string
       enum:
       - adhoc
       - domain
     providerScope:
       description: |-
-        Describes how to lookup the provider, when global, use a built in generic provider
-        e.g. Google/Microsoft, when organization, us an organization scoped provider.
+        Describes how to lookup the provider, when "global", use a built in generic provider
+        e.g. Google/Microsoft, when "organization", use an organization scoped provider.
       type: string
       enum:
       - global
@@ -1529,8 +1549,7 @@ components:
         googleCustomerID:
           description: |-
             When set this identifies the customer ID for the google managed organization.
-            This enables the access to, and use of, Google groups as a source of truth
-            for RBAC.
+            This field is currently unused.
           type: string
     organizationRead:
       description: An organization when read.
@@ -1736,7 +1755,7 @@ components:
           type: string
           format: date-time
         accessToken:
-          description: A long lived acccess token that can be exchanged for an API access token.
+          description: A long lived access token that can be exchanged for an API access token.
           type: string
     serviceAccountCreate:
       description: A new service account.
@@ -1798,7 +1817,7 @@ components:
       - groupIDs
       properties:
         subject:
-          description: The uers's canonical name, usually an email address.
+          description: The user's canonical name, usually an email address.
           type: string
         state:
           $ref: '#/components/schemas/userState'
@@ -1871,7 +1890,7 @@ components:
           description: The kind of resource.
           type: string
         quantity:
-          description: Tha maximum amount of that resource.
+          description: The maximum amount of that resource.
           type: integer
         used:
           description: The amount of that resource that is used.
@@ -1880,7 +1899,7 @@ components:
           description: The amount of that resource that is free.
           type: integer
         committed:
-          description: Tha amount of that resource always in use.
+          description: The amount of that resource always in use.
           type: integer
         reserved:
           description: The amount of that resource that may be used e.g. autoscaled.
@@ -1905,7 +1924,7 @@ components:
           description: The kind of resource.
           type: string
         quantity:
-          description: Tha maximum amount of that resource.
+          description: The maximum amount of that resource.
           type: integer
     quotaReadList:
       description: A list of quotas.
@@ -1945,7 +1964,7 @@ components:
           description: The kind of resource.
           type: string
         committed:
-          description: Tha amount of that resource always in use.
+          description: The amount of that resource always in use.
           type: integer
         reserved:
           description: The amount of that resource that may be used e.g. autoscaled.
@@ -2042,7 +2061,7 @@ components:
             organization_name: acme.com
             group_name: administrators
     tokenRequest:
-      description: OAuth2 token request, consult the relevant OAuth2 and OIDC specifications for further details.
+      description: OAuth 2.0 token request, consult the relevant OAuth2 and OIDC specifications for further details.
       required: true
       content:
         application/x-www-form-urlencoded:
@@ -2061,6 +2080,14 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/oauth2ProviderWrite'
+          example:
+            metadata:
+              name: acme-auth0
+              description: My organization's Auth0 IdP.
+            spec:
+              issuer: https://acmo.auth0.com
+              clientID: 2616072e-e87b-4b5b-b28f-9731bf29dae2
+              clientSecret: 734bc91b-ccee-4e6c-a00e-e2b14f361589
     serviceAccountCreateRequest:
       description: Body required to create a service account.
       required: true
@@ -2095,6 +2122,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/organizationWrite'
+          example:
+            metadata:
+              name: acme
+              description: Acme.com's organization.
+            spec:
+              organizationType: adhoc
     updateOrganizationRequest:
       description: Body required to update an organization.
       required: true
@@ -2102,6 +2135,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/organizationWrite'
+          example:
+            metadata:
+              name: acme
+              description: Acme.com's organization.
+            spec:
+              organizationType: adhoc
     createGroupRequest:
       description: Body required to create a group.
       required: true
@@ -2109,6 +2148,16 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/groupWrite'
+          example:
+            metadata:
+              name: The-A-Team
+              description: An elite commando unit.
+            spec:
+              roleIDs:
+              - 64c46f16-43b1-495d-8ee3-040b8321050d
+              userIDs:
+              - b0c0dc92-b123-410e-bad6-75a2265ca6e1
+              serviceAccountIDs: []
     updateGroupRequest:
       description: Body required to update a group.
       required: true
@@ -2116,6 +2165,16 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/groupWrite'
+          example:
+            metadata:
+              name: The-A-Team
+              description: An elite commando unit.
+            spec:
+              roleIDs:
+              - 64c46f16-43b1-495d-8ee3-040b8321050d
+              userIDs:
+              - b0c0dc92-b123-410e-bad6-75a2265ca6e1
+              serviceAccountIDs: []
     createProjectRequest:
       description: Project request parameters.
       required: true
@@ -2196,7 +2255,7 @@ components:
         text/html: {}
     tokenResponse:
       description: |-
-        Authentication was successful and returns an authorisation token. The response
+        Authentication was successful and returns an authorization token. The response
         may optionally include an OIDC identity token if that scope was requested.
       content:
         application/json:
@@ -2216,9 +2275,9 @@ components:
           schema:
             $ref: '#/components/schemas/userinfo'
           example:
-            iss: https://identity.unikorn-cloud.org
-            sub: joe.bloggs@acme.com
-            aud: https://identity.unikorn-cloud.org
+            iss: https://identity.acme.com
+            sub: b02b0e92-6a4f-4916-9ca7-d26d65622f89
+            aud: https://identity.acme.com
             exp: 1311281970
             iat: 1311280970
     jwksResponse:
@@ -2245,7 +2304,7 @@ components:
         text/html: {}
     systemOauth2ProvidersResponse:
       description: |-
-        A list of system provided oauth2 providers.
+        A list of system provided OAuth 2.0 providers.
       content:
         application/json:
           schema:
@@ -2263,7 +2322,7 @@ components:
               clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
     oauth2ProviderResponse:
       description: |-
-        An oauth2 provider.
+        An OAuth 2.0 provider.
       content:
         application/json:
           schema:
@@ -2281,7 +2340,7 @@ components:
               clientID: 111069338664-poc0c81dgsfudr0rbupj0unurjcvt12e.apps.googleusercontent.com
     oauth2ProvidersResponse:
       description: |-
-        A list of oauth2 providers.
+        A list of OAuth 2.0 providers.
       content:
         application/json:
           schema:
@@ -2317,8 +2376,7 @@ components:
               providerID: b6ec241d-e3b4-4afc-a7aa-500fcb650d8e
     organizationsResponse:
       description: |-
-        A list of organizations.  Most users should only see one, super admins can
-        see all organizations on the platform.
+        A list of organizations.
       content:
         application/json:
           schema:
@@ -2619,10 +2677,10 @@ components:
                 reserved: 10
   securitySchemes:
     oauth2Authentication:
-      description: Operation requires OAuth2 bearer token authentication.
+      description: Operation requires OAuth 2.0 bearer token authentication.
       type: oauth2
       flows:
         authorizationCode:
-          authorizationUrl: https://identity.unikorn-cloud.org/oauth2/v2/authorization
-          tokenUrl: https://identity.unikorn-cloud.org/oauth2/v2/token
+          authorizationUrl: https://identity.nks.europe-west4.nscale.com/oauth2/v2/authorization
+          tokenUrl: https://identity.nks.europe-west4.nscale.com/oauth2/v2/token
           scopes: {}
