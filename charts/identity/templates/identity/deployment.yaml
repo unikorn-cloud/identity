@@ -34,7 +34,6 @@ spec:
         {{- range $k, $v := .Values.systemAccounts }}
           {{- $systemAccounts = append $systemAccounts (printf "%s=%s" $k (include "resource.id" $v)) }}
         {{- end }}
-        - --system-account-roles-ids={{ join "," $systemAccounts }}
         {{- with $signup := .Values.signup }}
           {{- if $signup.enabled }}
         - --user-email-verification
