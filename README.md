@@ -1,9 +1,9 @@
-# Unikorn Identity
+# Identity
 
 ![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/logo.svg#gh-dark-mode-only)
 ![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/logo.svg#gh-light-mode-only)
 
-Unikorn's Identity Provider.
+Identity Provider.
 This package provides an OIDC compliant server, that federates other OIDC and oauth2 compliant backends.
 
 ## Architecture
@@ -33,7 +33,7 @@ You can _bring your own_ by providing:
 * A client ID
 * A client secret
 
-By default Unikorn Identity supports:
+By default Identity supports:
 
 * Google Workspace
 * Microsoft Entra
@@ -119,7 +119,7 @@ Authentication is handled in a few different ways:
 
 * OIDC authorization code flow (for typical users via a browser).
 * Service accounts (that issue long lived access tokens).
-* System accounts secured by X.509 (used by Unikorn services to talk to one another, and potentially financial grade users).
+* System accounts secured by X.509 (used by services to talk to one another, and potentially financial grade users).
 
 Service endpoints that users directly interact with will use token introspection against he Identity service to authenticate a user, then retrieve and ACL to authorize the request.
 
@@ -127,7 +127,7 @@ Services that act on behalf of an end user will use X.509 to retrieve an access 
 
 ### RBAC
 
-The identity service provides centralized role based access control to the Unikorn suite of services.
+The identity service provides centralized role based access control to the suite of services.
 As described previously, roles can be arbitrary and apply to services outside of the identity service.
 
 A role is composed of a set of arbitrary endpoint scopes, that typically define an API endpoint group e.g. `kubernetes:clusters` or `identity:projects`.
@@ -319,7 +319,7 @@ If your user's email address can be authenticated by any of the supported OIDC i
 
 ### 3rd Party Service Integration
 
-When using an integration such as the [Unikorn Kubernetes Service](https://github.com/unikorn-cloud/kubernetes) you will need to configure system account to RBAC mappings.
+When using an integration such as the [Kubernetes Service](https://github.com/unikorn-cloud/kubernetes) you will need to configure system account to RBAC mappings.
 3rd party services usually act on behalf of a user, and as such need elevated global privileges, so as to avoid giving the end user permission to sensitive endpoints.
 
 In the earlier `values.yaml` manifest, the following section was defined:
@@ -330,7 +330,7 @@ systemAccounts:
   unikorn-compute: infra-manager-service
 ```
 
-In very simple terms, when you create a 3rd party service, that will need to generate an X.509 certificate in order to authenticate with the tokens endpoint and issue an access token to talk to other Unikorn service APIs.
+In very simple terms, when you create a 3rd party service, that will need to generate an X.509 certificate in order to authenticate with the tokens endpoint and issue an access token to talk to other service APIs.
 That certificate will need to be signed by the trusted client CA (typically signed by the `unikorn-client-issuer` managed by cert-manager).
 The X.509 Common Name (CN) encoded in the certificate is the key to this mapping e.g. `unikorn-kubernetes`.
 The value references a role name that is either installed by default, or created specifically for your service.
