@@ -2,7 +2,7 @@
 Create the container images
 */}}
 {{- define "unikorn.image" -}}
-{{- .Values.image | default (printf "%s/unikorn-identity:%s" (include "unikorn.defaultRepositoryPath" .) (.Values.tag | default .Chart.Version)) }}
+{{- .Values.server.image | default (printf "%s/unikorn-identity:%s" (include "unikorn.defaultRepositoryPath" .) (.Values.tag | default .Chart.Version)) }}
 {{- end }}
 
 {{- define "unikorn.organizationControllerImage" -}}
