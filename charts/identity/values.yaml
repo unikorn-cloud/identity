@@ -12,23 +12,49 @@ tag: ~
 # Set the image pull secret on the service accounts of all the controllers.
 imagePullSecret: ~
 
-# Allows override of the global default image.
-image: ~
+# Allows override of the identity service configuration.
+server:
+  # Allows override of the image.
+  image: ~
+
+  # Allows resource limits to be set.
+  resources:
+    limits:
+      cpu: '1'
+      memory: 1Gi
 
 # Organization controller specifc configuration.
 organizationController:
-  # Allows override of the global default image.
+  # Allows override of the image.
   image:
+
+  # Allows resource limits to be set.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
 
 # Oauth2 client controller specific configuration.
 oauth2clientController:
-  # Allows override of the global default image.
+  # Allows override of the image.
   image:
+
+  # Allows resource limits to be set.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
 
 # Project controller specific configuration.
 projectController:
-  # Allows override of the global default image.
+  # Allows override of the image.
   image:
+
+  # Allows resource limits to be set.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
 
 # Sets the DNS hosts, X.509 certificate subject alternative names and
 # oauth2 issuer etc.
