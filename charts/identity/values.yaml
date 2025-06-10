@@ -123,11 +123,6 @@ platformAdministrators:
   # and not an alias.
   subjects: []
 
-# System accounts map X.509 Common Names to roles.
-systemAccounts:
-  unikorn-kubernetes: infra-manager-service
-  unikorn-compute: infra-manager-service
-
 # A static list of roles.
 # Any unscoped API resources are to be managed by the platform operator
 # and are assumed to be read only for all.  Global permissions are applied
@@ -169,33 +164,6 @@ roles:
         compute:clusters: [create,read,update,delete]
         application:applications: [create,read,update,delete]
         application:applicationsets: [create,read,update,delete]
-  # An infrastructure manager service is a role primarily for Kubernetes like
-  # services that can manage identities and physical networks on behalf of a cluster.
-  infra-manager-service:
-    decription: Infrastructure manager service
-    protected: true
-    scopes:
-      global:
-        identity:allocations: [create,read,update,delete]
-        region:identities: [create,read,delete]
-        region:regions: [read]
-        region:regions/detail: [read]
-        region:flavors: [read]
-        region:images: [read]
-        region:externalnetworks: [read]
-        region:networks: [create,read,delete]
-        region:servers: [create,read,update,delete]
-        region:securitygroups: [create,read,update,delete]
-  # An application manager is a role primarily for the application service that
-  # needs to be able to see the Kubernetes clusters it's deploying applications
-  # on to.
-  application-manager-service:
-    description: Application manager service
-    protected: true
-    scopes:
-      global:
-        kubernetes:clusters: [read]
-  # An administrator can do anything within an organization.
   administrator:
     description: Organization administrator
     scopes:
