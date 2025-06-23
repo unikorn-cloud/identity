@@ -30,6 +30,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/utils/ptr"
 
@@ -339,4 +340,23 @@ func (c *Client) Create(ctx context.Context, request *openapi.OrganizationWrite)
 	}
 
 	return convert(org), nil
+}
+
+func (c *Client) Delete(ctx context.Context, organizationID string) error {
+	resource := &unikornv1.Organization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      organizationID,
+			Namespace: c.namespace,
+		},
+	}
+
+	if err := c.client.Delete(ctx, resource); err != nil {
+		if kerrors.IsNotFound(err) {
+			return errors.HTTPNotFound().WithError(err)
+		}
+
+		return errors.OAuth2ServerError("failed to delete organization").WithError(err)
+	}
+
+	return nil
 }

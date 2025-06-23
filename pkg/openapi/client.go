@@ -107,6 +107,9 @@ type ClientInterface interface {
 
 	PostApiV1Organizations(ctx context.Context, body PostApiV1OrganizationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteApiV1OrganizationsOrganizationID request
+	DeleteApiV1OrganizationsOrganizationID(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiV1OrganizationsOrganizationID request
 	GetApiV1OrganizationsOrganizationID(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -340,6 +343,18 @@ func (c *Client) PostApiV1OrganizationsWithBody(ctx context.Context, contentType
 
 func (c *Client) PostApiV1Organizations(ctx context.Context, body PostApiV1OrganizationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV1OrganizationsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteApiV1OrganizationsOrganizationID(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1OrganizationsOrganizationIDRequest(c.Server, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -1272,6 +1287,40 @@ func NewPostApiV1OrganizationsRequestWithBody(server string, contentType string,
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiV1OrganizationsOrganizationIDRequest generates requests for DeleteApiV1OrganizationsOrganizationID
+func NewDeleteApiV1OrganizationsOrganizationIDRequest(server string, organizationID OrganizationIDParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -3149,6 +3198,9 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1OrganizationsWithResponse(ctx context.Context, body PostApiV1OrganizationsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsResponse, error)
 
+	// DeleteApiV1OrganizationsOrganizationIDWithResponse request
+	DeleteApiV1OrganizationsOrganizationIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDResponse, error)
+
 	// GetApiV1OrganizationsOrganizationIDWithResponse request
 	GetApiV1OrganizationsOrganizationIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDResponse, error)
 
@@ -3437,6 +3489,31 @@ func (r PostApiV1OrganizationsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PostApiV1OrganizationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteApiV1OrganizationsOrganizationIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *externalRef0.UnauthorizedResponse
+	JSON403      *externalRef0.ForbiddenResponse
+	JSON404      *externalRef0.NotFoundResponse
+	JSON500      *externalRef0.InternalServerErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiV1OrganizationsOrganizationIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiV1OrganizationsOrganizationIDResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -4582,6 +4659,15 @@ func (c *ClientWithResponses) PostApiV1OrganizationsWithResponse(ctx context.Con
 	return ParsePostApiV1OrganizationsResponse(rsp)
 }
 
+// DeleteApiV1OrganizationsOrganizationIDWithResponse request returning *DeleteApiV1OrganizationsOrganizationIDResponse
+func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDResponse, error) {
+	rsp, err := c.DeleteApiV1OrganizationsOrganizationID(ctx, organizationID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiV1OrganizationsOrganizationIDResponse(rsp)
+}
+
 // GetApiV1OrganizationsOrganizationIDWithResponse request returning *GetApiV1OrganizationsOrganizationIDResponse
 func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDResponse, error) {
 	rsp, err := c.GetApiV1OrganizationsOrganizationID(ctx, organizationID, reqEditors...)
@@ -5338,6 +5424,53 @@ func ParsePostApiV1OrganizationsResponse(rsp *http.Response) (*PostApiV1Organiza
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.InternalServerErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiV1OrganizationsOrganizationIDResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationIDWithResponse call
+func ParseDeleteApiV1OrganizationsOrganizationIDResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiV1OrganizationsOrganizationIDResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.ForbiddenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.InternalServerErrorResponse

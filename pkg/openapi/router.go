@@ -30,6 +30,9 @@ type ServerInterface interface {
 	// (POST /api/v1/organizations)
 	PostApiV1Organizations(w http.ResponseWriter, r *http.Request)
 
+	// (DELETE /api/v1/organizations/{organizationID})
+	DeleteApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
+
 	// (GET /api/v1/organizations/{organizationID})
 	GetApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
 
@@ -189,6 +192,11 @@ func (_ Unimplemented) GetApiV1Organizations(w http.ResponseWriter, r *http.Requ
 
 // (POST /api/v1/organizations)
 func (_ Unimplemented) PostApiV1Organizations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /api/v1/organizations/{organizationID})
+func (_ Unimplemented) DeleteApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -519,6 +527,37 @@ func (siw *ServerInterfaceWrapper) PostApiV1Organizations(w http.ResponseWriter,
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostApiV1Organizations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteApiV1OrganizationsOrganizationID operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID OrganizationIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteApiV1OrganizationsOrganizationID(w, r, organizationID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2035,6 +2074,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/organizations", wrapper.PostApiV1Organizations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/organizations/{organizationID}", wrapper.DeleteApiV1OrganizationsOrganizationID)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}", wrapper.GetApiV1OrganizationsOrganizationID)
