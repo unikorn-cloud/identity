@@ -434,6 +434,21 @@ func (h *Handler) PutApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *Handler) DeleteApiV1OrganizationsOrganizationID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
+	if err := rbac.AllowGlobalScope(r.Context(), "identity:organizations", openapi.Delete); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := organizations.New(h.client, h.namespace).Delete(r.Context(), organizationID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (h *Handler) GetApiV1OrganizationsOrganizationIDGroups(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
 	if err := rbac.AllowOrganizationScope(r.Context(), "identity:groups", openapi.Read, organizationID); err != nil {
 		errors.HandleError(w, r, err)
