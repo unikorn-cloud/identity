@@ -56,8 +56,8 @@ spec:
                   properties:
                     accessToken:
                       description: |-
-                        AccessToken s the access token currently issued for the
-                        session.
+                        AccessToken is the access token currently issued for the
+                        session.  This field is opaque, and may be hashed for security.
                       type: string
                     authorizationCodeID:
                       description: |-
@@ -74,7 +74,8 @@ spec:
                     refreshToken:
                       description: |-
                         RefreshToken is the single-use refresh token currently
-                        issued for the session.
+                        issued for the session. This field is opaque, and may be hashed
+                        for security.
                       type: string
                   required:
                   - accessToken

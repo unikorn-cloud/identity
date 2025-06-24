@@ -96,7 +96,7 @@ func convert(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi
 
 // convertCreate converts from Kubernetes into OpenAPi for create/update requests that
 // have extra information e.g. the access token.
-func convertCreate(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *openapi.ServiceAccountCreate {
+func convertCreate(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList, accessToken string) *openapi.ServiceAccountCreate {
 	temp := convert(in, groups)
 
 	out := &openapi.ServiceAccountCreate{
@@ -105,7 +105,7 @@ func convertCreate(in *unikornv1.ServiceAccount, groups *unikornv1.GroupList) *o
 		Status:   temp.Status,
 	}
 
-	out.Status.AccessToken = &in.Spec.AccessToken
+	out.Status.AccessToken = &accessToken
 
 	return out
 }
@@ -162,14 +162,6 @@ func (c *Client) generate(ctx context.Context, organization *organizations.Meta,
 			Tags: conversion.GenerateTagList(in.Metadata.Tags),
 		},
 	}
-
-	tokens, err := c.generateAccessToken(ctx, organization, out.Name)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to issue access token").WithError(err)
-	}
-
-	out.Spec.Expiry = &metav1.Time{Time: tokens.Expiry}
-	out.Spec.AccessToken = tokens.AccessToken
 
 	return out, nil
 }
@@ -246,6 +238,17 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, errors.OAuth2ServerError("failed to generate service account").WithError(err)
 	}
 
+	tokens, err := c.generateAccessToken(ctx, organization, resource.Name)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("unable to issue access token").WithError(err)
+	}
+
+	resource.Spec.Expiry = &metav1.Time{Time: tokens.Expiry}
+
+	if err := resource.Spec.AccessToken.Set(tokens.AccessToken); err != nil {
+		return nil, errors.OAuth2ServerError("failed to set access token").WithError(err)
+	}
+
 	if err := c.client.Create(ctx, resource); err != nil {
 		return nil, errors.OAuth2ServerError("failed to create service account").WithError(err)
 	}
@@ -259,7 +262,7 @@ func (c *Client) Create(ctx context.Context, organizationID string, request *ope
 		return nil, err
 	}
 
-	return convertCreate(resource, groups), nil
+	return convertCreate(resource, groups, tokens.AccessToken), nil
 }
 
 // Get retrieves information about a service account.
@@ -370,7 +373,10 @@ func (c *Client) Rotate(ctx context.Context, organizationID, serviceAccountID st
 
 	updated := current.DeepCopy()
 	updated.Spec.Expiry = &metav1.Time{Time: tokens.Expiry}
-	updated.Spec.AccessToken = tokens.AccessToken
+
+	if err := updated.Spec.AccessToken.Set(tokens.AccessToken); err != nil {
+		return nil, errors.OAuth2ServerError("failed to set access token").WithError(err)
+	}
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return nil, errors.OAuth2ServerError("failed to patch group").WithError(err)
@@ -383,7 +389,7 @@ func (c *Client) Rotate(ctx context.Context, organizationID, serviceAccountID st
 		return nil, err
 	}
 
-	return convertCreate(updated, groups), nil
+	return convertCreate(updated, groups, tokens.AccessToken), nil
 }
 
 // Delete removes the service account and revokes the access token.

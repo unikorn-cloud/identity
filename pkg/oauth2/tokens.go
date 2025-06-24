@@ -164,10 +164,14 @@ func (a *Authenticator) updateSession(ctx context.Context, user *unikornv1.User,
 		a.InvalidateToken(ctx, session.AccessToken)
 	}
 
-	session.AccessToken = tokens.AccessToken
+	if err := session.AccessToken.Set(tokens.AccessToken); err != nil {
+		return time.Time{}, err
+	}
 
 	if tokens.RefreshToken != nil {
-		session.RefreshToken = *tokens.RefreshToken
+		if err := session.RefreshToken.Set(*tokens.RefreshToken); err != nil {
+			return time.Time{}, err
+		}
 	}
 
 	if info.Interactive {
@@ -352,8 +356,8 @@ func (a *Authenticator) verifyServiceAccount(ctx context.Context, info *VerifyIn
 		return err
 	}
 
-	if info.Token != serviceAccount.Spec.AccessToken {
-		return fmt.Errorf("%w: service account token invalid", ErrTokenVerification)
+	if err := serviceAccount.Spec.AccessToken.Validate(info.Token); err != nil {
+		return fmt.Errorf("%w: service account token invalid", err)
 	}
 
 	return nil
@@ -379,8 +383,8 @@ func (a *Authenticator) verifyUserSession(ctx context.Context, info *VerifyInfo,
 		return fmt.Errorf("%w: no active session for token", ErrTokenVerification)
 	}
 
-	if user.Spec.Sessions[index].AccessToken != info.Token {
-		return fmt.Errorf("%w: token invalid for active session", ErrTokenVerification)
+	if err := user.Spec.Sessions[index].AccessToken.Validate(info.Token); err != nil {
+		return fmt.Errorf("%w: token invalid for active session", err)
 	}
 
 	return nil
@@ -388,6 +392,20 @@ func (a *Authenticator) verifyUserSession(ctx context.Context, info *VerifyInfo,
 
 // InvalidateToken immediately invalidates the token so it's unusable again.
 // TODO: this only considers caching in the identity service, it's still usable.
-func (a *Authenticator) InvalidateToken(ctx context.Context, token string) {
-	a.tokenCache.Remove(token)
+func (a *Authenticator) InvalidateToken(ctx context.Context, token unikornv1.Token) {
+	// TODO: This needs a bit of a rethink, we cache the raw access token in memory
+	// to avoid the decryption penalty, however the token stored in persistent storage
+	// is hashed, thus we need to do a potentially costly exhaustive search.
+	for _, key := range a.tokenCache.Keys() {
+		t, ok := key.(string)
+		if !ok {
+			continue
+		}
+
+		if err := token.Validate(t); err != nil {
+			continue
+		}
+
+		a.tokenCache.Remove(key)
+	}
 }

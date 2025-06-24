@@ -17,8 +17,16 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"bytes"
+	"crypto/pbkdf2"
+	"crypto/rand"
+	"crypto/sha512"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 
@@ -28,6 +36,10 @@ import (
 
 var (
 	ErrReference = errors.New("resource reference error")
+
+	ErrReadLength = errors.New("read length not as expected")
+
+	ErrValidation = errors.New("validation error")
 )
 
 // Paused implements the ReconcilePauser interface.
@@ -65,4 +77,103 @@ func (u *User) Session(clientID string) (*UserSession, error) {
 	}
 
 	return &u.Spec.Sessions[index], nil
+}
+
+const (
+	// saltLength is the number of bytes of cryptographically random data
+	// for salted hashing.  128 bits is recommended by NIST.
+	// See https://en.wikipedia.org/wiki/PBKDF2 for more details.
+	saltLength = 16
+
+	// hashIterations defines the number of iterations for a salted hash
+	// function.  The bigger the number, the harder to exhaustively search
+	// but also the longer it takes to compute.
+	// See https://en.wikipedia.org/wiki/PBKDF2 for more details.
+	// However... we are just hashing a JWE encoded token, not a password,
+	// thus it's already a millin times harder to guess than a password!
+	hashIterations = 1
+
+	// algorithmSha512 indicates the sha512 hashing algorithm.
+	algorithmSha512 = "sha512"
+)
+
+// Set encodes the raw value as a PBKDF2 key.
+func (t *Token) Set(value string) error {
+	salt := make([]byte, saltLength)
+
+	if n, err := rand.Read(salt); err != nil {
+		return err
+	} else if n != saltLength {
+		return fmt.Errorf("%w: unable to create salt for token hashing", ErrReadLength)
+	}
+
+	key, err := pbkdf2.Key(sha512.New, value, salt, hashIterations, sha512.Size)
+	if err != nil {
+		return err
+	}
+
+	encoding := algorithmSha512 + "$" + base64.RawURLEncoding.EncodeToString(salt) + "$" + strconv.Itoa(hashIterations) + "$" + base64.RawURLEncoding.EncodeToString(key)
+
+	*t = Token(encoding)
+
+	return nil
+}
+
+// Validate checks the provided value matches the hashed value in persistent
+// storage.
+func (t *Token) Validate(value string) error {
+	encoding := string(*t)
+
+	// TODO: this aids in the transition and can be removed soon after.
+	// Like 3 months after (by default) given the lifetime of service
+	// account tokens.
+	if !strings.Contains(encoding, "$") {
+		if value != encoding {
+			return fmt.Errorf("%w: plantext token values do not match", ErrValidation)
+		}
+
+		return nil
+	}
+
+	parts := strings.Split(encoding, "$")
+
+	if len(parts) != 4 {
+		return fmt.Errorf("%w: token encoding malformed", ErrValidation)
+	}
+
+	algorithm := parts[0]
+	if algorithm != algorithmSha512 {
+		return fmt.Errorf("%w: unsupported hash algorithm %s", ErrValidation, algorithm)
+	}
+
+	salt, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return err
+	}
+
+	iterations, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return err
+	}
+
+	hash, err := base64.RawURLEncoding.DecodeString(parts[3])
+	if err != nil {
+		return err
+	}
+
+	key, err := pbkdf2.Key(sha512.New, value, salt, iterations, sha512.Size)
+	if err != nil {
+		return err
+	}
+
+	if !bytes.Equal(hash, key) {
+		return fmt.Errorf("%w: token mismatch", ErrValidation)
+	}
+
+	return nil
+}
+
+// Clear resets a token.
+func (t *Token) Clear() {
+	*t = Token("")
 }
