@@ -16,7 +16,6 @@ rules:
   - projects
   - quotas
   - quotametadata
-  - roles
   - serviceaccounts
   - users
   - organizationusers
@@ -27,6 +26,14 @@ rules:
   - patch
   - create
   - delete
+- apiGroups:
+  - identity.unikorn-cloud.org
+  resources:
+  - roles
+  - systemaccounts
+  verbs:
+  - list
+  - watch
 - apiGroups:
   - identity.unikorn-cloud.org
   resources:

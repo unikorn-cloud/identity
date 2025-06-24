@@ -238,9 +238,6 @@ providers:
 platformAdministrators:
   subjects:
   - wile.e.coyote@acme.com
-systemAccounts:
-  unikorn-kubernetes: infra-manager-service
-  unikorn-compute: infra-manager-service
 ```
 
 Install the Helm repository:
@@ -332,8 +329,11 @@ systemAccounts:
 
 In very simple terms, when you create a 3rd party service, that will need to generate an X.509 certificate in order to authenticate with the tokens endpoint and issue an access token to talk to other service APIs.
 That certificate will need to be signed by the trusted client CA (typically signed by the `unikorn-client-issuer` managed by cert-manager).
-The X.509 Common Name (CN) encoded in the certificate is the key to this mapping e.g. `unikorn-kubernetes`.
-The value references a role name that is either installed by default, or created specifically for your service.
+The X.509 Common Name (CN) encoded in the certificate is used to lookup a `SystemAccount` resource in any namespace.
+The `SystemAccount` resource is then used to lookup a role defined in the same namespace that defines permissions.
+
+The key benefit with this way of defining RBAC rules is that it can be done completely independently of the Identity service.
+Care should, however, be taken to ensure only trusted actors are allowed to create roles and system accounts.
 
 #### 3rd Party User RBAC
 
