@@ -19,6 +19,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"slices"
@@ -548,9 +549,11 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDProjects(w http.ResponseWri
 		return
 	}
 
+	ctx := r.Context()
+
 	// Apply RBAC after listing as a filter.
 	result = slices.DeleteFunc(result, func(resource openapi.ProjectRead) bool {
-		return rbac.AllowProjectScope(r.Context(), "identity:projects", openapi.Read, organizationID, resource.Metadata.Id) != nil
+		return rbac.AllowProjectScope(ctx, "identity:projects", openapi.Read, organizationID, resource.Metadata.Id) != nil
 	})
 
 	h.setUncacheable(w)
@@ -637,9 +640,62 @@ func (h *Handler) serviceAccountsClient(r *http.Request) *serviceaccounts.Client
 	return serviceaccounts.New(h.client, h.namespace, r.Host, h.oauth2, &h.options.ServiceAccounts)
 }
 
+// allowServiceAccountOrSelfAccess allows either access to a service account via the usual RBAC
+// interfaces, or allows the service account to access itself.  This allows for fully transparent
+// rotation without any end user interaction, think Let's Encrypt's automatic certificate issuing.
+func allowServiceAccountOrSelfAccess(ctx context.Context, operation openapi.AclOperation, organizationID, serviceAccountID string) error {
+	info, err := authorization.FromContext(ctx)
+	if err != nil {
+		return errors.OAuth2ServerError("unable to get authorization info").WithError(err)
+	}
+
+	if info.ServiceAccount && (serviceAccountID == "" || info.Userinfo.Sub == serviceAccountID) {
+		return nil
+	}
+
+	return rbac.AllowOrganizationScope(ctx, "identity:serviceaccounts", operation, organizationID)
+}
+
+// filterServiceAccounts is used when reading service accounts to only return the service account
+// for a service accounts access token.
+func filterServiceAccounts(ctx context.Context, organizationID string, serviceAccounts *openapi.ServiceAccounts) error {
+	// If the actor has full access don't modify.
+	if rbac.AllowOrganizationScope(ctx, "identity:serviceaccounts", openapi.Read, organizationID) == nil {
+		return nil
+	}
+
+	// Otherwise it's a service account without full read privileges, so we allow it
+	// to read itself in order to acquire its ID via introspection for rotation.
+	info, err := authorization.FromContext(ctx)
+	if err != nil {
+		return errors.OAuth2ServerError("unable to get authorization info").WithError(err)
+	}
+
+	if !info.ServiceAccount {
+		return nil
+	}
+
+	*serviceAccounts = slices.DeleteFunc(*serviceAccounts, func(serviceAccount openapi.ServiceAccountRead) bool {
+		return serviceAccount.Metadata.Id != info.Userinfo.Sub
+	})
+
+	return nil
+}
+
 func (h *Handler) GetApiV1OrganizationsOrganizationIDServiceaccounts(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
+	// NOTE: this allows regular RBAC based access or a service account to self discover its ID.
+	if err := allowServiceAccountOrSelfAccess(r.Context(), openapi.Read, organizationID, ""); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
 	result, err := h.serviceAccountsClient(r).List(r.Context(), organizationID)
 	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := filterServiceAccounts(r.Context(), organizationID, &result); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -710,7 +766,8 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDServiceaccountsServiceAc
 }
 
 func (h *Handler) PostApiV1OrganizationsOrganizationIDServiceaccountsServiceAccountIDRotate(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, serviceAccountID openapi.ServiceAccountIDParameter) {
-	if err := rbac.AllowOrganizationScope(r.Context(), "identity:serviceaccounts", openapi.Update, organizationID); err != nil {
+	// NOTE: this allows regular RBAC based access or a service account to self rotate.
+	if err := allowServiceAccountOrSelfAccess(r.Context(), openapi.Update, organizationID, serviceAccountID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
