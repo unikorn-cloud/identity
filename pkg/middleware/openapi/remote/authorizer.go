@@ -118,6 +118,44 @@ func (t *requestMutatingTransport) RoundTrip(req *http.Request) (*http.Response,
 	return t.base.RoundTrip(req)
 }
 
+// getIdentityHTTPClient returns a raw HTTP client for the identity service
+// that handles TLS, trace context and client certificate propagation.
+func (a *Authorizer) getIdentityHTTPClient(ctx context.Context) (*http.Client, error) {
+	// The identity client neatly wraps up TLS...
+	identity := identityclient.New(a.client, a.options, a.clientOptions)
+
+	client, err := identity.HTTPClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Whe need to mutate the request to do trace context propagation and
+	// client certificate propagation if it's a token bound to an X.509
+	// certificate.
+	mutator := func(req *http.Request) error {
+		if err := identityclient.TraceContextRequestMutator(ctx, req); err != nil {
+			return err
+		}
+
+		if err := identityclient.CertificateRequestMutator(ctx, req); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	// But it doesn't do request mutation, so we have to slightly hack it by
+	// making a nested transport.
+	client = &http.Client{
+		Transport: &requestMutatingTransport{
+			base:    client.Transport,
+			mutator: mutator,
+		},
+	}
+
+	return client, nil
+}
+
 // authorizeOAuth2 checks APIs that require and oauth2 bearer token.
 func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, error) {
 	ctx := r.Context()
@@ -145,28 +183,9 @@ func (a *Authorizer) authorizeOAuth2(r *http.Request) (*authorization.Info, erro
 		return info, nil
 	}
 
-	// The identity client neatly wraps up TLS...
-	identity := identityclient.New(a.client, a.options, a.clientOptions)
-
-	client, err := identity.HTTPClient(ctx)
+	client, err := a.getIdentityHTTPClient(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	// NOTE: The mutation is required to do trace context propagation.
-	mutator := func(req *http.Request) error {
-		mutator := identityclient.RequestMutator(nil)
-
-		return mutator(ctx, req)
-	}
-
-	// But it doesn't do request mutation, so we have to slightly hack it by
-	// making a nested transport.
-	client = &http.Client{
-		Transport: &requestMutatingTransport{
-			base:    client.Transport,
-			mutator: mutator,
-		},
 	}
 
 	ctx = oidc.ClientContext(ctx, client)
@@ -234,7 +253,7 @@ func (a *Authorizer) GetACL(ctx context.Context, organizationID string) (*identi
 		return nil, err
 	}
 
-	client, err := identityclient.New(a.client, a.options, a.clientOptions).Client(ctx, Getter(info.Token))
+	client, err := identityclient.New(a.client, a.options, a.clientOptions).APIClient(ctx, Getter(info.Token))
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to create identity client").WithError(err)
 	}

@@ -16,6 +16,8 @@ limitations under the License.
 
 package openapi
 
+//go:generate mockgen -source=interfaces.go -destination=mock/interfaces.go -package mock
+
 import (
 	"context"
 

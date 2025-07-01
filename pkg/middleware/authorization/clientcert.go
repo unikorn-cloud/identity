@@ -19,6 +19,7 @@ package authorization
 import (
 	"context"
 	goerrors "errors"
+	"fmt"
 	"net/http"
 
 	"github.com/unikorn-cloud/core/pkg/errors"
@@ -45,7 +46,7 @@ func ClientCertFromContext(ctx context.Context) (string, error) {
 		}
 	}
 
-	return "", errors.ErrInvalidContext
+	return "", fmt.Errorf("%w: client certificate is not defined", errors.ErrInvalidContext)
 }
 
 const (

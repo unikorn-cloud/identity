@@ -113,8 +113,6 @@ paths:
       Returns introspection information about an access token.
     get:
       description: Returns introspection information about an access token.
-      security:
-      - oauth2Authentication: []
       responses:
         '200':
           $ref: '#/components/responses/userinfoResponse'
