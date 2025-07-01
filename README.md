@@ -1,9 +1,5 @@
 # Identity
 
-![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/logo.svg#gh-dark-mode-only)
-![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/logo.svg#gh-light-mode-only)
-
-Identity Provider.
 This package provides an OIDC compliant server, that federates other OIDC and oauth2 compliant backends.
 
 ## Architecture
@@ -109,7 +105,7 @@ To enable a client, you will need to create a `oauth2client` resource in the ide
 
 Optionally you can override the branding with a custom login and error URL callback too.
 These are available on the `OAuth2Client` data type.
-See the reference implementation [login](https://github.com/unikorn-cloud/ui/tree/main/src/routes/login) and [error](https://github.com/unikorn-cloud/ui/tree/main/src/routes/error) pages for the interface.
+See the reference implementation [login](https://github.com/nscaledev/uni-ui/tree/main/src/routes/login) and [error](https://github.com/nscaledev/uni-ui/tree/main/src/routes/error) pages for the interface.
 
 Once created, the `oauth2client` controller will generate a client secret in the resource status that can be shared with the relaying party.
 
@@ -246,13 +242,13 @@ systemAccounts:
 Install the Helm repository:
 
 ```shell
-helm repo add unikorn-identity https://unikorn-cloud.github.io/identity
+helm repo add uni-identity https://nscaledev.github.io/uni-identity
 ```
 
 Deploy:
 
 ```shell
-helm update --install --namespace unikorn-identity unikorn-identity/unikorn-identity -f values.yaml
+helm update --install --namespace unikorn-identity uni-identity/uni-identity -f values.yaml
 ```
 
 ### Email Notifications and User Verification
@@ -279,10 +275,10 @@ signup:
 
 ### Installing the Management Plugin
 
-Download the following [artefacts](https://github.com/unikorn-cloud/kubectl-unikorn/releases) and install them in your path:
+Download the following [artefacts](https://github.com/nscaledev/kubectl-uni/releases) and install them in your path:
 
-* `kubectl-unikorn`
-* `kubectl_complete-unikorn`
+* `kubectl-uni`
+* `kubectl_complete-uni`
 
 ### User Onboarding
 
@@ -302,7 +298,7 @@ This forms an implicit mapping from a user to a special role that grants access 
 In order to actually login, you will need a user account creating:
 
 ```yaml
-kubectl unikorn create user \
+kubectl uni create user \
      --namespace unikorn-identity \
      --user wile.e.coyote@acme.com
 ```
@@ -310,7 +306,7 @@ kubectl unikorn create user \
 And at least one organization:
 
 ```yaml
-kubectl unikorn create organization \
+kubectl uni create organization \
     --namespace unikorn-identity \
     --name looney-tunes
 ```
@@ -319,7 +315,7 @@ If your user's email address can be authenticated by any of the supported OIDC i
 
 ### 3rd Party Service Integration
 
-When using an integration such as the [Kubernetes Service](https://github.com/unikorn-cloud/kubernetes) you will need to configure system account to RBAC mappings.
+When using an integration such as the [Kubernetes Service](https://github.com/nscaledev/uni-kubernetes) you will need to configure system account to RBAC mappings.
 3rd party services usually act on behalf of a user, and as such need elevated global privileges, so as to avoid giving the end user permission to sensitive endpoints.
 
 In the earlier `values.yaml` manifest, the following section was defined:
@@ -350,4 +346,4 @@ The recommended way to do this is:
 ## What Next?
 
 As you've noted, objects are named based on UUIDs, therefore administration is somewhat counter intuitive, but it does allow names to be mutable.
-For ease of management we recommend installing the [UI](https://github.com/unikorn-cloud/ui)
+For ease of management we recommend installing the [UI](https://github.com/nscaledev/uni-ui)
