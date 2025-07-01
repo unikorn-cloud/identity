@@ -69,16 +69,16 @@ func NewTokenIssuer(client client.Client, identityOptions *Options, clientOption
 	}
 }
 
-type AccessTokenGetter struct {
+type StaticAccessTokenGetter struct {
 	accessToken string
 }
 
-func (a *AccessTokenGetter) Get() string {
+func (a *StaticAccessTokenGetter) Get() string {
 	return a.accessToken
 }
 
 // Issue issues an access token for the non-user client/service.
-func (i *TokenIssuer) Issue(ctx context.Context, traceName string) (*AccessTokenGetter, error) {
+func (i *TokenIssuer) Issue(ctx context.Context, traceName string) (*StaticAccessTokenGetter, error) {
 	identityClient := New(i.client, i.identityOptions, i.clientOptions)
 
 	identityHTTPClient, err := identityClient.HTTPClient(ctx)
@@ -147,7 +147,7 @@ func (i *TokenIssuer) Issue(ctx context.Context, traceName string) (*AccessToken
 		return nil, err
 	}
 
-	getter := &AccessTokenGetter{
+	getter := &StaticAccessTokenGetter{
 		accessToken: token.AccessToken,
 	}
 
