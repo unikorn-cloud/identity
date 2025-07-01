@@ -23,17 +23,17 @@ import (
 	"slices"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
+	coreerrors "github.com/unikorn-cloud/core/pkg/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
+	"github.com/unikorn-cloud/identity/pkg/principal"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	ErrConsistency = errors.New("consistency error")
 )
 
 // Client wraps up control plane related management handling.
@@ -89,7 +89,7 @@ func (c *Client) ProjectNamespace(ctx context.Context, organizationID, projectID
 	}
 
 	if len(resources.Items) != 1 {
-		return nil, fmt.Errorf("%w: expected to find 1 project namespace", ErrConsistency)
+		return nil, fmt.Errorf("%w: expected to find 1 project namespace", coreerrors.ErrConsistency)
 	}
 
 	return &resources.Items[0], nil
@@ -112,7 +112,7 @@ func (c *Client) GetQuota(ctx context.Context, organizationID string) (*unikornv
 	}
 
 	if len(resources.Items) > 1 {
-		return nil, false, fmt.Errorf("%w: expected to find 1 organization quota", ErrConsistency)
+		return nil, false, fmt.Errorf("%w: expected to find 1 organization quota", coreerrors.ErrConsistency)
 	}
 
 	// We are going to lazily create the quota and any new quota items that come
@@ -242,8 +242,39 @@ func checkQuotaConsistency(quota *unikornv1.Quota, allocations *unikornv1.Alloca
 
 	for k, v := range totals {
 		if capacity, ok := capacities[k]; ok && v > capacity {
-			return fmt.Errorf("%w: total allocation of %d would exceed quota limit of %d", ErrConsistency, v, capacity)
+			return fmt.Errorf("%w: total allocation of %d would exceed quota limit of %d", coreerrors.ErrConsistency, v, capacity)
 		}
+	}
+
+	return nil
+}
+
+func SetIdentityMetadata(ctx context.Context, meta *metav1.ObjectMeta) error {
+	info, err := authorization.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	meta.Annotations[constants.CreatorAnnotation] = info.Userinfo.Sub
+
+	principal, err := principal.FromContext(ctx)
+	if err != nil {
+		// It's not set unless this is a proxied request.
+		if !errors.Is(err, coreerrors.ErrInvalidContext) {
+			return err
+		}
+
+		return nil
+	}
+
+	meta.Annotations[constants.CreatorPrincipalAnnotation] = principal.Email
+
+	if principal.OrganizationID != "" {
+		meta.Labels[constants.OrganizationPrincipalLabel] = principal.OrganizationID
+	}
+
+	if principal.ProjectID != "" {
+		meta.Labels[constants.ProjectPrincipalLabel] = principal.ProjectID
 	}
 
 	return nil

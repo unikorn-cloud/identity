@@ -26,10 +26,13 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 
+	"github.com/unikorn-cloud/core/pkg/client"
 	"github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
+	"github.com/unikorn-cloud/identity/pkg/principal"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
+	"github.com/unikorn-cloud/identity/pkg/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -157,6 +160,38 @@ func (v *Validator) validateResponse(w *bufferingResponseWriter, r *http.Request
 	}
 }
 
+// extractPrincipal makes available the identity information for the user
+// that actually insigated the request so it can be propagated to and used
+// by any service as it sees fit.  For example, it user talke to service A,
+// which talks to service B, service B may need to know the user's identity
+// for quotas of billing, and not just service A's identity.  This is
+// propagated as request baggage i.e. a header.  If the baggage doesn't exist
+// create a principal while we have ready access to the request parameters.
+func (v *Validator) extractPrincipal(ctx context.Context, r *http.Request) (context.Context, error) {
+	data := r.Header.Get(principal.Header)
+	if data == "" {
+		return ctx, nil
+	}
+
+	certPEM, err := authorization.ClientCertFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	certificate, err := util.GetClientCertificate(certPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &principal.Principal{}
+
+	if err := client.VerifyAndDecode(p, data, certificate); err != nil {
+		return nil, err
+	}
+
+	return principal.NewContext(ctx, p), nil
+}
+
 // ServeHTTP implements the http.Handler interface.
 func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route, params, err := v.openapi.FindRoute(r)
@@ -171,6 +206,14 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2InvalidRequest("certificate propagation failure").WithError(err))
 
+		return
+	}
+
+	// Propagate principal information now we have the client certificate available to
+	// verify the signature.
+	ctx, err = v.extractPrincipal(ctx, r)
+	if err != nil {
+		errors.HandleError(w, r, errors.OAuth2InvalidRequest("identity info propagation failure").WithError(err))
 		return
 	}
 

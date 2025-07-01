@@ -27,7 +27,6 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
-	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 
 	corev1 "k8s.io/api/core/v1"
@@ -122,17 +121,16 @@ func generateAllocationList(in openapi.ResourceAllocationList) []unikornv1.Resou
 }
 
 func generate(ctx context.Context, namespace *corev1.Namespace, organizationID, projectID string, in *openapi.AllocationWrite) (*unikornv1.Allocation, error) {
-	info, err := authorization.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	out := &unikornv1.Allocation{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, namespace.Name, info.Userinfo.Sub).WithOrganization(organizationID).WithProject(projectID).WithLabel(constants.ReferencedResourceKindLabel, in.Spec.Kind).WithLabel(constants.ReferencedResourceIDLabel, in.Spec.Id).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, namespace.Name).WithOrganization(organizationID).WithProject(projectID).WithLabel(constants.ReferencedResourceKindLabel, in.Spec.Kind).WithLabel(constants.ReferencedResourceIDLabel, in.Spec.Id).Get(),
 		Spec: unikornv1.AllocationSpec{
 			Tags:        conversion.GenerateTagList(in.Metadata.Tags),
 			Allocations: generateAllocationList(in.Spec.Allocations),
 		},
+	}
+
+	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
+		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
 	}
 
 	return out, nil
