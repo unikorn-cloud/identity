@@ -111,6 +111,9 @@ issuer:
 #     clientID: foo.apps.googleusercontent.com
 #     # The client secret assigned by the identity provider.
 #     clientSecret: something_from_google
+#     # The client ID and secret, sourced as a secret.
+#     # They must have the keys "id" and "secret",
+#     clientSecretName: my-client-secret-secret
 
 # platformAdministratorRole is a role that can be implicitly added to users
 # and service accounts.

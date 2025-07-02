@@ -23,6 +23,8 @@ import (
 
 	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // nullProvider does nothing.
@@ -32,8 +34,8 @@ func newNullProvider() Provider {
 	return &nullProvider{}
 }
 
-func (*nullProvider) Config(ctx context.Context, parameters *types.ConfigParameters) (*oauth2.Config, error) {
-	_, config, err := oidc.Config(ctx, parameters, nil)
+func (*nullProvider) Config(ctx context.Context, client client.Client, parameters *types.ConfigParameters) (*oauth2.Config, error) {
+	_, config, err := oidc.Config(ctx, client, parameters, nil)
 
 	return config, err
 }
@@ -42,6 +44,6 @@ func (*nullProvider) AuthorizationURL(config *oauth2.Config, parameters *types.A
 	return oidc.Authorization(config, parameters, nil)
 }
 
-func (*nullProvider) CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error) {
-	return oidc.CodeExchange(ctx, parameters)
+func (*nullProvider) CodeExchange(ctx context.Context, client client.Client, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error) {
+	return oidc.CodeExchange(ctx, client, parameters)
 }

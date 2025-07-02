@@ -35,9 +35,9 @@ type ConfigParameters struct {
 type AuthorizationParamters struct {
 	// State is the state that's preserved across the authorization.
 	State string
-	// CodeChallenge is the PKCE code challenge used to compare against
+	// CodeVerifier is the PKCE code verifier used to compare against
 	// the one supplied during exchange. OIDC only.
-	CodeChallenge string
+	CodeVerifier string
 	// Nonce is the single use value required by OIDC that's encoded
 	// in the id_token.  OIDC only.
 	Nonce string

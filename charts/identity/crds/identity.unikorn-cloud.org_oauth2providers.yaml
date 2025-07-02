@@ -56,7 +56,7 @@ spec:
               OAuth2ProviderSpec defines the required configuration for an oauth2
               provider.
             properties:
-              authorizatonURI:
+              authorizationURI:
                 description: AuthorizationURI is used when OIDC (discovery) is not
                   available.
                 type: string
@@ -65,6 +65,12 @@ spec:
                 type: string
               clientSecret:
                 description: ClientSecret is created by the IdP for token exchange.
+                type: string
+              clientSecretName:
+                description: |-
+                  ClientSecretName if set overrides ClientSecret and sources the client
+                  ID and secret from a Kubernetes secret, stored under the "id" and
+                  "secret" keys respectively.
                 type: string
               issuer:
                 description: |-
@@ -105,7 +111,6 @@ spec:
                 - github
                 type: string
             required:
-            - clientID
             - issuer
             type: object
           status:

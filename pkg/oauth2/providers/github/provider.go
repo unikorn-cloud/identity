@@ -29,6 +29,8 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/oauth2/common"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -157,16 +159,16 @@ func New() *Provider {
 	return &Provider{}
 }
 
-func (*Provider) Config(ctx context.Context, parameters *types.ConfigParameters) (*oauth2.Config, error) {
-	return common.Config(parameters, nil), nil
+func (*Provider) Config(ctx context.Context, client client.Client, parameters *types.ConfigParameters) (*oauth2.Config, error) {
+	return common.Config(ctx, client, parameters, nil)
 }
 
 func (*Provider) AuthorizationURL(config *oauth2.Config, parameters *types.AuthorizationParamters) (string, error) {
 	return common.Authorization(config, parameters, nil), nil
 }
 
-func (*Provider) CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error) {
-	token, err := common.CodeExchange(ctx, parameters)
+func (*Provider) CodeExchange(ctx context.Context, client client.Client, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error) {
+	token, err := common.CodeExchange(ctx, client, parameters)
 	if err != nil {
 		return nil, nil, err
 	}
