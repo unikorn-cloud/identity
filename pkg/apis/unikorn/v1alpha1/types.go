@@ -122,11 +122,15 @@ type OAuth2ProviderSpec struct {
 	// This will be used to verify issued JWTs have the same "iss" claim.
 	Issuer string `json:"issuer"`
 	// ClientID is the assigned client identifier.
-	ClientID string `json:"clientID"`
+	ClientID string `json:"clientID,omitempty"`
 	// ClientSecret is created by the IdP for token exchange.
 	ClientSecret string `json:"clientSecret,omitempty"`
+	// ClientSecretName if set overrides ClientSecret and sources the client
+	// ID and secret from a Kubernetes secret, stored under the "id" and
+	// "secret" keys respectively.
+	ClientSecretName string `json:"clientSecretName,omitempty"`
 	// AuthorizationURI is used when OIDC (discovery) is not available.
-	AuthorizationURI *string `json:"authorizatonURI,omitempty"`
+	AuthorizationURI *string `json:"authorizationURI,omitempty"`
 	// TokenURI is used when OIDC (discovery) is not available.
 	TokenURI *string `json:"tokenURI,omitempty"`
 }

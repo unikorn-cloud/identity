@@ -23,13 +23,15 @@ import (
 
 	"github.com/unikorn-cloud/identity/pkg/oauth2/oidc"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Provider interface {
 	// Config returns an oauth2 configuration.
-	Config(ctx context.Context, parameters *types.ConfigParameters) (*oauth2.Config, error)
+	Config(ctx context.Context, client client.Client, parameters *types.ConfigParameters) (*oauth2.Config, error)
 	// Authorization gets the oauth2 authorization URL.
 	AuthorizationURL(config *oauth2.Config, parameters *types.AuthorizationParamters) (string, error)
 	// CodeExchange exchanges a code with an oauth2 server and returns a (possibly emulated) OIDC ID token.
-	CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error)
+	CodeExchange(ctx context.Context, client client.Client, parameters *types.CodeExchangeParameters) (*oauth2.Token, *oidc.IDToken, error)
 }

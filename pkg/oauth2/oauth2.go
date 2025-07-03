@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
@@ -37,6 +36,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/google/uuid"
 	"github.com/spf13/pflag"
+	"golang.org/x/oauth2"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
@@ -501,14 +501,6 @@ func authorizationValidateRedirecting(redirector *redirector, query url.Values) 
 	return true
 }
 
-// encodeCodeChallengeS256 performs code verifier to code challenge translation
-// for the SHA256 method.
-func encodeCodeChallengeS256(codeVerifier string) string {
-	hash := sha256.Sum256([]byte(codeVerifier))
-
-	return base64.RawURLEncoding.EncodeToString(hash[:])
-}
-
 // randomString creates size bytes of high entropy randomness and base64 URL
 // encodes it into a string.  Bear in mind base64 expands the size by 33%, so for example
 // an oauth2 code verifier needs to be at least 43 bytes, so you'd need a size of 32,
@@ -808,11 +800,7 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 	// requesting an authentication code.  When we exchange that for a token we
 	// send the initial code challenge verifier so the token endpoint can validate
 	// it's talking to the same client.
-	codeVerifier, err := randomString(32)
-	if err != nil {
-		redirector.raise(ErrorServerError, "unable to create oauth2 code verifier: "+err.Error())
-		return
-	}
+	codeVerifier := oauth2.GenerateVerifier()
 
 	// Rather than cache any state we require after the oauth rediretion dance, which
 	// requires persistent state at the minimum, and a database in the case of multi-head
@@ -837,18 +825,18 @@ func (a *Authenticator) providerAuthenticationRequest(w http.ResponseWriter, r *
 		Provider: provider,
 	}
 
-	config, err := driver.Config(r.Context(), configParameters)
+	config, err := driver.Config(r.Context(), a.client, configParameters)
 	if err != nil {
 		redirector.raise(ErrorServerError, "unable to create oauth2 config: "+err.Error())
 		return
 	}
 
 	parameters := &types.AuthorizationParamters{
-		Nonce:         nonce,
-		State:         state,
-		CodeChallenge: encodeCodeChallengeS256(codeVerifier),
-		Email:         email,
-		Query:         query,
+		Nonce:        nonce,
+		State:        state,
+		CodeVerifier: codeVerifier,
+		Email:        email,
+		Query:        query,
 	}
 
 	url, err := driver.AuthorizationURL(config, parameters)
@@ -917,7 +905,7 @@ func (a *Authenticator) Callback(w http.ResponseWriter, r *http.Request) {
 		CodeVerifier: state.CodeVerifier,
 	}
 
-	_, idToken, err := providers.New(provider.Spec.Type).CodeExchange(r.Context(), parameters)
+	_, idToken, err := providers.New(provider.Spec.Type).CodeExchange(r.Context(), a.client, parameters)
 	if err != nil {
 		redirector.raise(ErrorServerError, "code exchange failed: "+err.Error())
 		return
@@ -1380,7 +1368,7 @@ func tokenValidateCode(r *http.Request, query url.Values) error {
 				return errors.OAuth2InvalidClient("code_verifier invalid")
 			}
 		case openapi.S256:
-			if query.Get("code_challenge") != encodeCodeChallengeS256(r.Form.Get("code_verifier")) {
+			if query.Get("code_challenge") != oauth2.S256ChallengeFromVerifier(r.Form.Get("code_verifier")) {
 				return errors.OAuth2InvalidClient("code_verifier invalid")
 			}
 		}

@@ -29,6 +29,8 @@ import (
 	"github.com/unikorn-cloud/core/pkg/util/retry"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/common"
 	"github.com/unikorn-cloud/identity/pkg/oauth2/types"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -36,7 +38,7 @@ var (
 )
 
 // Config returns a oauth2 configuration via service discovery.
-func Config(ctx context.Context, parameters *types.ConfigParameters, scopes []string) (*oidc.Provider, *oauth2.Config, error) {
+func Config(ctx context.Context, client client.Client, parameters *types.ConfigParameters, scopes []string) (*oidc.Provider, *oauth2.Config, error) {
 	var provider *oidc.Provider
 
 	callback := func() error {
@@ -64,7 +66,11 @@ func Config(ctx context.Context, parameters *types.ConfigParameters, scopes []st
 
 	scopes = slices.Concat([]string{oidc.ScopeOpenID, "profile", "email"}, scopes)
 
-	config := common.Config(parameters, scopes)
+	config, err := common.Config(ctx, client, parameters, scopes)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	config.Endpoint = provider.Endpoint()
 
 	return provider, config, nil
@@ -73,8 +79,7 @@ func Config(ctx context.Context, parameters *types.ConfigParameters, scopes []st
 // Authorization gets the oauth2 authorization URL.
 func Authorization(config *oauth2.Config, parameters *types.AuthorizationParamters, requestParameters []oauth2.AuthCodeOption) (string, error) {
 	requestParameters = append(requestParameters,
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("code_challenge", parameters.CodeChallenge),
+		oauth2.S256ChallengeOption(parameters.CodeVerifier),
 		oidc.Nonce(parameters.Nonce),
 	)
 
@@ -100,8 +105,8 @@ func Authorization(config *oauth2.Config, parameters *types.AuthorizationParamte
 }
 
 // CodeExchange exchanges a code with an OIDC compliant server.
-func CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters) (*oauth2.Token, *IDToken, error) {
-	provider, config, err := Config(ctx, &parameters.ConfigParameters, nil)
+func CodeExchange(ctx context.Context, client client.Client, parameters *types.CodeExchangeParameters) (*oauth2.Token, *IDToken, error) {
+	provider, config, err := Config(ctx, client, &parameters.ConfigParameters, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -109,8 +114,7 @@ func CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters)
 	// Exchange the code for an id_token, access_token and refresh_token with
 	// the extracted code verifier.
 	authURLParams := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("client_id", parameters.Provider.Spec.ClientID),
-		oauth2.SetAuthURLParam("code_verifier", parameters.CodeVerifier),
+		oauth2.VerifierOption(parameters.CodeVerifier),
 	}
 
 	token, err := config.Exchange(ctx, parameters.Code, authURLParams...)
@@ -124,7 +128,7 @@ func CodeExchange(ctx context.Context, parameters *types.CodeExchangeParameters)
 	}
 
 	oidcConfig := &oidc.Config{
-		ClientID:        parameters.Provider.Spec.ClientID,
+		ClientID:        config.ClientID,
 		SkipIssuerCheck: parameters.SkipIssuerCheck,
 	}
 
