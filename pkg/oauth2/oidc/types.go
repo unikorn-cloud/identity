@@ -17,7 +17,7 @@ limitations under the License.
 package oidc
 
 import (
-	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/go-jose/go-jose/v4/jwt"
 )
 
 // Default are claims defined by default for an id_token.
