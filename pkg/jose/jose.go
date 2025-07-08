@@ -20,6 +20,9 @@ package jose
 import (
 	"context"
 	"crypto"
+	"crypto/aes"
+	"crypto/ecdsa"
+	"crypto/hkdf"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -31,8 +34,8 @@ import (
 	"slices"
 	"time"
 
-	jose "github.com/go-jose/go-jose/v3"
-	"github.com/go-jose/go-jose/v3/jwt"
+	jose "github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/spf13/pflag"
 
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -443,11 +446,11 @@ func (i *JWTIssuer) EncodeJWT(ctx context.Context, claims any) (string, error) {
 		return "", fmt.Errorf("failed to create signer: %w", err)
 	}
 
-	return jwt.Signed(signer).Claims(claims).CompactSerialize()
+	return jwt.Signed(signer).Claims(claims).Serialize()
 }
 
 func (i *JWTIssuer) DecodeJWT(ctx context.Context, tokenString string, claims any) error {
-	token, err := jwt.ParseSigned(tokenString)
+	token, err := jwt.ParseSigned(tokenString, []jose.SignatureAlgorithm{jose.ES512})
 	if err != nil {
 		return err
 	}
@@ -512,6 +515,18 @@ const (
 	TokenTypeUserSignupToken TokenType = "unikorn-cloud.org/userSignup+jwt"
 )
 
+// getSymmetricKey derives a symmetric encryption key (for AES) from whatever
+// private signing key is provided.
+func getSymmetricKey(key crypto.PrivateKey) ([]byte, error) {
+	eckey, ok := key.(*ecdsa.PrivateKey)
+	if !ok {
+		return nil, fmt.Errorf("%w: unsupported private key type", ErrKeyFormat)
+	}
+
+	// Ensure we have enough keying material.
+	return hkdf.Expand(sha256.New, eckey.D.Bytes(), "", aes.BlockSize)
+}
+
 // EncodeJWEToken encodes, signs and encrypts as set of claims.
 // For access tokens this implemenrs https://datatracker.ietf.org/doc/html/rfc9068
 func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims any, tokenType TokenType) (string, error) {
@@ -532,9 +547,14 @@ func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims any, tokenType To
 		return "", fmt.Errorf("failed to create signer: %w", err)
 	}
 
+	key, err := getSymmetricKey(priv.Key)
+	if err != nil {
+		return "", err
+	}
+
 	recipient := jose.Recipient{
-		Algorithm: jose.ECDH_ES,
-		Key:       pub,
+		Algorithm: jose.A256GCMKW,
+		Key:       key,
 		KeyID:     pub.KeyID,
 	}
 
@@ -546,7 +566,7 @@ func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims any, tokenType To
 		return "", fmt.Errorf("failed to create encrypter: %w", err)
 	}
 
-	token, err := jwt.SignedAndEncrypted(signer, encrypter).Claims(claims).CompactSerialize()
+	token, err := jwt.SignedAndEncrypted(signer, encrypter).Claims(claims).Serialize()
 	if err != nil {
 		return "", fmt.Errorf("failed to create token: %w", err)
 	}
@@ -555,7 +575,7 @@ func (i *JWTIssuer) EncodeJWEToken(ctx context.Context, claims any, tokenType To
 }
 
 func (i *JWTIssuer) DecodeJWEToken(ctx context.Context, tokenString string, claims any, tokenType TokenType) error {
-	nestedToken, err := jwt.ParseSignedAndEncrypted(tokenString)
+	nestedToken, err := jwt.ParseSignedAndEncrypted(tokenString, []jose.KeyAlgorithm{jose.A256GCMKW}, []jose.ContentEncryption{jose.A256GCM}, []jose.SignatureAlgorithm{jose.ES512})
 	if err != nil {
 		return fmt.Errorf("failed to parse encrypted token: %w", err)
 	}
@@ -585,7 +605,12 @@ func (i *JWTIssuer) DecodeJWEToken(ctx context.Context, tokenString string, clai
 		return err
 	}
 
-	token, err := nestedToken.Decrypt(priv)
+	key, err := getSymmetricKey(priv.Key)
+	if err != nil {
+		return err
+	}
+
+	token, err := nestedToken.Decrypt(key)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt token: %w", err)
 	}

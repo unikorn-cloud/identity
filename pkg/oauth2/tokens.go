@@ -24,7 +24,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/google/uuid"
 
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
@@ -301,7 +301,7 @@ func (a *Authenticator) Verify(ctx context.Context, info *VerifyInfo) (*Claims, 
 
 	// Verify the claims.
 	expected := jwt.Expected{
-		Audience: jwt.Audience{
+		AnyAudience: jwt.Audience{
 			info.Audience,
 		},
 		Issuer: info.Issuer,
