@@ -18,22 +18,21 @@ package common
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/unikorn-cloud/core/pkg/constants"
+	coreerrors "github.com/unikorn-cloud/core/pkg/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
+	"github.com/unikorn-cloud/identity/pkg/principal"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	ErrConsistency = errors.New("consistency error")
 )
 
 // Client wraps up control plane related management handling.
@@ -89,7 +88,7 @@ func (c *Client) ProjectNamespace(ctx context.Context, organizationID, projectID
 	}
 
 	if len(resources.Items) != 1 {
-		return nil, fmt.Errorf("%w: expected to find 1 project namespace", ErrConsistency)
+		return nil, fmt.Errorf("%w: expected to find 1 project namespace", coreerrors.ErrConsistency)
 	}
 
 	return &resources.Items[0], nil
@@ -112,7 +111,7 @@ func (c *Client) GetQuota(ctx context.Context, organizationID string) (*unikornv
 	}
 
 	if len(resources.Items) > 1 {
-		return nil, false, fmt.Errorf("%w: expected to find 1 organization quota", ErrConsistency)
+		return nil, false, fmt.Errorf("%w: expected to find 1 organization quota", coreerrors.ErrConsistency)
 	}
 
 	// We are going to lazily create the quota and any new quota items that come
@@ -242,9 +241,85 @@ func checkQuotaConsistency(quota *unikornv1.Quota, allocations *unikornv1.Alloca
 
 	for k, v := range totals {
 		if capacity, ok := capacities[k]; ok && v > capacity {
-			return fmt.Errorf("%w: total allocation of %d would exceed quota limit of %d", ErrConsistency, v, capacity)
+			return fmt.Errorf("%w: total allocation of %d would exceed quota limit of %d", coreerrors.ErrConsistency, v, capacity)
 		}
 	}
+
+	return nil
+}
+
+// SetIdentityMetadata sets identity specific metadata on a resource during generation.
+func SetIdentityMetadata(ctx context.Context, meta *metav1.ObjectMeta) error {
+	info, err := authorization.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	meta.Annotations[constants.CreatorAnnotation] = info.Userinfo.Sub
+
+	principal, err := principal.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	meta.Annotations[constants.CreatorPrincipalAnnotation] = principal.Actor
+
+	if principal.OrganizationID != "" {
+		meta.Labels[constants.OrganizationPrincipalLabel] = principal.OrganizationID
+	}
+
+	if principal.ProjectID != "" {
+		meta.Labels[constants.ProjectPrincipalLabel] = principal.ProjectID
+	}
+
+	return nil
+}
+
+// IdentityMetadataMutator is called on an update and preserves identity information.
+func IdentityMetadataMutator(required, current metav1.Object) error {
+	// Do annotations first...
+	req := required.GetAnnotations()
+	cur := current.GetAnnotations()
+
+	// When we generate an updated resource, the creator is actually the modifier.
+	if v, ok := req[constants.CreatorAnnotation]; ok {
+		req[constants.ModifierAnnotation] = v
+	}
+
+	if v, ok := req[constants.CreatorPrincipalAnnotation]; ok {
+		req[constants.ModifierPrincipalAnnotation] = v
+	}
+
+	// And the original creator needs to be preserved.
+	if v, ok := cur[constants.CreatorAnnotation]; ok {
+		req[constants.CreatorAnnotation] = v
+	}
+
+	if v, ok := cur[constants.CreatorPrincipalAnnotation]; ok {
+		req[constants.CreatorPrincipalAnnotation] = v
+	}
+
+	required.SetAnnotations(req)
+
+	// Then labels...
+	req = required.GetLabels()
+	cur = current.GetLabels()
+
+	// The principal organization and project are always immutable, this is enforced
+	// by a validating admission policy.
+	if v, ok := cur[constants.OrganizationPrincipalLabel]; ok {
+		req[constants.OrganizationPrincipalLabel] = v
+	} else {
+		delete(req, constants.OrganizationPrincipalLabel)
+	}
+
+	if v, ok := cur[constants.ProjectPrincipalLabel]; ok {
+		req[constants.ProjectPrincipalLabel] = v
+	} else {
+		delete(req, constants.ProjectPrincipalLabel)
+	}
+
+	required.SetLabels(req)
 
 	return nil
 }

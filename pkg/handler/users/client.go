@@ -40,6 +40,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	"github.com/unikorn-cloud/identity/pkg/handler/organizations"
 	"github.com/unikorn-cloud/identity/pkg/html"
 	"github.com/unikorn-cloud/identity/pkg/jose"
@@ -181,21 +182,20 @@ func generateUserState(in openapi.UserState) unikornv1.UserState {
 }
 
 func (c *Client) generateGlobalUser(ctx context.Context, in *openapi.UserWrite) (*unikornv1.User, error) {
-	info, err := authorization.FromContext(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
-	}
-
 	metadata := &coreopenapi.ResourceWriteMetadata{
 		Name: constants.UndefinedName,
 	}
 
 	out := &unikornv1.User{
-		ObjectMeta: conversion.NewObjectMetadata(metadata, c.namespace, info.Userinfo.Sub).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(metadata, c.namespace).Get(),
 		Spec: unikornv1.UserSpec{
 			Subject: in.Spec.Subject,
 			State:   unikornv1.UserStateActive,
 		},
+	}
+
+	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
+		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
 	}
 
 	if in.Metadata != nil {
@@ -206,20 +206,19 @@ func (c *Client) generateGlobalUser(ctx context.Context, in *openapi.UserWrite) 
 }
 
 func generateOrganizationUser(ctx context.Context, organization *organizations.Meta, in *openapi.UserWrite, userID string) (*unikornv1.OrganizationUser, error) {
-	info, err := authorization.FromContext(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
-	}
-
 	metadata := &coreopenapi.ResourceWriteMetadata{
 		Name: constants.UndefinedName,
 	}
 
 	out := &unikornv1.OrganizationUser{
-		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace, info.Userinfo.Sub).WithOrganization(organization.ID).WithLabel(constants.UserLabel, userID).Get(),
+		ObjectMeta: conversion.NewObjectMetadata(metadata, organization.Namespace).WithOrganization(organization.ID).WithLabel(constants.UserLabel, userID).Get(),
 		Spec: unikornv1.OrganizationUserSpec{
 			State: generateUserState(in.Spec.State),
 		},
+	}
+
+	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
+		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
 	}
 
 	return out, nil
@@ -729,7 +728,7 @@ func (c *Client) Update(ctx context.Context, organizationID, userID string, requ
 		return nil, err
 	}
 
-	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {
+	if err := conversion.UpdateObjectMetadata(required, current, common.IdentityMetadataMutator); err != nil {
 		return nil, errors.OAuth2ServerError("failed to merge metadata").WithError(err)
 	}
 
