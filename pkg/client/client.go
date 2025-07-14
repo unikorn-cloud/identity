@@ -36,13 +36,13 @@ func NewOptions() *Options {
 // Client wraps up the raw OpenAPI client with things to make it useable e.g.
 // authorization and TLS.
 type Client struct {
-	base *BaseClient[openapi.ClientWithResponses]
+	base *BaseClient
 }
 
 // New creates a new client.
 func New(client client.Client, options *Options, clientOptions *coreclient.HTTPClientOptions) *Client {
 	return &Client{
-		base: NewBaseClient[openapi.ClientWithResponses](client, options, clientOptions),
+		base: NewBaseClient(client, options, clientOptions),
 	}
 }
 
@@ -53,5 +53,5 @@ func (c *Client) HTTPClient(ctx context.Context) (*http.Client, error) {
 
 // APIClient returns a new OpenAPI client that can be used to access the API from another API.
 func (c *Client) APIClient(ctx context.Context, accessToken AccessTokenGetter) (*openapi.ClientWithResponses, error) {
-	return c.base.APIClient(ctx, openapi.NewBuilder(), accessToken)
+	return APIClient(ctx, c.base, openapi.NewBuilder(), accessToken)
 }
