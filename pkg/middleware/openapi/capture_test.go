@@ -31,7 +31,7 @@ func TestResponseCapture(t *testing.T) {
 
 	testWithHandler := func(t *testing.T, handler http.Handler) {
 		t.Parallel()
-		responserec := ReadFromRecorder{httptest.NewRecorder()}
+		responserec := &ReadFromRecorder{ResponseRecorder: httptest.NewRecorder()}
 		request := httptest.NewRequest("GET", "/", nil)
 		response := captureResponseForValidation(responserec, request, handler)
 
@@ -40,6 +40,7 @@ func TestResponseCapture(t *testing.T) {
 		body, err := io.ReadAll(response.body)
 		require.NoError(t, err)
 		assert.Equal(t, "OK", string(body))
+		t.Logf("ReadFrom called: %v", responserec.called)
 	}
 
 	t.Run("200 OK with Write", func(t *testing.T) {
@@ -68,7 +69,13 @@ func TestResponseCapture(t *testing.T) {
 			w.Header().Add("Foo", "bar")
 			w.WriteHeader(200)
 			body := bytes.NewBuffer([]byte("OK"))
-			io.Copy(w, body)
+			// io.Copy will use src.WriteTo in preference, and bytes.Buffer happens to implement it; so
+			// give it the chance to use ReadFrom first.
+			if readFrom, ok := w.(io.ReaderFrom); ok {
+				readFrom.ReadFrom(body)
+			} else {
+				io.Copy(w, body)
+			}
 		})
 		testWithHandler(t, iocopyHandler)
 
@@ -87,11 +94,13 @@ func TestResponseCapture(t *testing.T) {
 }
 
 type ReadFromRecorder struct {
+	called bool
 	*httptest.ResponseRecorder
 }
 
 // This may end up doing a buffered write, or using src.WriteTo; the point is that it's
 // there to be called.
-func (w ReadFromRecorder) ReadFrom(src io.Reader) (int64, error) {
+func (w *ReadFromRecorder) ReadFrom(src io.Reader) (int64, error) {
+	w.called = true
 	return io.Copy(w.ResponseRecorder, src)
 }

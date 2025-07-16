@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/felixge/httpsnoop"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 
@@ -67,55 +68,6 @@ func NewValidator(authorizer Authorizer, next http.Handler, openapi *openapi.Sch
 	}
 }
 
-// bufferingResponseWriter saves the response code and body so that we can
-// validate them.
-type bufferingResponseWriter struct {
-	// next is the parent handler.
-	next http.ResponseWriter
-
-	// code is the HTTP status code.
-	code int
-
-	// body is a copy of the HTTP response body.
-	// This valus will be nil if no body was written.
-	body io.ReadCloser
-}
-
-// Ensure the correct interfaces are implmeneted.
-var _ http.ResponseWriter = &bufferingResponseWriter{}
-
-// Header returns the HTTP headers.
-func (w *bufferingResponseWriter) Header() http.Header {
-	return w.next.Header()
-}
-
-// Write writes out a body, if WriteHeader has not been called this will
-// be done with a 200 status code.
-func (w *bufferingResponseWriter) Write(body []byte) (int, error) {
-	buf := &bytes.Buffer{}
-	buf.Write(body)
-
-	w.body = io.NopCloser(buf)
-
-	return w.next.Write(body)
-}
-
-// WriteHeader writes out the HTTP headers with the provided status code.
-func (w *bufferingResponseWriter) WriteHeader(statusCode int) {
-	w.code = statusCode
-
-	w.next.WriteHeader(statusCode)
-}
-
-// StatusCode calculates the status code returned to the client.
-func (w *bufferingResponseWriter) StatusCode() int {
-	if w.code == 0 {
-		return http.StatusOK
-	}
-
-	return w.code
-}
-
 func (v *Validator) validateRequest(r *http.Request, route *routers.Route, params map[string]string) (*openapi3filter.ResponseValidationInput, error) {
 	authorizationFunc := func(ctx context.Context, input *openapi3filter.AuthenticationInput) error {
 		v.info, v.err = v.authorizer.Authorize(input)
@@ -154,17 +106,38 @@ type responseForValidation struct {
 }
 
 func captureResponseForValidation(w http.ResponseWriter, r *http.Request, next http.Handler) *responseForValidation {
-	// Override the writer so we can inspect the contents and status.
-	writer := &bufferingResponseWriter{
-		next: w,
-	}
+	body := &bytes.Buffer{}
+	code := 200
 
-	next.ServeHTTP(writer, r)
+	wrapper := httpsnoop.Wrap(w, httpsnoop.Hooks{
+		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
+			return func(p []byte) (int, error) {
+				n, err := next(p)
+				body.Write(p[:n]) // this always succeeds, for bytes.Buffer (unless it panics!)
+
+				return n, err
+			}
+		},
+		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+			return func(statuscode int) {
+				code = statuscode
+				next(statuscode)
+			}
+		},
+		ReadFrom: func(next httpsnoop.ReadFromFunc) httpsnoop.ReadFromFunc {
+			return func(src io.Reader) (int64, error) {
+				tee := io.TeeReader(src, body)
+				return next(tee)
+			}
+		},
+	})
+
+	next.ServeHTTP(wrapper, r)
 
 	return &responseForValidation{
-		header: writer.Header(),
-		code:   writer.StatusCode(),
-		body:   writer.body,
+		code:   code,
+		body:   io.NopCloser(body),
+		header: w.Header(),
 	}
 }
 
