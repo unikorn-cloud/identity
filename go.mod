@@ -4,6 +4,7 @@ go 1.24.2
 
 require (
 	github.com/coreos/go-oidc/v3 v3.14.1
+	github.com/felixge/httpsnoop v1.0.4
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-jose/go-jose/v4 v4.1.1
