@@ -147,10 +147,31 @@ func (v *Validator) validateRequest(r *http.Request, route *routers.Route, param
 	return responseValidationInput, nil
 }
 
-func (v *Validator) validateResponse(w *bufferingResponseWriter, r *http.Request, responseValidationInput *openapi3filter.ResponseValidationInput) {
-	responseValidationInput.Status = w.StatusCode()
-	responseValidationInput.Header = w.Header()
-	responseValidationInput.Body = w.body
+type responseForValidation struct {
+	body   io.ReadCloser
+	code   int
+	header http.Header
+}
+
+func captureResponseForValidation(w http.ResponseWriter, r *http.Request, next http.Handler) *responseForValidation {
+	// Override the writer so we can inspect the contents and status.
+	writer := &bufferingResponseWriter{
+		next: w,
+	}
+
+	next.ServeHTTP(writer, r)
+
+	return &responseForValidation{
+		header: writer.Header(),
+		code:   writer.StatusCode(),
+		body:   writer.body,
+	}
+}
+
+func (v *Validator) validateResponse(res *responseForValidation, r *http.Request, responseValidationInput *openapi3filter.ResponseValidationInput) {
+	responseValidationInput.Status = res.code
+	responseValidationInput.Header = res.header
+	responseValidationInput.Body = res.body
 
 	if err := openapi3filter.ValidateResponse(r.Context(), responseValidationInput); err != nil {
 		log.FromContext(r.Context()).Error(err, "response openapi schema validation failure")
@@ -212,14 +233,8 @@ func (v *Validator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	r = r.WithContext(ctx)
 
-	// Override the writer so we can inspect the contents and status.
-	writer := &bufferingResponseWriter{
-		next: w,
-	}
-
-	v.next.ServeHTTP(writer, r)
-
-	v.validateResponse(writer, r, responseValidationInput)
+	response := captureResponseForValidation(w, r, v.next)
+	v.validateResponse(response, r, responseValidationInput)
 }
 
 // Middleware returns a function that generates per-request
