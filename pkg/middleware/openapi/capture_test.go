@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:testpackage
 package openapi
 
 import (
@@ -28,14 +29,16 @@ import (
 )
 
 func TestResponseCapture(t *testing.T) {
+	t.Parallel()
 
 	testWithHandler := func(t *testing.T, handler http.Handler) {
-		t.Parallel()
+		t.Helper()
+
 		responserec := &ReadFromRecorder{ResponseRecorder: httptest.NewRecorder()}
-		request := httptest.NewRequest("GET", "/", nil)
+		request := httptest.NewRequest(http.MethodGet, "/", nil)
 		response := captureResponseForValidation(responserec, request, handler)
 
-		assert.Equal(t, 200, response.code)
+		assert.Equal(t, http.StatusOK, response.code)
 		assert.Equal(t, "bar", response.header.Get("Foo"))
 		body, err := io.ReadAll(response.body)
 		require.NoError(t, err)
@@ -43,19 +46,23 @@ func TestResponseCapture(t *testing.T) {
 		t.Logf("ReadFrom called: %v", responserec.called)
 	}
 
-	t.Run("200 OK with Write", func(t *testing.T) {
+	t.Run("http.StatusOK OK with Write", func(t *testing.T) {
+		t.Parallel()
+
 		OKhandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Foo", "bar")
-			w.WriteHeader(200)
-			io.WriteString(w, "OK")
+			w.WriteHeader(http.StatusOK)
+			_, _ = io.WriteString(w, "OK")
 		})
 		testWithHandler(t, OKhandler)
 	})
 
-	t.Run("implicit 200 OK", func(t *testing.T) {
+	t.Run("implicit http.StatusOK OK", func(t *testing.T) {
+		t.Parallel()
+
 		implicitHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Foo", "bar")
-			io.WriteString(w, "OK")
+			_, _ = io.WriteString(w, "OK")
 		})
 		testWithHandler(t, implicitHandler)
 	})
@@ -64,33 +71,36 @@ func TestResponseCapture(t *testing.T) {
 	// The standard http.ResponseWriter implementation implements ReadFrom; implementing Write is enough for io.Copy to
 	// work, though. This just double-checks that if there _is_ an implementation of ReadFrom, it will also work
 	// as expected.
-	t.Run("io.Copy 200 OK", func(t *testing.T) {
+	t.Run("io.Copy http.StatusOK OK", func(t *testing.T) {
+		t.Parallel()
+
 		iocopyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Foo", "bar")
-			w.WriteHeader(200)
-			body := bytes.NewBuffer([]byte("OK"))
+			w.WriteHeader(http.StatusOK)
+
+			body := bytes.NewBufferString("OK")
 			// io.Copy will use src.WriteTo in preference, and bytes.Buffer happens to implement it; so
 			// give it the chance to use ReadFrom first.
 			if readFrom, ok := w.(io.ReaderFrom); ok {
-				readFrom.ReadFrom(body)
+				_, _ = readFrom.ReadFrom(body)
 			} else {
-				io.Copy(w, body)
+				_, _ = io.Copy(w, body)
 			}
 		})
 		testWithHandler(t, iocopyHandler)
-
 	})
 
-	t.Run("multiwrite 200 OK", func(t *testing.T) {
+	t.Run("multiwrite http.StatusOK OK", func(t *testing.T) {
+		t.Parallel()
+
 		multiwriteHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Add("Foo", "bar")
-			w.WriteHeader(200)
-			io.WriteString(w, "O")
-			io.WriteString(w, "K")
+			w.WriteHeader(http.StatusOK)
+			_, _ = io.WriteString(w, "O")
+			_, _ = io.WriteString(w, "K")
 		})
 		testWithHandler(t, multiwriteHandler)
 	})
-
 }
 
 type ReadFromRecorder struct {
