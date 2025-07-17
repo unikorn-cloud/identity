@@ -33,6 +33,17 @@ var (
 	ErrClientCertificateError = errors.New("client certificate error")
 )
 
+// HasClientCertificateHeader checks if mTLS is in use, thus we are being called
+// from a trusted service.
+func HasClientCertificateHeader(header http.Header) bool {
+	// Nginx
+	if header.Get("Ssl-Client-Cert") != "" {
+		return true
+	}
+
+	return false
+}
+
 // GetClientCertificateHeader extracts a client certificate from any present headers.
 // TODO: may need to extract into a canonical form.
 // NOTE: propagation at present expects this to be url encoded.

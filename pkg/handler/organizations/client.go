@@ -25,6 +25,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	unikornv1 "github.com/unikorn-cloud/identity/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
@@ -271,16 +272,19 @@ func (c *Client) Get(ctx context.Context, organizationID string) (*openapi.Organ
 }
 
 func (c *Client) generate(ctx context.Context, in *openapi.OrganizationWrite) (*unikornv1.Organization, error) {
-	info, err := authorization.FromContext(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("userinfo is not set").WithError(err)
+	out := &unikornv1.Organization{
+		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace).Get(),
 	}
 
-	out := &unikornv1.Organization{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace, info.Userinfo.Sub).Get(),
+	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
+		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
 	}
 
 	out.Spec.Tags = conversion.GenerateTagList(in.Metadata.Tags)
+
+	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
+		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
+	}
 
 	if in.Spec.OrganizationType == openapi.Domain {
 		// TODO: Validate the providerID exists.
@@ -313,7 +317,7 @@ func (c *Client) Update(ctx context.Context, organizationID string, request *ope
 		return err
 	}
 
-	if err := conversion.UpdateObjectMetadata(required, current, nil, nil); err != nil {
+	if err := conversion.UpdateObjectMetadata(required, current, common.IdentityMetadataMutator); err != nil {
 		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)
 	}
 

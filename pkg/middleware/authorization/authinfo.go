@@ -18,6 +18,7 @@ package authorization
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/unikorn-cloud/core/pkg/errors"
 	"github.com/unikorn-cloud/identity/pkg/openapi"
@@ -58,5 +59,5 @@ func FromContext(ctx context.Context) (*Info, error) {
 		}
 	}
 
-	return nil, errors.ErrInvalidContext
+	return nil, fmt.Errorf("%w: authorization info is not defined", errors.ErrInvalidContext)
 }

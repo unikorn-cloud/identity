@@ -177,14 +177,32 @@ func (h *Handler) PostOauth2V2Token(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
-	info, err := authorization.FromContext(r.Context())
+	header := r.Header.Get("Authorization")
+	if header == "" {
+		errors.HandleError(w, r, errors.OAuth2ServerError("authorization header not set"))
+		return
+	}
+
+	parts := strings.Split(header, " ")
+
+	if len(parts) != 2 {
+		errors.HandleError(w, r, errors.OAuth2InvalidRequest("authorization header malformed"))
+		return
+	}
+
+	if !strings.EqualFold(parts[0], "bearer") {
+		errors.HandleError(w, r, errors.OAuth2InvalidRequest("authorization scheme not allowed"))
+		return
+	}
+
+	userinfo, _, err := h.oauth2.GetUserinfo(r.Context(), r, parts[1])
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("userinfo is not set").WithError(err))
+		errors.HandleError(w, r, errors.OAuth2AccessDenied("access token is invalid").WithError(err))
 		return
 	}
 
 	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, info.Userinfo)
+	util.WriteJSONResponse(w, r, http.StatusOK, userinfo)
 }
 
 func (h *Handler) PostOauth2V2Userinfo(w http.ResponseWriter, r *http.Request) {
